@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import '../core/database/db_helper.dart';
 import 'hadith_list_screen.dart';
 
 class HadithChaptersScreen extends StatefulWidget {
-  final String collectionName; // "Abu Dawud" ya "Tirmidhi"
-  final String displayName;   // "Sunan Abu Dawud" ya "Jami at-Tirmidhi"
+  final String collectionName;
+  final String displayName;
 
   const HadithChaptersScreen({
     super.key,
     required this.collectionName,
-    required this.displayName
+    required this.displayName,
   });
 
   @override
@@ -16,44 +17,36 @@ class HadithChaptersScreen extends StatefulWidget {
 }
 
 class _HadithChaptersScreenState extends State<HadithChaptersScreen> {
-  final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _allChapters = [];
   List<Map<String, dynamic>> _filteredChapters = [];
-
-  // Abu Dawud aur Tirmidhi ke standard chapters aur unki Hadees number ranges
-  final Map<String, List<Map<String, dynamic>>> _bookChapters = {
-    "Abu Dawud": [
-      {"no": 1, "name_en": "Book of Purification (Taharah)", "name_ur": "کتاب الطہارت", "start": 1, "end": 390},
-      {"no": 2, "name_en": "Book of Prayer (Salat)", "name_ur": "کتاب الصلوۃ", "start": 391, "end": 1160},
-      {"no": 3, "name_en": "Book of Zakat", "name_ur": "کتاب الزکوۃ", "start": 1161, "end": 1180},
-      {"no": 4, "name_en": "Book of Fasting (Siyam)", "name_ur": "کتاب الصوم", "start": 1181, "end": 1500},
-      // Aap apni database ke hisab se mazeed ranges yahan add kar sakti hain
-    ],
-    "Tirmidhi": [
-      {"no": 1, "name_en": "Book of Purification", "name_ur": "کتاب الطہارت", "start": 1, "end": 148},
-      {"no": 2, "name_en": "Book of Prayer", "name_ur": "کتاب الصلوۃ", "start": 149, "end": 428},
-      {"no": 3, "name_en": "Book of Zakat", "name_ur": "کتاب الزکوۃ", "start": 429, "end": 510},
-    ]
-  };
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _filteredChapters = _bookChapters[widget.collectionName] ?? [];
+    _loadChapters();
   }
 
-  void _filterSearch(String query) {
-    List<Map<String, dynamic>> allChapters = _bookChapters[widget.collectionName] ?? [];
+  void _loadChapters() async {
+    final data = await DBHelper.getChaptersByBook(widget.collectionName);
+    setState(() {
+      _allChapters = data;
+      _filteredChapters = data;
+      _isLoading = false;
+    });
+  }
+
+  void _filterChapters(String query) {
     setState(() {
       if (query.isEmpty) {
-        _filteredChapters = allChapters;
+        _filteredChapters = _allChapters;
       } else {
-        _filteredChapters = allChapters.where((ch) {
-          final nameEn = ch['name_en'].toString().toLowerCase();
-          final nameUr = ch['name_ur'].toString().toLowerCase();
-          final no = ch['no'].toString();
-          final q = query.toLowerCase();
-
-          return nameEn.contains(q) || nameUr.contains(q) || no == q;
+        final cleanQuery = query.toLowerCase().trim();
+        _filteredChapters = _allChapters.where((ch) {
+          final name = ch['chapter_name'].toString().toLowerCase();
+          final num = ch['chapter_no'].toString();
+          return name.contains(cleanQuery) || num == cleanQuery;
         }).toList();
       }
     });
@@ -66,22 +59,22 @@ class _HadithChaptersScreenState extends State<HadithChaptersScreen> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFFF4F7F4),
       appBar: AppBar(
-        title: Text("${widget.displayName} - Chapters"),
+        title: Text(widget.displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFF006400),
         foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
-          // Chapter Search Bar
+          // 🔍 SEARCH BAR FOR CHAPTERS (Name or Number)
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
               controller: _searchController,
-              onChanged: _filterSearch,
+              onChanged: _filterChapters,
               style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               decoration: InputDecoration(
-                hintText: "Search Chapter by name or number...",
-                hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey),
+                hintText: "Search chapter by name or number...",
+                hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade500, fontSize: 13),
                 prefixIcon: const Icon(Icons.search, color: Colors.green),
                 filled: true,
                 fillColor: isDark ? Colors.white.withAlpha(10) : Colors.white,
@@ -90,38 +83,46 @@ class _HadithChaptersScreenState extends State<HadithChaptersScreen> {
             ),
           ),
           Expanded(
-            child: _filteredChapters.isEmpty
-                ? const Center(child: Text("No Chapters Found"))
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.green))
+                : _filteredChapters.isEmpty
+                ? Center(child: Text("No Chapters Found", style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)))
                 : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               itemCount: _filteredChapters.length,
               itemBuilder: (context, index) {
-                var ch = _filteredChapters[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withAlpha(12) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50),
-                  ),
+                final chapter = _filteredChapters[index];
+
+                String chNo = chapter['chapter_no'].toString();
+                String chName = chapter['chapter_name'].toString();
+                int startNo = chapter['start_no'];
+                int endNo = chapter['end_no'];
+
+                return Card(
+                  color: isDark ? Colors.white.withAlpha(10) : Colors.white,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     leading: CircleAvatar(
-                      backgroundColor: Colors.green.withAlpha(40),
-                      child: Text("${ch['no']}", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                      backgroundColor: Colors.green.withAlpha(35),
+                      child: Text(
+                        chNo,
+                        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                      ),
                     ),
                     title: Text(
-                      ch['name_en'],
-                      style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+                      chName,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? Colors.white : Colors.black87),
                     ),
-                    subtitle: Text(
-                      "Hadith: ${ch['start']} - ${ch['end']}",
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(
+                        "Hadiths: $startNo - $endNo",
+                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey.shade600),
+                      ),
                     ),
-                    trailing: Text(
-                      ch['name_ur'],
-                      style: const TextStyle(fontFamily: 'UrduFont', color: Colors.green, fontSize: 16),
-                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.green),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -129,9 +130,9 @@ class _HadithChaptersScreenState extends State<HadithChaptersScreen> {
                           builder: (context) => HadithListScreen(
                             collectionName: widget.collectionName,
                             displayName: widget.displayName,
-                            chapterName: ch['name_en'],
-                            startNo: ch['start'],
-                            endNo: ch['end'],
+                            chapterName: chName,
+                            startNo: startNo,
+                            endNo: endNo,
                           ),
                         ),
                       );

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math'; // 🚀 Added for Daily Deeds Shuffling Logic
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
@@ -47,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _checkAndResetStreak(); // Initializing Streak Logic
   }
 
-  // --- STREAK & DEEDS LOGIC ---
+  // --- STREAK & DEEDS RESET LOGIC ---
 
   Future<void> _checkAndResetStreak() async {
     if (user == null) return;
@@ -70,21 +71,34 @@ class _HomeScreenState extends State<HomeScreen> {
 
       DateTime lastUpdate = (data['lastUpdate'] as Timestamp).toDate();
       DateTime now = DateTime.now();
-      int diffInHours = now.difference(lastUpdate).inHours;
 
-      if (diffInHours >= 24 && diffInHours < 48) {
-        await userRef.update({'completedToday': []});
-      }
-      else if (diffInHours >= 48) {
-        await userRef.update({
-          'streak': 0,
-          'completedToday': [],
-        });
+      // Strict calendar day comparison to catch exact midnight transitions
+      bool isNewDay = now.year != lastUpdate.year ||
+          now.month != lastUpdate.month ||
+          now.day != lastUpdate.day;
+
+      if (isNewDay) {
+        DateTime yesterday = now.subtract(const Duration(days: 1));
+        bool missedADay = lastUpdate.year != yesterday.year ||
+            lastUpdate.month != yesterday.month ||
+            lastUpdate.day != yesterday.day;
+
+        Map<String, dynamic> updates = {
+          'completedToday': [], // Uncheck all deeds for the brand new day
+        };
+
+        if (missedADay) {
+          updates['streak'] = 0; // Reset streak if an entire calendar day was skipped
+        }
+
+        await userRef.update(updates);
+        _fetchDailyAyah(); // Force update the Ayah of the day as well
       }
     }
   }
 
   void _handleDeedToggled(String docId, int points, bool isChecked) async {
+    if (user == null) return;
     DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
 
     if (isChecked) {
@@ -153,46 +167,64 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    String userName = user?.displayName ?? "User";
+
+    // 🚀 Declared inside the build shell to prevent premature InheritedWidget context crash
+    final List<Widget> tabs = [
+      _buildHomeDashboardView(),
+      const SurahListScreen(),
+      const HadithBooksScreen(),
+      const BookmarksScreen(),
+    ];
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isDark
-                ? [const Color(0xFF003D33), AppTheme.primaryDark]
-                : [const Color(0xFFF1F8E9), Colors.white],
-          ),
-        ),
-        child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              _buildHeader(userName, isDark),
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrayerTimesScreen())),
-                      child: _buildPrayerCard(isDark),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildGridMenu(isDark),
-                    const SizedBox(height: 20),
-                    _buildAyahModule(isDark),
-                    const SizedBox(height: 12),
-                    _buildDeedsModule(isDark),
-                    const SizedBox(height: 30),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: tabs,
       ),
       bottomNavigationBar: _buildBottomNav(isDark),
+    );
+  }
+
+  // --- SPLIT INTERACTIVE HOME BODY VIEW ---
+  Widget _buildHomeDashboardView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    String userName = user?.displayName ?? "User";
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? [const Color(0xFF003D33), AppTheme.primaryDark]
+              : [const Color(0xFFF1F8E9), Colors.white],
+        ),
+      ),
+      child: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            _buildHeader(userName, isDark),
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrayerTimesScreen())),
+                    child: _buildPrayerCard(isDark),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildGridMenu(isDark),
+                  const SizedBox(height: 20),
+                  _buildAyahModule(isDark),
+                  const SizedBox(height: 12),
+                  _buildDeedsModule(isDark),
+                  const SizedBox(height: 30),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -245,10 +277,22 @@ class _HomeScreenState extends State<HomeScreen> {
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('daily_deeds').snapshots(),
                 builder: (context, deedsSnap) {
-                  if (!deedsSnap.hasData) return const Center(child: CircularProgressIndicator());
+                  if (!deedsSnap.hasData) return const Center(child: CircularProgressIndicator(color: Colors.green));
+
+                  var allDocs = deedsSnap.data!.docs;
+                  if (allDocs.isEmpty) return const SizedBox();
+
+                  // 🎯 RANDOMIZATION SEED LOGIC FOR UNIQUE DAILY ITEMS
+                  int dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
+                  Random random = Random(dayOfYear); // Uses stable daily counter as a seed
+
+                  List<QueryDocumentSnapshot> shuffledDeeds = List.from(allDocs);
+                  shuffledDeeds.shuffle(random); // Shuffles identically all day long
+
+                  var displayDeeds = shuffledDeeds.take(3).toList(); // Picks top 3 filtered documents safely
 
                   return Column(
-                    children: deedsSnap.data!.docs.map((doc) {
+                    children: displayDeeds.map((doc) {
                       bool isDone = completedToday.contains(doc.id);
                       return CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
@@ -298,7 +342,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 15),
           if (isAyahLoading)
-            const Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+            const Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green)))
           else
             Column(
               children: [
@@ -416,13 +460,11 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisCount: 3,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 1.1, // Adjusted for clean rendering
+        childAspectRatio: 1.1,
         children: [
           _actionBtn("Islamic AI", Icons.smart_toy_rounded, Colors.cyan, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AIChatScreen()))),
           _actionBtn("Tasbeeh", Icons.track_changes, Colors.blueAccent, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TasbeehListScreen()))),
           _actionBtn("Safar Dua", Icons.travel_explore_rounded, Colors.teal, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SafarDuaScreen()))),
-          //_actionBtn("Hadith", Icons.library_books_rounded, Colors.orange, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const HadithBooksScreen()))),
-          //_actionBtn("Bookmarks", Icons.bookmark_rounded, Colors.redAccent, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BookmarksScreen()))),
         ],
       ),
     );
@@ -449,14 +491,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
       onTap: (i) {
-        setState(() => _selectedIndex = i);
-        if (i == 1) {
-          Navigator.push(context, MaterialPageRoute(builder: (c) => const SurahListScreen()));
-        } else if (i == 2) {
-          Navigator.push(context, MaterialPageRoute(builder: (c) => const HadithBooksScreen()));
-        } else if (i == 3) {
-          Navigator.push(context, MaterialPageRoute(builder: (c) => const BookmarksScreen()));
-        }
+        setState(() {
+          _selectedIndex = i;
+        });
       },
       type: BottomNavigationBarType.fixed,
       backgroundColor: isDark ? const Color(0xFF001A12) : Colors.white,
