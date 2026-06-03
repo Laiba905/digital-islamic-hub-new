@@ -47,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen> {
             // 🎯 APP LOGO INTEGRATION
             // Agar aapke logo ka naam ya path different hai to yahan change kar sakti hain
             Image.asset(
-              'assets/images/logo_final1.png',
+              'assets/images/logo.png',
               width: 140,
               height: 140,
               fit: BoxFit.contain,

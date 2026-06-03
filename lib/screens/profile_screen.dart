@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import '../theme/app_theme.dart';
-import '../main.dart'; // main.dart se themeNotifier import karne k liye
+import '../main.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -39,12 +39,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
           setState(() {
             _base64Image = data['profileImage'];
-            _isDarkMode = data['darkMode'] ?? false;
             _isNotificationEnabled = data['notifications'] ?? true;
             _nameController.text = data['displayName'] ?? user?.displayName ?? "";
 
-            // App load hotay hi theme set karein
-            themeNotifier.value = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+            // 🚀 FIXED: If Firestore contains explicit setting, use it. Otherwise adapt to phone's current theme status
+            if (data['darkMode'] != null) {
+              _isDarkMode = data['darkMode'];
+              themeNotifier.value = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+            } else {
+              // Read phone platform configuration context directly
+              final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+              _isDarkMode = brightness == Brightness.dark;
+              themeNotifier.value = ThemeMode.system;
+            }
           });
         }
       } catch (e) {
@@ -113,6 +120,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text("My Profile", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: isDark ? const Color(0xFF003D33) : const Color(0xFF1B5E20),
+        foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
       ),
@@ -153,9 +161,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       isDark: isDark,
                       onChanged: (val) {
                         setState(() => _isDarkMode = val);
-                        // DATABASE UPDATE
                         _firestore.collection('users').doc(user!.uid).update({'darkMode': val});
-                        // LIVE THEME CHANGE
+                        // Smoothly switch global runtime material nodes
                         themeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
                       },
                     ),
@@ -293,15 +300,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return SizedBox(
       width: double.infinity,
       height: 55,
-      child: ElevatedButton.styleFrom(
-        backgroundColor: Colors.red.shade50,
-        foregroundColor: Colors.red,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: Colors.red.shade100)),
-      ).onPressed(() async {
-        await FirebaseAuth.instance.signOut();
-        if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const LoginScreen()), (route) => false);
-      }, child: const Text("Logout Account", style: TextStyle(fontWeight: FontWeight.bold))),
+      // 🚀 FIXED: Re-factored clean structural declaration to avoid rendering state compiler exceptions
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red.shade50,
+          foregroundColor: Colors.red,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+              side: BorderSide(color: Colors.red.shade100)
+          ),
+        ),
+        onPressed: () async {
+          await FirebaseAuth.instance.signOut();
+          if (mounted) {
+            Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    (route) => false
+            );
+          }
+        },
+        child: const Text("Logout Account", style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
     );
   }
 
@@ -332,8 +353,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-}
-
-extension on ButtonStyle {
-  Widget onPressed(VoidCallback action, {required Widget child}) => ElevatedButton(style: this, onPressed: action, child: child);
 }

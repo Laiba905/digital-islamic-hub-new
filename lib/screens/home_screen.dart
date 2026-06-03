@@ -10,7 +10,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
-
 import '../services/prayer_service.dart';
 import '../theme/app_theme.dart';
 import 'prayer_times_screen.dart';
@@ -19,8 +18,6 @@ import 'ai_chat_screen.dart';
 import 'tasbeeh_list_screen.dart';
 import 'profile_screen.dart';
 import 'safar_dua_screen.dart';
-
-// Nayi Files Ki Imports
 import 'hadith_books_screen.dart';
 import 'bookmarks_screen.dart';
 
@@ -44,8 +41,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchDailyAyah();
-    _checkAndResetStreak(); // Initializing Streak Logic
+
+    // Safe execution wrapper taake InheritedWidget ka error na aaye
+    Future.delayed(Duration.zero, () {
+      if (mounted) {
+        _fetchDailyAyah();
+        _checkAndResetStreak();
+      }
+    });
   }
 
   // --- STREAK & DEEDS RESET LOGIC ---

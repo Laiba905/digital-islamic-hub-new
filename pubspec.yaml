@@ -79,7 +79,7 @@ flutter:
   assets:
     - assets/database/quran_final_authentic_v2.db
     - assets/database/hadith_database.db
-    - assets/images/logo_final1.png
+    - assets/images/logo.png
     - assets/audio/azan.mp3
 
   # An image asset can refer to one or more resolution-specific "variants", see

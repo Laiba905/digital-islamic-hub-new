@@ -8,8 +8,8 @@ import 'screens/login_screen.dart';
 import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
-// Global ValueNotifier jo poori app ka theme control karega
-final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
+// 🚀 FIXED: Initialized to ThemeMode.system so it matches mobile settings out of the box!
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +29,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ValueListenableBuilder themeNotifier ki har tabdeeli ko listen karta hai
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, ThemeMode currentMode, __) {
@@ -37,10 +36,10 @@ class MyApp extends StatelessWidget {
           title: 'Digital Islamic Hub',
           debugShowCheckedModeBanner: false,
 
-          // Theme Configuration
+          // Theme Configurations
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
-          themeMode: currentMode, // Ab ye currentMode se control hoga
+          themeMode: currentMode, // Synchronized with active state notifier
 
           // Authentication Flow
           home: StreamBuilder<User?>(

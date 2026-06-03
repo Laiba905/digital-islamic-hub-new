@@ -1,4 +1,3 @@
-// prayer_times_screen.dart - FULLY UPDATED
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:adhan/adhan.dart';
@@ -45,14 +44,20 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         title: const Text("Prayer Schedule", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: isDark ? const Color(0xFF001F1A) : Colors.white,
+        foregroundColor: isDark ? Colors.white : Colors.black87,
         elevation: 0,
-        actions: [IconButton(icon: const Icon(Icons.volume_up_rounded), onPressed: () => NotificationService.testInstant())],
+        actions: [
+          IconButton(
+              icon: const Icon(Icons.volume_up_rounded),
+              onPressed: () => NotificationService.testInstant()
+          )
+        ],
       ),
       body: FutureBuilder<PrayerTimes?>(
         future: PrayerService.getPrayerTimes(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (!snapshot.hasData) return const Center(child: Text("Connection Error"));
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+          if (!snapshot.hasData) return const Center(child: Text("Connection Error or Location Disabled"));
 
           final pt = snapshot.data!;
           final zawal = pt.dhuhr.subtract(const Duration(minutes: 10));
@@ -100,7 +105,6 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       children: [
         Icon(i, color: c, size: 20),
         const SizedBox(height: 6),
-        // Dark mode contrast fix
         Text(l, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
         Text(DateFormat.jm().format(t), style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black54)),
       ],
@@ -125,8 +129,25 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           activeColor: const Color(0xFF2E7D32),
           onChanged: (v) async {
             final prefs = await SharedPreferences.getInstance();
-            setState(() { notificationsActive[name] = v; prefs.setBool(name, v); });
-            v ? await NotificationService.schedulePrayerNotification(name.hashCode, name, time) : await NotificationService.cancelNotification(name.hashCode);
+            setState(() {
+              notificationsActive[name] = v;
+              prefs.setBool(name, v);
+            });
+
+            if (v) {
+              // 🚀 FIX 3: Constructing a fresh absolute timeline object instance using modern mapping structures
+              final DateTime exactTargetTime = DateTime(
+                  DateTime.now().year,
+                  DateTime.now().month,
+                  DateTime.now().day,
+                  time.hour,
+                  time.minute,
+                  0
+              );
+              await NotificationService.schedulePrayerNotification(name.hashCode, name, exactTargetTime);
+            } else {
+              await NotificationService.cancelNotification(name.hashCode);
+            }
           },
         ),
       ),
