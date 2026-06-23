@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/notification_service.dart';
+import '../core/database/db_helper.dart';
 import 'login_screen.dart';
+import 'home_screen.dart';
 import '../theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -10,17 +14,43 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  String _status = "Initializing...";
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const LoginScreen())
-        );
+    _startApp();
+  }
+
+  void _startApp() async {
+    try {
+      // 1. Give UI a moment to render
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // 2. Initialize Notifications
+      setState(() => _status = "Setting up notifications...");
+      await NotificationService.init();
+
+      // 3. Initialize Databases (Heaviest part)
+      setState(() => _status = "Preparing Quran & Hadith...");
+      await DBHelper.db; // This will trigger the copy if needed
+      await DBHelper.hadithDb;
+
+      // 4. Check Authentication
+      setState(() => _status = "Checking session...");
+      User? user = FirebaseAuth.instance.currentUser;
+
+      if (!mounted) return;
+
+      if (user != null) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+      } else {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
       }
-    });
+    } catch (e) {
+      setState(() => _status = "Error: Please restart the app");
+      print("Startup Error: $e");
+    }
   }
 
   @override
@@ -42,49 +72,31 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Spacer(), // Logo ko center mein rakhne ke liye vertical spacing
-
-            // 🎯 APP LOGO INTEGRATION
-            // Agar aapke logo ka naam ya path different hai to yahan change kar sakti hain
+            const Spacer(),
             Image.asset(
-              'assets/images/logo.png',
-              width: 140,
-              height: 140,
+              'assets/images/islamic_logo.png',
+              width: 120,
+              height: 120,
               fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                // Background safe fallback agar image load na ho ya path galat ho
-                return const Icon(
-                    Icons.auto_awesome,
-                    size: 100,
-                    color: AppTheme.accentGreen
-                );
-              },
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.auto_awesome, size: 80, color: Colors.white70),
             ),
             const SizedBox(height: 24),
-
-            // App Name
             const Text(
               "Digital Islamic Hub",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5
-              ),
+              style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
             ),
-
-            const Spacer(), // Niche spacing push karne ke liye
-
-            // ⏳ PREMIUM LOADING INDICATOR
+            const SizedBox(height: 10),
+            Text(
+              _status, // Show real-time status to user
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const Spacer(),
             const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
-              ),
+              width: 30,
+              height: 30,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
             ),
-            const SizedBox(height: 40), // Bottom edge se safe distance
+            const SizedBox(height: 50),
           ],
         ),
       ),

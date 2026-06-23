@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -5,9 +6,21 @@ import 'dart:io';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  static const MethodChannel _channel = MethodChannel('digital_islamic_hub/timezone');
 
   static Future<void> init() async {
     tz_data.initializeTimeZones();
+    try {
+      // Get timezone directly from Native Android/iOS
+      final String? timeZoneName = await _channel.invokeMethod('getLocalTimezone');
+      if (timeZoneName != null) {
+        tz.setLocalLocation(tz.getLocation(timeZoneName));
+      } else {
+        tz.setLocalLocation(tz.getLocation('UTC'));
+      }
+    } catch (e) {
+      tz.setLocalLocation(tz.getLocation('UTC'));
+    }
 
     const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const InitializationSettings settings = InitializationSettings(android: androidSettings);
@@ -34,58 +47,57 @@ class NotificationService {
   }
 
   static Future<void> testInstant() async {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'prayer_alerts',
+      'Prayer Notifications',
+      channelDescription: 'Namaz ke auqat par Azan play karne ke liye',
+      importance: Importance.max,
+      priority: Priority.max,
+      sound: RawResourceAndroidNotificationSound('azan'),
+      fullScreenIntent: true,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+    );
+
+    const NotificationDetails details = NotificationDetails(android: androidDetails);
+
     await _plugin.show(
       99,
-      "حي على الصلاة",
+      "حی على الصلاة",
       "Azan sound testing... Allah-hu-Akbar!",
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'prayer_alerts', 'Prayer Notifications',
-          importance: Importance.max,
-          priority: Priority.high,
-          sound: RawResourceAndroidNotificationSound('azan'),
-          fullScreenIntent: true,
-        ),
-      ),
+      details,
     );
   }
 
   static Future<void> schedulePrayerNotification(int id, String name, DateTime time) async {
-    // 🚀 FIX 1: Hard device timezone conversion strategy using dynamic ISO parsing
-    // Is se agar aap system setting badlengi to live time capture hoga.
-    final String timeZoneName = tz.local.name;
-    final location = tz.getLocation(timeZoneName);
-
+    final location = tz.local;
     var scheduledTime = tz.TZDateTime.from(time, location);
     var now = tz.TZDateTime.now(location);
 
-    // 🚀 FIX 2: Safe evaluation fallback logic for testing bypass
-    // Agar scheduled time target se peeche hai to sirf real production run mein kal par bhejein,
-    // Agar difference minutes mein bohot chota hai (Testing window), to kal par mat push karein.
     if (scheduledTime.isBefore(now)) {
-      if (now.difference(scheduledTime).inMinutes > 2) {
-        scheduledTime = scheduledTime.add(const Duration(days: 1));
-      }
+      scheduledTime = scheduledTime.add(const Duration(days: 1));
     }
 
     await _plugin.zonedSchedule(
       id,
-      "Time for $name",
-      "Allah-hu-Akbar! It's time for $name prayer.",
+      "Waqt-e-$name",
+      "Allah-hu-Akbar! $name ka waqt ho gaya hai.",
       scheduledTime,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'prayer_alerts',
           'Prayer Notifications',
           importance: Importance.max,
-          priority: Priority.high,
+          priority: Priority.max,
           sound: RawResourceAndroidNotificationSound('azan'),
           category: AndroidNotificationCategory.alarm,
+          fullScreenIntent: true,
+          ongoing: false,
+          styleInformation: BigTextStyleInformation(''),
         ),
       ),
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time, // Daily automatic repetition trigger
+      matchDateTimeComponents: DateTimeComponents.time,
     );
   }
 

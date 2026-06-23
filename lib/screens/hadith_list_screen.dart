@@ -39,16 +39,17 @@ class _HadithListScreenState extends State<HadithListScreen> {
     try {
       final List<Map<String, dynamic>> data = await DBHelper.getHadithsByRange(
         collectionName: widget.collectionName,
-        tableName: 'hadiths',
         startNo: widget.startNo,
         endNo: widget.endNo,
       );
 
+      if (!mounted) return;
       setState(() {
         _allHadiths = data;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       print("Error fetching records: $e");
     }

@@ -24,6 +24,7 @@ class _SurahListScreenState extends State<SurahListScreen> {
 
   void _fetchSurahs() async {
     final data = await DBHelper.getSurahList();
+    if (!mounted) return;
     setState(() {
       _allSurahs = data;
       _foundSurahs = data;

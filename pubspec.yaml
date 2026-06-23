@@ -52,6 +52,8 @@ dependencies:
   image_cropper: ^12.2.1
   cloud_firestore: ^6.4.1
   hijri: ^3.0.0
+  flutter_launcher_icons: ^0.14.4
+  share_plus: ^12.0.2
 
 
 dev_dependencies:
@@ -79,7 +81,7 @@ flutter:
   assets:
     - assets/database/quran_final_authentic_v2.db
     - assets/database/hadith_database.db
-    - assets/images/logo.png
+    - assets/images/
     - assets/audio/azan.mp3
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -107,3 +109,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/app_logo.png"
+  min_sdk_android: 21
