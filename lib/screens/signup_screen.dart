@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../theme/app_theme.dart';
-import 'home_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'scholar_details_screen.dart';
+// import 'user_home_screen.dart'; // 🌟 Apni user home screen ka import yahan un-comment kar lein
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -11,35 +12,111 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
-  bool _obscureText = true;
+
+  // Role selection state tracker ('user' ya 'scholar')
+  String _selectedRole = 'user';
 
   Future<void> _handleSignUp() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
+
+      // 🌟 STATE SAFETY LOCK: Variables ko local local constants mein store kar liya taake rebuild se reset na hon
+      final String finalRole = _selectedRole.toLowerCase().trim();
+      final String email = _emailController.text.trim();
+      final String name = _nameController.text.trim();
+      final String password = _passwordController.text.trim();
+
+      // 🚀 DEBUG PRINTS: Console mein check karne ke liye ke data kis raste par ja raha hai
+      print("--------------------------------------------------");
+      print("🚀 SIGN UP TRIGGERED!");
+      print("📧 Target Email: $email");
+      print("🎯 Captured Role: $finalRole");
+      print("--------------------------------------------------");
+
       try {
-        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
+        // 1. Create User in Firebase Authentication
+        UserCredential userCredential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(
+          email: email,
+          password: password,
         );
 
-        await userCredential.user?.updateDisplayName(_nameController.text.trim());
+        String uid = userCredential.user!.uid;
 
+        // 2. Separate Collections Logic based on Selected Role
+        if (finalRole == 'scholar') {
+          print("🔥 WRITING: Pushing data to 'scholars' collection for UID: $uid");
+
+          Map<String, dynamic> scholarData = {
+            'uid': uid,
+            'displayName': name,
+            'email': email,
+            'role': 'scholar',
+            'isVerifiedScholar': false,
+            'status': 'pending',
+            'createdAt': FieldValue.serverTimestamp(),
+          };
+
+          await FirebaseFirestore.instance
+              .collection('scholars') // 👈 Purely 'scholars' collection
+              .doc(uid)
+              .set(scholarData);
+
+        } else {
+          print("📱 WRITING: Pushing data to 'users' collection for UID: $uid");
+
+          Map<String, dynamic> userData = {
+            'uid': uid,
+            'displayName': name,
+            'email': email,
+            'role': 'User',
+            'status': 'active',
+            'current_streak': 0,
+            'createdAt': FieldValue.serverTimestamp(),
+          };
+
+          await FirebaseFirestore.instance
+              .collection('users') // 👈 Purely 'users' collection
+              .doc(uid)
+              .set(userData);
+        }
+
+        // 3. Move to screens based on selected role
         if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-                (route) => false,
-          );
+          if (finalRole == 'scholar') {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const ScholarDetailsScreen()),
+                  (route) => false,
+            );
+          } else {
+            // User ke liye direct dashboard/homescreen link
+            // Navigator.pushAndRemoveUntil(
+            //   context,
+            //   MaterialPageRoute(builder: (context) => const UserHomeScreen()),
+            //       (route) => false,
+            // );
+          }
         }
       } on FirebaseAuthException catch (e) {
+        print("❌ FIREBASE AUTH ERROR: ${e.code}");
+        String message = "Sign up failed";
+        if (e.code == 'email-already-in-use') {
+          message = "This email is already registered.";
+        } else if (e.code == 'weak-password') {
+          message = "Password is too weak.";
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.message ?? "Registration failed"), backgroundColor: Colors.redAccent)
-        );
+            SnackBar(content: Text(message), backgroundColor: Colors.red));
+      } catch (e) {
+        print("❌ SYSTEM ERROR: ${e.toString()}");
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Error: ${e.toString()}"), backgroundColor: Colors.red));
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
@@ -48,124 +125,151 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 🌟 RESPONSIVENESS: Fetch real screen width for Web, Android, iOS
+    final double screenWidth = MediaQuery.of(context).size.width;
+
+    // Standard Breakpoint: Agar screen width 600px se bari hai toh desktop/web layout apply hoga
+    bool isWeb = screenWidth > 600;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF001F1A) : Colors.white,
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            // 🎯 Fixed: Safe deep dark gradient colors for dark mode background
-            colors: isDark
-                ? [const Color(0xFF003D33), const Color(0xFF001F1A)]
-                : [Colors.green.shade100, Colors.white],
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 30),
+      backgroundColor: const Color(0xFFE8F5E9), // Premium light green
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            // Web/iPad par card width 450px par lock ho jayegi, mobile par complete responsive screen stretch hogi
+            width: isWeb ? 450 : double.infinity,
+            padding: EdgeInsets.all(isWeb ? 40 : 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                )
+              ],
+            ),
             child: Form(
               key: _formKey,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    "Create Account",
-                    style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.green.shade900
-                    ),
+                  // Title
+                  const Text(
+                      "Create Account",
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 25),
+
+                  // ROLE SELECTOR BUTTONS (User vs Scholar)
                   Container(
-                    padding: const EdgeInsets.all(25),
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withAlpha(15) : Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: isDark ? Colors.white10 : Colors.transparent),
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Column(
+                    child: Row(
                       children: [
-                        TextFormField(
-                          controller: _nameController,
-                          style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                          decoration: InputDecoration(
-                            labelText: "Full Name",
-                            labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                            prefixIcon: Icon(Icons.person_outline, color: isDark ? Colors.white60 : Colors.black45),
-                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.grey)),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.green)),
-                          ),
-                          validator: (val) => (val == null || val.isEmpty) ? "Name is required" : null,
-                        ),
-                        const SizedBox(height: 15),
-                        TextFormField(
-                          controller: _emailController,
-                          style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                          decoration: InputDecoration(
-                            labelText: "Email Address",
-                            labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                            prefixIcon: Icon(Icons.email_outlined, color: isDark ? Colors.white60 : Colors.black45),
-                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.grey)),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.green)),
-                          ),
-                          validator: (val) => (val == null || !val.contains("@")) ? "Enter a valid email" : null,
-                        ),
-                        const SizedBox(height: 15),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscureText,
-                          style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                          decoration: InputDecoration(
-                            labelText: "Password",
-                            labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                            prefixIcon: Icon(Icons.lock_outline, color: isDark ? Colors.white60 : Colors.black45),
-                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.grey)),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.green)),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscureText ? Icons.visibility_off : Icons.visibility, color: isDark ? Colors.white60 : Colors.black45),
-                              onPressed: () => setState(() => _obscureText = !_obscureText),
+                        // User Selection Card
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _selectedRole = 'user'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _selectedRole == 'user' ? const Color(0xFF2E7D32) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  "User",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: _selectedRole == 'user' ? Colors.white : Colors.black54,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                          validator: (val) => (val == null || val.length < 6) ? "Password must be at least 6 characters" : null,
                         ),
-                        const SizedBox(height: 30),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 55,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF00C853),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        // Scholar Selection Card
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _selectedRole = 'scholar'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _selectedRole == 'scholar' ? const Color(0xFF2E7D32) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  "Scholar",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: _selectedRole == 'scholar' ? Colors.white : Colors.black54,
+                                  ),
+                                ),
+                              ),
                             ),
-                            onPressed: _isLoading ? null : _handleSignUp,
-                            child: _isLoading
-                                ? const CircularProgressIndicator(color: Colors.white)
-                                : const Text("Sign Up", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 25),
+
+                  // Form Fields
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: "Full Name",
+                      prefixIcon: const Icon(Icons.person),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (val) => (val == null || val.isEmpty) ? "Enter name" : null,
+                  ),
                   const SizedBox(height: 20),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Text.rich(
-                      TextSpan(
-                          text: "Already have an account? ",
-                          style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
-                          children: [
-                            TextSpan(
-                                text: "Login",
-                                style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF81C784) : Colors.green.shade700)
-                            )
-                          ]
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: InputDecoration(
+                      labelText: "Email",
+                      prefixIcon: const Icon(Icons.email),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (val) => (val == null || !val.contains("@")) ? "Enter valid email" : null,
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: "Password",
+                      prefixIcon: const Icon(Icons.lock),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (val) => (val == null || val.length < 6) ? "Min 6 chars" : null,
+                  ),
+                  const SizedBox(height: 35),
+
+                  // Submit Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleSignUp,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7D32),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
                       ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text("Sign Up", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                   ),
                 ],

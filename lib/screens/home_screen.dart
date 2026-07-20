@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
-import 'dart:math'; // 🚀 Added for Daily Deeds Shuffling Logic
+import 'dart:math';
+import 'package:flutter/foundation.dart'; // 🚀 Added for kIsWeb check
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
@@ -10,6 +10,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+// 🚀 FIXED: Removed dart:io import entirely to prevent Web crashes
+
 import '../services/prayer_service.dart';
 import '../theme/app_theme.dart';
 import 'prayer_times_screen.dart';
@@ -20,6 +22,9 @@ import 'profile_screen.dart';
 import 'safar_dua_screen.dart';
 import 'hadith_books_screen.dart';
 import 'bookmarks_screen.dart';
+import 'daily_deeds.dart'; // 🚀 DailyDeeds link navigation
+// TODO: Create or verify 'books_screen.dart' file exists inside your screens directory
+// import 'books_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,102 +46,142 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Safe execution wrapper taake InheritedWidget ka error na aaye
     Future.delayed(Duration.zero, () {
       if (mounted) {
         _fetchDailyAyah();
         _checkAndResetStreak();
+        _listenForScholarAnswers();
       }
     });
   }
 
-  // --- STREAK & DEEDS RESET LOGIC ---
+  // 🔥 Live Scholar Answer Listener
+  void _listenForScholarAnswers() {
+    if (user == null) return;
+
+    FirebaseFirestore.instance
+        .collection('notifications')
+        .where('targetRole', isEqualTo: 'user')
+        .where('targetId', isEqualTo: user!.uid)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .listen((QuerySnapshot snapshot) {
+
+      for (var change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          var data = change.doc.data() as Map<String, dynamic>;
+          String notificationId = change.doc.id;
+
+          String title = data['title'] ?? 'Jawab Alert! ✅';
+          String message = data['message'] ?? 'Scholar ne aapke sawal ka jawab de diya hai.';
+
+          _showUserAnswerPopup(title, message, notificationId);
+        }
+      }
+    });
+  }
+
+  // 🔥 Khoobsurat PopUp Dialog Box
+  void _showUserAnswerPopup(String title, String message, String notificationId) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: isDark ? const Color(0xFF1A332E) : Colors.white,
+          title: Row(
+            children: [
+              const Icon(Icons.gavel_rounded, color: Color(0xFF2E7D32), size: 26),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                    title,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : const Color(0xFF003D33)
+                    )
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+              message,
+              style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14)
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await FirebaseFirestore.instance.collection('notifications').doc(notificationId).update({
+                  'isRead': true,
+                });
+              },
+              child: const Text(
+                  'OK',
+                  style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Future<void> _checkAndResetStreak() async {
     if (user == null) return;
+    try {
+      DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
+      var snapshot = await userRef.get();
 
-    DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
-    var snapshot = await userRef.get();
-
-    if (snapshot.exists && snapshot.data() != null) {
-      var data = snapshot.data() as Map<String, dynamic>;
-
-      if (data['lastUpdate'] == null) {
-        await userRef.update({
-          'streak': 0,
-          'totalPoints': 0,
-          'lastUpdate': Timestamp.now(),
-          'completedToday': [],
-        });
-        return;
-      }
-
-      DateTime lastUpdate = (data['lastUpdate'] as Timestamp).toDate();
-      DateTime now = DateTime.now();
-
-      // Strict calendar day comparison to catch exact midnight transitions
-      bool isNewDay = now.year != lastUpdate.year ||
-          now.month != lastUpdate.month ||
-          now.day != lastUpdate.day;
-
-      if (isNewDay) {
-        DateTime yesterday = now.subtract(const Duration(days: 1));
-        bool missedADay = lastUpdate.year != yesterday.year ||
-            lastUpdate.month != yesterday.month ||
-            lastUpdate.day != yesterday.day;
-
-        Map<String, dynamic> updates = {
-          'completedToday': [], // Uncheck all deeds for the brand new day
-        };
-
-        if (missedADay) {
-          updates['streak'] = 0; // Reset streak if an entire calendar day was skipped
+      if (snapshot.exists && snapshot.data() != null) {
+        var data = snapshot.data() as Map<String, dynamic>;
+        if (data['lastUpdate'] == null) {
+          await userRef.update({
+            'streak': 0,
+            'totalPoints': 0,
+            'lastUpdate': Timestamp.now(),
+            'completedToday': [],
+          });
+          return;
         }
 
-        await userRef.update(updates);
-        _fetchDailyAyah(); // Force update the Ayah of the day as well
+        DateTime lastUpdate = (data['lastUpdate'] as Timestamp).toDate();
+        DateTime now = DateTime.now();
+        bool isNewDay = now.year != lastUpdate.year || now.month != lastUpdate.month || now.day != lastUpdate.day;
+
+        if (isNewDay) {
+          DateTime yesterday = now.subtract(const Duration(days: 1));
+          bool missedADay = lastUpdate.year != yesterday.year || lastUpdate.month != yesterday.month || lastUpdate.day != yesterday.day;
+          Map<String, dynamic> updates = {'completedToday': []};
+          if (missedADay) updates['streak'] = 0;
+          await userRef.update(updates);
+          _fetchDailyAyah();
+        }
       }
+    } catch (e) {
+      debugPrint("Streak Error: $e");
     }
   }
-
-  void _handleDeedToggled(String docId, int points, bool isChecked) async {
-    if (user == null) return;
-    DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
-
-    if (isChecked) {
-      await userRef.update({
-        'totalPoints': FieldValue.increment(points),
-        'completedToday': FieldValue.arrayUnion([docId]),
-        'lastUpdate': Timestamp.now(),
-      });
-
-      var snap = await userRef.get();
-      List completed = (snap.data() as Map)['completedToday'] ?? [];
-      if (completed.length == 1) {
-        await userRef.update({'streak': FieldValue.increment(1)});
-      }
-    } else {
-      await userRef.update({
-        'totalPoints': FieldValue.increment(-points),
-        'completedToday': FieldValue.arrayRemove([docId]),
-      });
-    }
-  }
-
-  // --- QURAN DATABASE LOGIC ---
 
   Future<void> _fetchDailyAyah() async {
+    if (kIsWeb) {
+      setState(() {
+        dailyAyah = "إِنَّ مَعَ الْعُسْرِ يُسْرًا";
+        dailyUrdu = "Beshak mushkil ke saath asaani hai.";
+        ayahRef = "Surah Ash-Sharh 94:6";
+        isAyahLoading = false;
+      });
+      return;
+    }
+
     try {
       var databasesPath = await getDatabasesPath();
       var path = p.join(databasesPath, "quran_final_authentic_v2.db");
-      var exists = await databaseExists(path);
-
-      if (!exists) {
-        ByteData data = await rootBundle.load(p.join("assets/database", "quran_final_authentic_v2.db"));
-        List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-        await File(path).writeAsBytes(bytes, flush: true);
-      }
 
       Database db = await openDatabase(path, readOnly: true);
       int dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
@@ -146,21 +191,21 @@ class _HomeScreenState extends State<HomeScreen> {
           'SELECT arabic_text, urdu_trans, surah_no, ayah_no FROM quran_data WHERE id = ?',
           [ayahId]);
 
-      if (list.isNotEmpty) {
-        if (mounted) {
-          setState(() {
-            dailyAyah = list[0]['arabic_text'];
-            dailyUrdu = list[0]['urdu_trans'];
-            ayahRef = "Surah ${list[0]['surah_no']}:${list[0]['ayah_no']}";
-            isAyahLoading = false;
-          });
-        }
+      if (list.isNotEmpty && mounted) {
+        setState(() {
+          dailyAyah = list[0]['arabic_text'];
+          dailyUrdu = list[0]['urdu_trans'];
+          ayahRef = "Surah ${list[0]['surah_no']}:${list[0]['heading_no'] ?? list[0]['ayah_no']}";
+          isAyahLoading = false;
+        });
       }
       await db.close();
     } catch (e) {
       if (mounted) {
         setState(() {
-          dailyAyah = "Could not load Ayah";
+          dailyAyah = "إِنَّ mَعَ الْعُسْرِ يُسْرًا";
+          dailyUrdu = "Beshak mushkil ke saath asaani hai.";
+          ayahRef = "Surah Ash-Sharh 94:6";
           isAyahLoading = false;
         });
       }
@@ -171,37 +216,37 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // 🚀 Declared inside the build shell to prevent premature InheritedWidget context crash
+    // 🗂️ FIXED: Added the Books Screen View placeholder inside target IndexStack safely
     final List<Widget> tabs = [
       _buildHomeDashboardView(),
       const SurahListScreen(),
       const HadithBooksScreen(),
       const BookmarksScreen(),
+      // 🚀 NEW PAGE LINK: Jab click hoga to ye screen open ho kar new books dikhaye gi
+      const Center(
+        child: Text(
+            "Islamic Books Hub Coming Soon! 📚",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+        ),
+      ),
     ];
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: tabs,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: tabs),
       bottomNavigationBar: _buildBottomNav(isDark),
     );
   }
 
-  // --- SPLIT INTERACTIVE HOME BODY VIEW ---
   Widget _buildHomeDashboardView() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     String userName = user?.displayName ?? "User";
-
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: isDark
-              ? [const Color(0xFF003D33), AppTheme.primaryDark]
-              : [const Color(0xFFF1F8E9), Colors.white],
+          colors: isDark ? [const Color(0xFF003D33), AppTheme.primaryDark] : [const Color(0xFFF1F8E9), Colors.white],
         ),
       ),
       child: SafeArea(
@@ -231,85 +276,78 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- UI COMPONENTS ---
-
   Widget _buildDeedsModule(bool isDark) {
+    if (user == null) return const SizedBox();
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double horizontalMargin = screenWidth > 800 ? 32.0 : 15.0;
+
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(user?.uid).snapshots(),
       builder: (context, userSnap) {
         if (!userSnap.hasData || !userSnap.data!.exists) return const SizedBox();
-
         var userData = userSnap.data!.data() as Map<String, dynamic>;
-        List completedToday = userData['completedToday'] ?? [];
         int currentStreak = userData['streak'] ?? 0;
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 15),
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withAlpha(13) : Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50),
-            boxShadow: [if(!isDark) BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 10)],
-          ),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.auto_awesome, color: Colors.orange, size: 18),
-                      const SizedBox(width: 8),
-                      Text("Daily Sunnah & Deeds",
-                          style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withAlpha(30),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text("🔥 $currentStreak Days",
-                        style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ),
-                ],
+        return Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 800),
+            margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
+            child: Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(color: isDark ? Colors.white10 : Colors.green.shade50),
               ),
-              const SizedBox(height: 10),
-              StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('daily_deeds').snapshots(),
-                builder: (context, deedsSnap) {
-                  if (!deedsSnap.hasData) return const Center(child: CircularProgressIndicator(color: Colors.green));
-
-                  var allDocs = deedsSnap.data!.docs;
-                  if (allDocs.isEmpty) return const SizedBox();
-
-                  // 🎯 RANDOMIZATION SEED LOGIC FOR UNIQUE DAILY ITEMS
-                  int dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
-                  Random random = Random(dayOfYear); // Uses stable daily counter as a seed
-
-                  List<QueryDocumentSnapshot> shuffledDeeds = List.from(allDocs);
-                  shuffledDeeds.shuffle(random); // Shuffles identically all day long
-
-                  var displayDeeds = shuffledDeeds.take(3).toList(); // Picks top 3 filtered documents safely
-
-                  return Column(
-                    children: displayDeeds.map((doc) {
-                      bool isDone = completedToday.contains(doc.id);
-                      return CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(doc['title'], style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black87)),
-                        subtitle: Text("${doc['points']} Points", style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                        value: isDone,
-                        activeColor: const Color(0xFF2E7D32),
-                        onChanged: (val) => _handleDeedToggled(doc.id, doc['points'], val!),
-                      );
-                    }).toList(),
+              color: isDark ? Colors.white.withAlpha(13) : Colors.white,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(24),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DailyDeeds(userId: user!.uid),
+                    ),
                   );
                 },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.auto_awesome, color: Colors.orange, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Daily Deeds",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: isDark ? Colors.white70 : Colors.black87
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            "🔥 Streak: $currentStreak",
+                            style: const TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(Icons.arrow_forward_ios, size: 13, color: isDark ? Colors.white54 : Colors.grey),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ],
+            ),
           ),
         );
       },
@@ -324,46 +362,25 @@ class _HomeScreenState extends State<HomeScreen> {
         color: isDark ? Colors.white.withAlpha(13) : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50),
-        boxShadow: [if(!isDark) BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 10)],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.auto_awesome, color: Color(0xFF81C784), size: 18),
-                  const SizedBox(width: 8),
-                  Text("Ayah of the Day", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87)),
-                ],
-              ),
-              if (!isAyahLoading)
-                Text(ayahRef, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+              Text("Ayah of the Day", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87)),
+              if (!isAyahLoading) Text(ayahRef, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 15),
-          if (isAyahLoading)
-            const Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green)))
-          else
-            Column(
-              children: [
-                Text(
-                  dailyAyah,
-                  textAlign: TextAlign.center,
-                  textDirection: TextDirection.rtl,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF003D33), height: 1.5),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  dailyUrdu,
-                  textAlign: TextAlign.center,
-                  textDirection: TextDirection.rtl,
-                  style: TextStyle(fontSize: 14, color: isDark ? Colors.white60 : Colors.black54, height: 1.4),
-                ),
-              ],
-            ),
+          if (isAyahLoading) const Center(child: CircularProgressIndicator(color: Colors.green))
+          else Column(
+            children: [
+              Text(dailyAyah, textAlign: TextAlign.center, textDirection: TextDirection.rtl, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF003D33), height: 1.5)),
+              const SizedBox(height: 10),
+              Text(dailyUrdu, textAlign: TextAlign.center, textDirection: TextDirection.rtl, style: TextStyle(fontSize: 14, color: isDark ? Colors.white60 : Colors.black54, height: 1.4)),
+            ],
+          ),
         ],
       ),
     );
@@ -413,11 +430,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return FutureBuilder<PrayerTimes?>(
       future: PrayerService.getPrayerTimes(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox(height: 150);
+        if (!snapshot.hasData) return const SizedBox(height: 150, child: Center(child: CircularProgressIndicator()));
         final pt = snapshot.data!;
         Prayer current = pt.currentPrayer();
-        Prayer next = pt.nextPrayer();
-        if (next == Prayer.none) next = Prayer.fajr;
+        Prayer next = pt.nextPrayer() == Prayer.none ? Prayer.fajr : pt.nextPrayer();
         return Container(
           margin: const EdgeInsets.all(15),
           padding: const EdgeInsets.symmetric(vertical: 20),
@@ -432,8 +448,8 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _prayerCol("CURRENT", current.name.toUpperCase(), pt.timeForPrayer(current), isCurrent: true),
-                  _prayerCol("NEXT", next.name.toUpperCase(), pt.timeForPrayer(next), isCurrent: false),
+                  _prayerCol("CURRENT", current.name.toUpperCase(), pt.timeForPrayer(current)),
+                  _prayerCol("NEXT", next.name.toUpperCase(), pt.timeForPrayer(next)),
                 ],
               ),
             ],
@@ -443,7 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _prayerCol(String label, String name, DateTime? time, {required bool isCurrent}) {
+  Widget _prayerCol(String label, String name, DateTime? time) {
     String formattedTime = time != null ? DateFormat.jm().format(time) : "--:--";
     return Column(children: [
       Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
@@ -490,14 +506,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // =========================================================================
+  // 🔘 MODIFIED: Added New 'Books' Icon and Layout Matrix directly at position 5
+  // =========================================================================
   Widget _buildBottomNav(bool isDark) {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
-      onTap: (i) {
-        setState(() {
-          _selectedIndex = i;
-        });
-      },
+      onTap: (i) => setState(() => _selectedIndex = i),
       type: BottomNavigationBarType.fixed,
       backgroundColor: isDark ? const Color(0xFF001A12) : Colors.white,
       selectedItemColor: const Color(0xFF2E7D32),
@@ -507,6 +522,8 @@ class _HomeScreenState extends State<HomeScreen> {
         BottomNavigationBarItem(icon: Icon(Icons.menu_book_rounded), label: "Quran"),
         BottomNavigationBarItem(icon: Icon(Icons.library_books_rounded), label: "Hadith"),
         BottomNavigationBarItem(icon: Icon(Icons.bookmark_rounded), label: "Bookmarks"),
+        // 🚀 NEW NAVIGATION BUTTON: "Books" item attached right beside Bookmarks icon
+        BottomNavigationBarItem(icon: Icon(Icons.collections_bookmark_rounded), label: "Books"),
       ],
     );
   }

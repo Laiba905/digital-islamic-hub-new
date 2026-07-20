@@ -8,17 +8,15 @@ import 'package:image_cropper/image_cropper.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
 import 'login_screen.dart';
-// 🌟 History screen ka import yahan add kar diya hai
-import 'user_my_history_page.dart';
 
-class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+class ScholarProfileScreen extends StatefulWidget {
+  const ScholarProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<ScholarProfileScreen> createState() => _ScholarProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
   final User? user = FirebaseAuth.instance.currentUser;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -30,19 +28,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadScholarData();
   }
 
-  Future<void> _loadUserData() async {
+  // 📝 Scholars collection se data load karne ka function
+  Future<void> _loadScholarData() async {
     if (user != null) {
       try {
-        DocumentSnapshot doc = await _firestore.collection('users').doc(user!.uid).get();
+        DocumentSnapshot doc = await _firestore.collection('scholars').doc(user!.uid).get();
         if (doc.exists) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
           setState(() {
             _base64Image = data['profileImage'];
             _isNotificationEnabled = data['notifications'] ?? true;
-            _nameController.text = data['displayName'] ?? user?.displayName ?? "";
+            _nameController.text = data['displayName'] ?? user?.displayName ?? "Malaika Tariq";
 
             if (data['darkMode'] != null) {
               _isDarkMode = data['darkMode'];
@@ -53,9 +52,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               themeNotifier.value = ThemeMode.system;
             }
           });
+        } else {
+          // Agar entry nahi h to auth se default name uthao
+          setState(() {
+            _nameController.text = user?.displayName ?? "Malaika Tariq";
+          });
         }
       } catch (e) {
-        debugPrint("Error loading user data: $e");
+        debugPrint("Error loading scholar data: $e");
       }
     }
   }
@@ -68,12 +72,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.green),
+              leading: const Icon(Icons.photo_library, color: Color(0xFF1B5E20)),
               title: const Text('Gallery'),
               onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.gallery, imageQuality: 40)),
             ),
             ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.green),
+              leading: const Icon(Icons.camera_alt, color: Color(0xFF1B5E20)),
               title: const Text('Camera'),
               onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.camera, imageQuality: 40)),
             ),
@@ -111,7 +115,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _saveProfileImage(String base64String) async {
-    await _firestore.collection('users').doc(user!.uid).set({
+    await _firestore.collection('scholars').doc(user!.uid).set({
       'profileImage': base64String,
     }, SetOptions(merge: true));
 
@@ -125,10 +129,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.primaryDark : Colors.grey[50],
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF9FBE7),
       appBar: AppBar(
-        title: const Text("My Profile", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: isDark ? const Color(0xFF003D33) : const Color(0xFF1B5E20),
+        title: const Text("Scholar Profile", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: const Color(0xFF1B5E20),
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -155,12 +159,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildSettingsTile(
                       icon: Icons.email_outlined,
                       title: "Email Address",
-                      subtitle: user?.email ?? "N/A",
+                      subtitle: user?.email ?? "scholar@hub.com",
                       isDark: isDark,
                     ),
                   ]),
                   const SizedBox(height: 25),
-                  _buildSectionTitle("Settings & Theme"),
+                  _buildSectionTitle("Settings & Analytics"),
                   _buildSettingsCard(isDark, [
                     _buildSwitchTile(
                       icon: Icons.dark_mode_outlined,
@@ -170,33 +174,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       isDark: isDark,
                       onChanged: (val) {
                         setState(() => _isDarkMode = val);
-                        _firestore.collection('users').doc(user!.uid).update({'darkMode': val});
+                        _firestore.collection('scholars').doc(user!.uid).update({'darkMode': val});
                         themeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
                       },
                     ),
                     _buildSwitchTile(
                       icon: Icons.notifications_none_outlined,
-                      title: "Prayer Notifications",
+                      title: "Notifications",
                       value: _isNotificationEnabled,
                       color: Colors.orangeAccent,
                       isDark: isDark,
                       onChanged: (val) {
                         setState(() => _isNotificationEnabled = val);
-                        _firestore.collection('users').doc(user!.uid).update({'notifications': val});
+                        _firestore.collection('scholars').doc(user!.uid).update({'notifications': val});
                       },
                     ),
-                    // 🌟 Verification History option bilkul yahan Prayer Notifications ke neeche fit kar diya hai
+                    // 📋 Scholar Analytics Tiles
                     _buildHistoryTile(
-                      icon: Icons.history_edu,
-                      title: "Verification History",
-                      subtitle: "Track your scholar questions & payments",
+                      icon: Icons.chat_outlined,
+                      title: "Questions History",
+                      subtitle: "Track questions you have answered",
+                      color: Colors.amber.shade700,
+                      isDark: isDark,
+                      onTap: () {
+                        // Idhar aap questions history page ka route push kr skte hain
+                      },
+                    ),
+                    _buildHistoryTile(
+                      icon: Icons.bar_chart_rounded,
+                      title: "Scholar Analytics",
+                      subtitle: "View your answer ratings and impact",
                       color: Colors.teal,
                       isDark: isDark,
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const UserMyHistoryPage()),
-                        );
+                        // Analytics page navigation link
                       },
                     ),
                   ]),
@@ -215,12 +226,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildHeader(bool isDark) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(bottom: 40, top: 20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF003D33) : const Color(0xFF1B5E20),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(40),
-          bottomRight: Radius.circular(40),
+      padding: const EdgeInsets.only(bottom: 35, top: 20),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1B5E20),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
       child: Column(
@@ -237,7 +248,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ? MemoryImage(base64Decode(_base64Image!))
                       : null,
                   child: (_base64Image == null || _base64Image!.isEmpty)
-                      ? Icon(Icons.person, size: 50, color: Colors.green.shade800)
+                      ? const Icon(Icons.person, size: 55, color: Color(0xFF1B5E20))
                       : null,
                 ),
               ),
@@ -260,9 +271,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _nameController.text,
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
           ),
+          const SizedBox(height: 4),
           const Text(
-            "Islamic Hub Member",
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            "Verified Scholar",
+            style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: 0.5),
           ),
         ],
       ),
@@ -274,7 +286,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.only(left: 5, bottom: 10),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
+        style: const TextStyle(color: Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
       ),
     );
   }
@@ -284,6 +296,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          if (!isDark) BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))
+        ],
         border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50),
       ),
       child: Column(children: children),
@@ -295,12 +310,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onTap: onTap,
       leading: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: const Color(0xFF2E7D32), size: 20),
+        decoration: BoxDecoration(color: const Color(0xFF1B5E20).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+        child: const Icon(icon, color: Color(0xFF1B5E20), size: 20),
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black54)),
-      trailing: onTap != null ? const Icon(Icons.chevron_right, color: Colors.grey) : null,
+      trailing: onTap != null ? const Icon(Icons.edit, color: Colors.grey, size: 18) : null,
     );
   }
 
@@ -313,12 +328,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
       value: value,
-      activeColor: const Color(0xFF2E7D32),
+      activeColor: const Color(0xFF1B5E20),
       onChanged: onChanged,
     );
   }
 
-  // 🌟 Naya tile helper jo existing card styling ke sath perfectly embed ho raha hai
   Widget _buildHistoryTile({required IconData icon, required String title, required String subtitle, required Color color, required bool isDark, required VoidCallback onTap}) {
     return ListTile(
       onTap: onTap,
@@ -357,7 +371,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
           }
         },
-        child: const Text("Logout Account", style: TextStyle(fontWeight: FontWeight.bold)),
+        child: const Text("Logout Account", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
       ),
     );
   }
@@ -378,12 +392,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B5E20)),
             onPressed: () async {
-              await _firestore.collection('users').doc(user!.uid).update({'displayName': _nameController.text});
+              await _firestore.collection('scholars').doc(user!.uid).update({'displayName': _nameController.text});
               setState(() {});
               if (mounted) Navigator.pop(context);
             },
-            child: const Text("Save"),
+            child: const Text("Save", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

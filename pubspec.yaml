@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.5
+  sdk: ^3.10.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -51,7 +51,10 @@ dependencies:
   image_picker: ^1.0.7
   image_cropper: ^12.2.1
   cloud_firestore: ^6.4.1
+  #firebase_storage: ^13.4.1
+  cloudinary_public: 0.23.1
   hijri: ^3.0.0
+  #firebase_storage: ^11.6.0
 
 
 dev_dependencies:
@@ -77,8 +80,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/database/quran_final_authentic_v2.db
-    - assets/database/hadith_database.db
+    #- assets/database/quran_final_authentic_v2.db
+    #- assets/database/hadith_database.db
     - assets/images/logo.png
     - assets/audio/azan.mp3
 

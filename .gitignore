@@ -45,5 +45,4 @@ app.*.map.json
 /android/app/release
 
 # Exclude specific files
-lib/screens/ai_chat_screen.dart
 assets/database/*.db

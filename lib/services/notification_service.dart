@@ -1,12 +1,14 @@
+import 'package:flutter/foundation.dart'; // kIsWeb ke liye
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
-import 'dart:io';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
+    if (kIsWeb) return; // Web par notifications skip karein
+
     tz_data.initializeTimeZones();
 
     const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -26,14 +28,18 @@ class NotificationService {
   }
 
   static Future<void> requestPermissions() async {
-    if (Platform.isAndroid) {
-      final androidImplementation = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-      await androidImplementation?.requestNotificationsPermission();
-      await androidImplementation?.requestExactAlarmsPermission();
+    if (kIsWeb) return;
+    
+    // Platform.isAndroid ki jagah Implementation check use karein
+    final androidImplementation = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImplementation != null) {
+      await androidImplementation.requestNotificationsPermission();
+      await androidImplementation.requestExactAlarmsPermission();
     }
   }
 
   static Future<void> testInstant() async {
+    if (kIsWeb) return;
     await _plugin.show(
       99,
       "حي على الصلاة",
@@ -51,17 +57,13 @@ class NotificationService {
   }
 
   static Future<void> schedulePrayerNotification(int id, String name, DateTime time) async {
-    // 🚀 FIX 1: Hard device timezone conversion strategy using dynamic ISO parsing
-    // Is se agar aap system setting badlengi to live time capture hoga.
+    if (kIsWeb) return;
     final String timeZoneName = tz.local.name;
     final location = tz.getLocation(timeZoneName);
 
     var scheduledTime = tz.TZDateTime.from(time, location);
     var now = tz.TZDateTime.now(location);
 
-    // 🚀 FIX 2: Safe evaluation fallback logic for testing bypass
-    // Agar scheduled time target se peeche hai to sirf real production run mein kal par bhejein,
-    // Agar difference minutes mein bohot chota hai (Testing window), to kal par mat push karein.
     if (scheduledTime.isBefore(now)) {
       if (now.difference(scheduledTime).inMinutes > 2) {
         scheduledTime = scheduledTime.add(const Duration(days: 1));
@@ -85,11 +87,12 @@ class NotificationService {
       ),
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time, // Daily automatic repetition trigger
+      matchDateTimeComponents: DateTimeComponents.time,
     );
   }
 
   static Future<void> cancelNotification(int id) async {
+    if (kIsWeb) return;
     await _plugin.cancel(id);
   }
 }

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
+import 'scholar_dashboard.dart';
+import 'scholar_details_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,12 +25,70 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+        UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-        if (mounted) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+
+        User? user = userCredential.user;
+
+        if (user != null && mounted) {
+          // 🔍 1. Fetch user data from 'users' collection
+          DocumentSnapshot userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+          String role = 'user'; // Default role
+          bool isVerified = false;
+
+          if (userDoc.exists) {
+            Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+            role = userData['role'] ?? 'user';
+            isVerified = userData['isVerifiedScholar'] ?? false;
+          }
+
+          // 🔍 2. Extra check scholar_applications status for strict validation
+          var scholarAppDoc = await FirebaseFirestore.instance
+              .collection('scholar_applications')
+              .doc(user.uid)
+              .get();
+
+          if (scholarAppDoc.exists) {
+            String appStatus = (scholarAppDoc.data()?['status'] ?? '').toString().toLowerCase().trim();
+            if (appStatus == 'approved' || appStatus == 'accepted') {
+              isVerified = true;
+              role = 'scholar'; // Force correct role if approved data exists here
+            }
+          }
+
+          // 🔀 Clean Decision Route Without Intermediary Screen Back-loops
+          if (mounted) {
+            if (role == 'scholar') {
+              if (isVerified) {
+                // ✅ Verified Scholar -> Seedha Dashboard! No loops or auto-back issues.
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ScholarDashboard()),
+                      (route) => false,
+                );
+              } else {
+                // ⏳ Pending Scholar -> Verification Info Screen
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ScholarDetailsScreen()),
+                      (route) => false,
+                );
+              }
+            } else {
+              // 👤 Regular User -> Seedha HomeScreen
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+                    (route) => false,
+              );
+            }
+          }
         }
       } on FirebaseAuthException catch (e) {
         String message = "Authentication failed";
@@ -43,13 +104,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // 🔒 Function to handle Forgot Password action
   void _handleForgotPassword() async {
     if (_emailController.text.trim().isEmpty || !_emailController.text.contains("@")) {
       _showSnackBar("Please enter a valid email address first to reset password.", isError: true);
       return;
     }
-
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: _emailController.text.trim());
       _showSnackBar("Password reset link sent successfully to your email!", isError: false);
@@ -147,8 +206,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           validator: (val) => (val == null || val.isEmpty) ? "Password is required" : null,
                         ),
-
-                        // 🔑 FORGOT PASSWORD BUTTON (Perfect Alignment with Contrast Check)
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
@@ -168,7 +225,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 20),
                         SizedBox(
                           width: double.infinity,
