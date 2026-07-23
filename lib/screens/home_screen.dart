@@ -203,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          dailyAyah = "إِنَّ mَعَ الْعُسْرِ يُسْرًا";
+          dailyAyah = "إِنَّ مَعَ الْعُسْرِ يُسْرًا";
           dailyUrdu = "Beshak mushkil ke saath asaani hai.";
           ayahRef = "Surah Ash-Sharh 94:6";
           isAyahLoading = false;
@@ -216,13 +216,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // 🗂️ FIXED: Added the Books Screen View placeholder inside target IndexStack safely
     final List<Widget> tabs = [
       _buildHomeDashboardView(),
       const SurahListScreen(),
       const HadithBooksScreen(),
       const BookmarksScreen(),
-      // 🚀 NEW PAGE LINK: Jab click hoga to ye screen open ho kar new books dikhaye gi
       const Center(
         child: Text(
             "Islamic Books Hub Coming Soon! 📚",
@@ -484,6 +482,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _actionBtn("Islamic AI", Icons.smart_toy_rounded, Colors.cyan, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AIChatScreen()))),
           _actionBtn("Tasbeeh", Icons.track_changes, Colors.blueAccent, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TasbeehListScreen()))),
           _actionBtn("Safar Dua", Icons.travel_explore_rounded, Colors.teal, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SafarDuaScreen()))),
+          // 🌟 Yahan "User Answers" ka card add kar diya gaya hai Safar Dua ke sath
+          _actionBtn("User Answers", Icons.question_answer_rounded, Colors.orange, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserAnswerScreen()))),
         ],
       ),
     );
@@ -506,9 +506,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // =========================================================================
-  // 🔘 MODIFIED: Added New 'Books' Icon and Layout Matrix directly at position 5
-  // =========================================================================
   Widget _buildBottomNav(bool isDark) {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
@@ -522,9 +519,33 @@ class _HomeScreenState extends State<HomeScreen> {
         BottomNavigationBarItem(icon: Icon(Icons.menu_book_rounded), label: "Quran"),
         BottomNavigationBarItem(icon: Icon(Icons.library_books_rounded), label: "Hadith"),
         BottomNavigationBarItem(icon: Icon(Icons.bookmark_rounded), label: "Bookmarks"),
-        // 🚀 NEW NAVIGATION BUTTON: "Books" item attached right beside Bookmarks icon
         BottomNavigationBarItem(icon: Icon(Icons.collections_bookmark_rounded), label: "Books"),
       ],
+    );
+  }
+}
+
+// 🌟 Khali Screen (User Answer Screen)
+class UserAnswerScreen extends StatelessWidget {
+  const UserAnswerScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF001A12) : Colors.white,
+      appBar: AppBar(
+        title: const Text("User Answers"),
+        backgroundColor: isDark ? const Color(0xFF003D33) : const Color(0xFF2E7D32),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: const Center(
+        child: Text(
+          "",
+          style: TextStyle(fontSize: 16),
+        ),
+      ),
     );
   }
 }

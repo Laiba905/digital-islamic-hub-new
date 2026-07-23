@@ -17,7 +17,7 @@ class ScholarListScreen extends StatelessWidget {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('scholar_applications')
+            .collection('scholars')
             .where('status', isEqualTo: 'approved')
             .snapshots(),
         builder: (context, snapshot) {

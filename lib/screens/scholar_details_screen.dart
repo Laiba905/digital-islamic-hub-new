@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloudinary_public/cloudinary_public.dart';
-// Apni file ka path sahi se import karein
 import 'cloudinary_service.dart';
 
 class ScholarDetailsScreen extends StatefulWidget {
@@ -32,8 +31,6 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
   Uint8List? _webImageBytes;
   bool _isLoading = false;
 
-  // Purana cloudinary variable yahan se hata diya gaya hai
-
   Future<void> _pickSanadImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
@@ -47,7 +44,6 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
     }
   }
 
-  // UPDATED: Ab hum CloudinaryService use kar rahe hain
   Future<String?> _uploadToCloudinary(String userId) async {
     if (_pickedImageFile == null) return null;
     try {
@@ -78,7 +74,7 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
       return;
     }
     if (_pickedImageFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please upload image")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please upload certificate")));
       return;
     }
 
@@ -101,14 +97,130 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // ... (Baaki ka Build method aur CustomInputField waisa hi rahega)
   @override
   Widget build(BuildContext context) {
-    // ... (Aapka existing build code yahan aayega)
-    return Scaffold( /* ... */ );
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Scholar Verification"),
+        backgroundColor: const Color(0xFF2E7D32),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600), // Laptop/Web ke liye width fix ki hai taake zyada stretch na ho
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Phone Field
+                  TextFormField(
+                    controller: _phoneController,
+                    decoration: const InputDecoration(labelText: 'Phone Number', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 2. Payment Dropdown
+                  DropdownButtonFormField<String>(
+                    value: _selectedPaymentMethod,
+                    decoration: const InputDecoration(labelText: 'Accept Payments via', border: OutlineInputBorder()),
+                    items: _paymentOptions.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                    onChanged: (val) => setState(() => _selectedPaymentMethod = val),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 3. Address Field
+                  TextFormField(
+                    controller: _addressController,
+                    decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 4. Gender Dropdown
+                  DropdownButtonFormField<String>(
+                    value: _selectedGender,
+                    decoration: const InputDecoration(labelText: 'Gender', border: OutlineInputBorder()),
+                    items: _genderOptions.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                    onChanged: (val) => setState(() => _selectedGender = val),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 5. Degree Field
+                  TextFormField(
+                    controller: _degreeController,
+                    decoration: const InputDecoration(labelText: 'Degree / Qualification', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 25),
+
+                  // 6. Please Upload Certificate Section (Centered & Balanced)
+                  Center(
+                    child: Column(
+                      children: [
+                        const Text(
+                          "Please upload certificate",
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
+                        ),
+                        const SizedBox(height: 12),
+
+                        GestureDetector(
+                          onTap: _pickSanadImage,
+                          child: Container(
+                            height: 180,
+                            width: 320, // Mobile & Web dono ke liye aik behtareen fixed width box
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade400),
+                            ),
+                            child: _pickedImageFile == null
+                                ? const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.camera_alt, size: 40, color: Colors.grey),
+                                SizedBox(height: 8),
+                                Text("Tap to select certificate", style: TextStyle(color: Colors.grey))
+                              ],
+                            )
+                                : ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: kIsWeb
+                                  ? Image.memory(_webImageBytes!, fit: BoxFit.cover)
+                                  : Image.file(File(_pickedImageFile!.path), fit: BoxFit.cover),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 35),
+
+                  // 7. Submit Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _submitDetails,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7D32),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text("Submit Profile", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

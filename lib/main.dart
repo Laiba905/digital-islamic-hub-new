@@ -3,13 +3,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
-import 'screens/splash_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/scholar_dashboard.dart';
-import 'screens/scholar_details_screen.dart';
-import 'services/notification_service.dart';
-import 'theme/app_theme.dart';
+import 'package:digital_islamic_hub_new/screens/splash_screen.dart';
+import 'package:digital_islamic_hub_new/screens/home_screen.dart';
+import 'package:digital_islamic_hub_new/screens/login_screen.dart';
+import 'package:digital_islamic_hub_new/screens/scholar_dashboard.dart';
+import 'package:digital_islamic_hub_new/screens/scholar_details_screen.dart';
+import 'package:digital_islamic_hub_new/services/notification_service.dart';
+import 'package:digital_islamic_hub_new/theme/app_theme.dart';
 
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 
@@ -42,7 +42,6 @@ class MyApp extends StatelessWidget {
                 return const SplashScreen();
               }
               if (snapshot.hasData) {
-                // Check User Role and Verification Status
                 return StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('users')
@@ -64,7 +63,7 @@ class MyApp extends StatelessWidget {
                   },
                 );
               }
-              return const SplashScreen();
+              return const LoginScreen();
             },
           ),
         );
