@@ -1,15 +1,14 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart'; // 🚀 kIsWeb check ke liye
+import 'package:flutter/foundation.dart'; // For kIsWeb check
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:http/http.dart' as http; // Required for Cloudinary multipart requests
 import '../theme/app_theme.dart';
 import '../main.dart';
 import 'login_screen.dart';
-// 🌟 History screen ka import yahan add kar diya hai
-import 'user_my_history_page.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,10 +21,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final User? user = FirebaseAuth.instance.currentUser;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  String? _base64Image;
+  String? _profileImageUrl; // Changed from _base64Image to store Cloudinary URL
   bool _isDarkMode = false;
   bool _isNotificationEnabled = true;
+  bool _isUploading = false; // Loading state for image upload
   final TextEditingController _nameController = TextEditingController();
+
+  // ⚙️ TODO: Replace these with your actual Cloudinary credentials
+  final String _cloudName = "lxuuhill";
+  final String _uploadPreset = "AppPresent";
 
   @override
   void initState() {
@@ -40,7 +44,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (doc.exists) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
           setState(() {
-            _base64Image = data['profileImage'];
+            _profileImageUrl = data['profileImage']; // Fetching image URL from Firestore
             _isNotificationEnabled = data['notifications'] ?? true;
             _nameController.text = data['displayName'] ?? user?.displayName ?? "";
 
@@ -70,12 +74,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ListTile(
               leading: const Icon(Icons.photo_library, color: Colors.green),
               title: const Text('Gallery'),
-              onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.gallery, imageQuality: 40)),
+              onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.gallery, imageQuality: 70)),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt, color: Colors.green),
               title: const Text('Camera'),
-              onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.camera, imageQuality: 40)),
+              onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.camera, imageQuality: 70)),
             ),
           ],
         ),
@@ -85,8 +89,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (pickedFile != null) {
       if (kIsWeb) {
         final bytes = await pickedFile.readAsBytes();
-        String base64String = base64Encode(bytes);
-        await _saveProfileImage(base64String);
+        await _uploadToCloudinary(bytes, pickedFile.name);
       } else {
         CroppedFile? croppedFile = await ImageCropper().cropImage(
           sourcePath: pickedFile.path,
@@ -103,20 +106,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         if (croppedFile != null) {
           final bytes = await croppedFile.readAsBytes();
-          String base64String = base64Encode(bytes);
-          await _saveProfileImage(base64String);
+          final fileName = croppedFile.path.split('/').last;
+          await _uploadToCloudinary(bytes, fileName);
         }
       }
     }
   }
 
-  Future<void> _saveProfileImage(String base64String) async {
+  // 🚀 Cloudinary Upload Functionality
+  Future<void> _uploadToCloudinary(Uint8List imageBytes, String fileName) async {
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      var uri = Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
+      var request = http.MultipartRequest("POST", uri)
+        ..fields['upload_preset'] = _uploadPreset
+        ..files.add(http.MultipartFile.fromBytes(
+          'file',
+          imageBytes,
+          filename: fileName,
+        ));
+
+      var response = await request.send();
+      if (response.statusCode == 200) {
+        var responseData = await response.stream.bytesToString();
+        var jsonData = json.decode(responseData);
+        String secureUrl = jsonData['secure_url'];
+
+        // Save URL to Firestore
+        await _saveProfileImageUrl(secureUrl);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Profile picture successfully updated!")),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Cloudinary upload failed. Please try again.")),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
+    }
+  }
+
+  Future<void> _saveProfileImageUrl(String imageUrl) async {
     await _firestore.collection('users').doc(user!.uid).set({
-      'profileImage': base64String,
+      'profileImage': imageUrl,
     }, SetOptions(merge: true));
 
     setState(() {
-      _base64Image = base64String;
+      _profileImageUrl = imageUrl;
     });
   }
 
@@ -185,20 +236,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _firestore.collection('users').doc(user!.uid).update({'notifications': val});
                       },
                     ),
-                    // 🌟 Verification History option bilkul yahan Prayer Notifications ke neeche fit kar diya hai
-                    _buildHistoryTile(
-                      icon: Icons.history_edu,
-                      title: "Verification History",
-                      subtitle: "Track your scholar questions & payments",
-                      color: Colors.teal,
-                      isDark: isDark,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const UserMyHistoryPage()),
-                        );
-                      },
-                    ),
                   ]),
                   const SizedBox(height: 40),
                   _buildLogoutButton(),
@@ -233,10 +270,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircleAvatar(
                   radius: 55,
                   backgroundColor: Colors.white,
-                  backgroundImage: (_base64Image != null && _base64Image!.isNotEmpty)
-                      ? MemoryImage(base64Decode(_base64Image!))
+                  backgroundImage: (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
+                      ? NetworkImage(_profileImageUrl!) as ImageProvider
                       : null,
-                  child: (_base64Image == null || _base64Image!.isEmpty)
+                  child: _isUploading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : (_profileImageUrl == null || _profileImageUrl!.isEmpty)
                       ? Icon(Icons.person, size: 50, color: Colors.green.shade800)
                       : null,
                 ),
@@ -245,7 +284,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 bottom: 0,
                 right: 4,
                 child: GestureDetector(
-                  onTap: _pickAndCropImage,
+                  onTap: _isUploading ? null : _pickAndCropImage,
                   child: const CircleAvatar(
                     radius: 18,
                     backgroundColor: Colors.orangeAccent,
@@ -318,21 +357,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // 🌟 Naya tile helper jo existing card styling ke sath perfectly embed ho raha hai
-  Widget _buildHistoryTile({required IconData icon, required String title, required String subtitle, required Color color, required bool isDark, required VoidCallback onTap}) {
-    return ListTile(
-      onTap: onTap,
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
-      subtitle: Text(subtitle, style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black54)),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-    );
-  }
-
   Widget _buildLogoutButton() {
     return SizedBox(
       width: double.infinity,
@@ -351,9 +375,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           await FirebaseAuth.instance.signOut();
           if (mounted) {
             Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    (route) => false
+              context,
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
             );
           }
         },

@@ -10,6 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import 'user_answer_screen.dart'; // 🚀 Alag file se import kiya gaya hai
 // 🚀 FIXED: Removed dart:io import entirely to prevent Web crashes
 
 import '../services/prayer_service.dart';
@@ -23,8 +24,7 @@ import 'safar_dua_screen.dart';
 import 'hadith_books_screen.dart';
 import 'bookmarks_screen.dart';
 import 'daily_deeds.dart'; // 🚀 DailyDeeds link navigation
-// TODO: Create or verify 'books_screen.dart' file exists inside your screens directory
-// import 'books_screen.dart';
+import 'user_book_list_view.dart'; // 📚 Books Library View Import
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -221,12 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const SurahListScreen(),
       const HadithBooksScreen(),
       const BookmarksScreen(),
-      const Center(
-        child: Text(
-            "Islamic Books Hub Coming Soon! 📚",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
-        ),
-      ),
+      const UserBookListView(),
     ];
 
     return Scaffold(
@@ -482,7 +477,6 @@ class _HomeScreenState extends State<HomeScreen> {
           _actionBtn("Islamic AI", Icons.smart_toy_rounded, Colors.cyan, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AIChatScreen()))),
           _actionBtn("Tasbeeh", Icons.track_changes, Colors.blueAccent, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TasbeehListScreen()))),
           _actionBtn("Safar Dua", Icons.travel_explore_rounded, Colors.teal, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SafarDuaScreen()))),
-          // 🌟 Yahan "User Answers" ka card add kar diya gaya hai Safar Dua ke sath
           _actionBtn("User Answers", Icons.question_answer_rounded, Colors.orange, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserAnswerScreen()))),
         ],
       ),
@@ -521,31 +515,6 @@ class _HomeScreenState extends State<HomeScreen> {
         BottomNavigationBarItem(icon: Icon(Icons.bookmark_rounded), label: "Bookmarks"),
         BottomNavigationBarItem(icon: Icon(Icons.collections_bookmark_rounded), label: "Books"),
       ],
-    );
-  }
-}
-
-// 🌟 Khali Screen (User Answer Screen)
-class UserAnswerScreen extends StatelessWidget {
-  const UserAnswerScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF001A12) : Colors.white,
-      appBar: AppBar(
-        title: const Text("User Answers"),
-        backgroundColor: isDark ? const Color(0xFF003D33) : const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: const Center(
-        child: Text(
-          "",
-          style: TextStyle(fontSize: 16),
-        ),
-      ),
     );
   }
 }

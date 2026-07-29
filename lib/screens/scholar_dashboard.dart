@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../theme/app_theme.dart';
-import 'login_screen.dart';
-import 'scholar_questions_screen.dart';
-import 'scholar_payments_screen.dart';
-import 'profile_screen.dart';
-import 'scholar_notifications_screen.dart';
+import 'package:digital_islamic_hub_new/screens/scholar_questions_screen.dart';
+import 'package:digital_islamic_hub_new/screens/scholar_payments_screen.dart';
+import 'package:digital_islamic_hub_new/screens/scholar_notifications_screen.dart';
+import 'package:digital_islamic_hub_new/screens/scholar_profile_screen.dart'; // <-- Profile screen import
 
 class ScholarDashboard extends StatefulWidget {
   const ScholarDashboard({super.key});
@@ -103,11 +101,25 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
         title: const Text("Scholar Dashboard", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
+          // 👤 Profile Icon Button Added in AppBar (right side)
+          IconButton(
+            icon: const Icon(Icons.person_outline_rounded, size: 26, color: Colors.white),
+            tooltip: "Profile",
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ScholarProfileScreen()),
+            ),
+          ),
+          // Notifications Icon Button
           IconButton(
             icon: const Icon(Icons.notifications_none_outlined, size: 26, color: Colors.white),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScholarNotificationsScreen(currentScholarId: user!.uid))),
+            tooltip: "Notifications",
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ScholarNotificationsScreen(currentScholarId: user!.uid)),
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -120,14 +132,13 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
               const SizedBox(height: 4),
               Text(userName, style: TextStyle(color: isDark ? const Color(0xFF81C784) : const Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 26)),
               const SizedBox(height: 24),
-              // crossAxisCount ko 4 kar diya hai taake sab aik line mein aa jayein
               GridView.count(
-                crossAxisCount: 4,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 1.2, // Chhotay aur compact cards ke liye
+                childAspectRatio: 1.4,
                 children: [
                   _DashboardCard(
                     title: "Questions",
@@ -140,21 +151,6 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
                     icon: Icons.account_balance_wallet_rounded,
                     color: Colors.blue,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScholarPaymentsScreen(scholarId: user!.uid))),
-                  ),
-                  _DashboardCard(
-                    title: "Profile",
-                    icon: Icons.person_rounded,
-                    color: Colors.teal,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
-                  ),
-                  _DashboardCard(
-                    title: "Logout",
-                    icon: Icons.logout_rounded,
-                    color: Colors.red,
-                    onTap: () async {
-                      await FirebaseAuth.instance.signOut();
-                      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-                    },
                   ),
                 ],
               ),
@@ -182,16 +178,16 @@ class _DashboardCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withAlpha(15) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [if (!isDark) BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 6, offset: const Offset(0, 2))],
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [if (!isDark) BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 8, offset: const Offset(0, 3))],
           border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 26),
-            const SizedBox(height: 6),
-            Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
+            Icon(icon, color: color, size: 30),
+            const SizedBox(height: 8),
+            Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
           ],
         ),
       ),

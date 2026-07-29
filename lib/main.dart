@@ -49,7 +49,7 @@ class MyApp extends StatelessWidget {
                       .snapshots(),
                   builder: (context, userSnapshot) {
                     if (!userSnapshot.hasData) return const SplashScreen();
-                    
+
                     var userData = userSnapshot.data!.data() as Map<String, dynamic>?;
                     if (userData == null) return const LoginScreen();
 
@@ -57,7 +57,9 @@ class MyApp extends StatelessWidget {
                     bool isVerified = userData['isVerifiedScholar'] ?? false;
 
                     if (role == 'scholar') {
-                      return isVerified ? const ScholarDashboard() : const ScholarDetailsScreen();
+                      return isVerified
+                          ? const ScholarDashboard()
+                          : const ScholarDetailsScreen();
                     }
                     return const HomeScreen();
                   },

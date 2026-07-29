@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
-import 'user_question_screen.dart';
-import 'scholar_list_screen.dart';// 🌟 Yeh import add karna zaroori hai
-import 'package:digital_islamic_hub_new/screens/scholar_list_screen.dart';
-import 'package:digital_islamic_hub_new/screens/user_question_screen.dart';
-
+import 'scholar_list_screen.dart';
+import 'user_answer_screen.dart';
 
 class AIChatScreen extends StatefulWidget {
   const AIChatScreen({super.key});
@@ -15,18 +14,44 @@ class AIChatScreen extends StatefulWidget {
 
 class _AIChatScreenState extends State<AIChatScreen> {
   final TextEditingController _controller = TextEditingController();
+  final User? currentUser = FirebaseAuth.instance.currentUser;
+
   final List<Map<String, String>> _messages = [
-    {"role": "assistant", "content": "Assalamu Alaikum! I am your Islamic AI Assistant. How can I help you today?"}
+    {
+      "role": "assistant",
+      "content": "user question?"
+    }
   ];
+
+  // 📥 Chat ko Firestore mein save karne ka function taake history maintain rahe
+  Future<void> _saveChatToHistory(String userMsg, String aiMsg) async {
+    if (currentUser == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('ai_chat_history').add({
+        'userId': currentUser!.uid,
+        'userMessage': userMsg,
+        'aiResponse': aiMsg,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      // Error handling
+    }
+  }
 
   void _sendMessage() {
     if (_controller.text.trim().isEmpty) return;
 
+    final userText = _controller.text.trim();
+    final aiText = "AI Answer";
+
     setState(() {
-      _messages.add({"role": "user", "content": _controller.text});
-      _messages.add({"role": "assistant", "content": "I am currently in development. Soon I will be able to answer your questions about Islam, Quran, and Sunnah using advanced AI."});
+      _messages.add({"role": "user", "content": userText});
+      _messages.add({"role": "assistant", "content": aiText});
       _controller.clear();
     });
+
+    // Background mein chat history save karna
+    _saveChatToHistory(userText, aiText);
   }
 
   @override
@@ -40,6 +65,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
         backgroundColor: isDark ? AppTheme.primaryDark : const Color(0xFF2E7D32),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: const [], // Adhoora code yahan se theek kar diya gaya hai
       ),
       body: Column(
         children: [
@@ -54,12 +80,14 @@ class _AIChatScreenState extends State<AIChatScreen> {
                 return Align(
                   alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Column(
-                    crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                    crossAxisAlignment:
+                    isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                     children: [
                       // --- CHAT BUBBLE ---
                       Container(
                         margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
                           color: isUser
                               ? const Color(0xFF2E7D32)
@@ -74,7 +102,9 @@ class _AIChatScreenState extends State<AIChatScreen> {
                         child: Text(
                           msg["content"]!,
                           style: TextStyle(
-                            color: isUser ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                            color: isUser
+                                ? Colors.white
+                                : (isDark ? Colors.white70 : Colors.black87),
                           ),
                         ),
                       ),
@@ -85,10 +115,11 @@ class _AIChatScreenState extends State<AIChatScreen> {
                           padding: const EdgeInsets.only(left: 4, bottom: 12, top: 2),
                           child: InkWell(
                             onTap: () {
-                              final userQuestion = _messages[index - 1]["content"] ?? "";
+                              final userQuestion =
+                                  _messages[index - 1]["content"] ?? "";
                               final aiAnswer = msg["content"] ?? "";
 
-                              // Scholar Selection Screen par bhejna
+                              // 🚀 Yahan hum questionData ke sath ScholarListScreen par bhej rahe hain
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -103,14 +134,17 @@ class _AIChatScreenState extends State<AIChatScreen> {
                             },
                             borderRadius: BorderRadius.circular(20),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                      Icons.verified_user_outlined,
-                                      size: 16,
-                                      color: isDark ? Colors.greenAccent : const Color(0xFF2E7D32)
+                                    Icons.verified_user_outlined,
+                                    size: 16,
+                                    color: isDark
+                                        ? Colors.greenAccent
+                                        : const Color(0xFF2E7D32),
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
@@ -118,7 +152,9 @@ class _AIChatScreenState extends State<AIChatScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: isDark ? Colors.greenAccent : const Color(0xFF2E7D32),
+                                      color: isDark
+                                          ? Colors.greenAccent
+                                          : const Color(0xFF2E7D32),
                                     ),
                                   ),
                                 ],
@@ -161,14 +197,17 @@ class _AIChatScreenState extends State<AIChatScreen> {
               style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               decoration: InputDecoration(
                 hintText: "Ask something...",
-                hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.black38),
+                hintStyle:
+                TextStyle(color: isDark ? Colors.white38 : Colors.black38),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                fillColor:
+                isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
+                contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               ),
             ),
           ),

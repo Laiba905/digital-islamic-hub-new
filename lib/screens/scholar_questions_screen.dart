@@ -1,17 +1,204 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../theme/app_theme.dart';
+import 'package:intl/intl.dart';
 
-class ScholarQuestionsScreen extends StatefulWidget {
+// 1. Scholar Questions Main Screen (Shows User List Cards)
+class ScholarQuestionsScreen extends StatelessWidget {
   final String scholarId;
   const ScholarQuestionsScreen({super.key, required this.scholarId});
 
   @override
-  State<ScholarQuestionsScreen> createState() => _ScholarQuestionsScreenState();
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
+      appBar: AppBar(
+        title: const Text("Scholar Inquiries", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF2E7D32),
+        foregroundColor: Colors.white,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('user_questions')
+            .where('scholarId', isEqualTo: scholarId)
+            .where('status', whereIn: ['sent_to_scholar', 'answered'])
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Text(
+                "No inquiries found for this scholar.",
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+              ),
+            );
+          }
+
+          var docs = snapshot.data!.docs;
+
+          // Group questions by userId
+          Map<String, List<DocumentSnapshot>> userGroups = {};
+
+          for (var doc in docs) {
+            var data = doc.data() as Map<String, dynamic>;
+            String userId = data['userId'] ?? 'unknown_user';
+            userGroups.putIfAbsent(userId, () => []).add(doc);
+          }
+
+          var userIds = userGroups.keys.toList();
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: userIds.length,
+            itemBuilder: (context, index) {
+              String userId = userIds[index];
+              var userDocs = userGroups[userId]!;
+
+              // Sort user docs to find the latest message date & pending count
+              userDocs.sort((a, b) {
+                Timestamp? timeA = (a.data() as Map<String, dynamic>)['createdAt'];
+                Timestamp? timeB = (b.data() as Map<String, dynamic>)['createdAt'];
+                if (timeA == null || timeB == null) return 0;
+                return timeB.compareTo(timeA);
+              });
+
+              int pendingCount = userDocs.where((d) => (d.data() as Map<String, dynamic>)['status'] == 'sent_to_scholar').length;
+
+              var latestData = userDocs.first.data() as Map<String, dynamic>;
+              String lastMessage = latestData['questionText'] ?? '';
+              Timestamp? latestTimestamp = latestData['createdAt'];
+
+              String formattedDate = 'Recent';
+              if (latestTimestamp != null) {
+                formattedDate = DateFormat('EEE, dd MMM yyyy, hh:mm a').format(latestTimestamp.toDate());
+              }
+
+              // Firestore se user ka naam nikalne ka secure tareeqa (displayName shamil kiya gaya hai)
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+                builder: (context, userSnapshot) {
+                  String displayName = "User";
+
+                  if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                    var userData = userSnapshot.data!.data() as Map<String, dynamic>?;
+
+                    // Yahan sabse pehle 'displayName' ko check kiya gaya hai
+                    String? fetchedName = userData?['displayName'] ?? userData?['name'] ?? userData?['fullName'] ?? userData?['userName'];
+                    String? fetchedEmail = userData?['email'] ?? userData?['userEmail'];
+
+                    if (fetchedName != null && fetchedName.trim().isNotEmpty) {
+                      displayName = fetchedName;
+                    } else if (fetchedEmail != null && fetchedEmail.contains('@')) {
+                      displayName = fetchedEmail.split('@').first;
+                    } else {
+                      displayName = "User ($userId)";
+                    }
+                  } else if (latestData['userName'] != null && latestData['userName'].toString().trim().isNotEmpty && latestData['userName'] != "User") {
+                    displayName = latestData['userName'];
+                  } else if (latestData['name'] != null && latestData['name'].toString().trim().isNotEmpty) {
+                    displayName = latestData['name'];
+                  } else {
+                    displayName = "User";
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFF2E7D32).withAlpha(30),
+                        child: const Icon(Icons.person, color: Color(0xFF2E7D32)),
+                      ),
+                      title: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              displayName,
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (pendingCount > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.orange,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                "New Query ($pendingCount)",
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ),
+                        ],
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 6),
+                          Text(
+                            lastMessage,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            formattedDate,
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => UserChatDetailScreen(
+                              userId: userId,
+                              userName: displayName,
+                              scholarId: scholarId,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
+// 2. User Detail Chat/Questions Screen (Shows specific user's questions in order)
+class UserChatDetailScreen extends StatefulWidget {
+  final String userId;
+  final String userName;
+  final String scholarId;
+
+  const UserChatDetailScreen({
+    super.key,
+    required this.userId,
+    required this.userName,
+    required this.scholarId,
+  });
+
+  @override
+  State<UserChatDetailScreen> createState() => _UserChatDetailScreenState();
+}
+
+class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
   final Map<String, TextEditingController> _controllers = {};
   bool _isLoading = false;
 
@@ -21,7 +208,6 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
     super.dispose();
   }
 
-  // 🚀 Submit Function with Notifications for User & Admin
   Future<void> _submitAnswer(String questionId, String answer, String userId, String scholarName) async {
     if (answer.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Jawab likhna zaroori hai!")));
@@ -31,15 +217,13 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Answer ko update ya save karein
       await FirebaseFirestore.instance.collection('user_questions').doc(questionId).update({
-        'aiResponse': answer.trim(),
+        'scholarResponse': answer.trim(),
         'scholarName': scholarName,
         'status': 'answered',
         'answeredAt': FieldValue.serverTimestamp(),
       });
 
-      // 2. User ke liye Notification bhejein
       await FirebaseFirestore.instance.collection('notifications').add({
         'targetRole': 'user',
         'targetId': userId,
@@ -49,18 +233,8 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
         'timestamp': Timestamp.now(),
       });
 
-      // 3. Admin ke liye Notification bhejein
-      await FirebaseFirestore.instance.collection('notifications').add({
-        'targetRole': 'admin',
-        'targetId': 'admin_id_yahan_aaye_gi',
-        'title': 'New Answer Submitted 📝',
-        'message': 'Scholar ($scholarName) ne aik sawal ka jawab submit kar diya hai.',
-        'isRead': false,
-        'timestamp': Timestamp.now(),
-      });
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Jawab aur Notifications kamyabi se bhej di gayi hain!")));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Jawab kamyabi se bhej diya gaya hai!")));
         setState(() => _isLoading = false);
       }
     } catch (e) {
@@ -78,7 +252,7 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
       appBar: AppBar(
-        title: const Text("Scholar Questions", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.userName, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF2E7D32),
         foregroundColor: Colors.white,
       ),
@@ -86,6 +260,7 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
         stream: FirebaseFirestore.instance
             .collection('user_questions')
             .where('scholarId', isEqualTo: widget.scholarId)
+            .where('userId', isEqualTo: widget.userId)
             .where('status', whereIn: ['sent_to_scholar', 'answered'])
             .snapshots(),
         builder: (context, snapshot) {
@@ -95,27 +270,46 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
               child: Text(
-                "No questions found for this scholar.",
+                "No queries found for this user.",
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
               ),
             );
           }
 
+          var docs = snapshot.data!.docs;
+
+          // Local sorting: Newest messages first
+          docs.sort((a, b) {
+            Timestamp? timeA = (a.data() as Map<String, dynamic>)['createdAt'];
+            Timestamp? timeB = (b.data() as Map<String, dynamic>)['createdAt'];
+            if (timeA == null || timeB == null) return 0;
+            return timeB.compareTo(timeA);
+          });
+
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: snapshot.data!.docs.length,
+            itemCount: docs.length,
             itemBuilder: (context, index) {
-              var doc = snapshot.data!.docs[index];
+              var doc = docs[index];
               var data = doc.data() as Map<String, dynamic>;
               String qId = doc.id;
+
               String questionText = data['questionText'] ?? "No Question Text";
-              String userId = data['userId'] ?? '';
+              String aiAnswer = data['aiResponse'] ?? "No AI response recorded.";
               String scholarName = data['scholarName'] ?? 'Aalim';
               bool isAnswered = data['status'] == 'answered';
               String scholarShare = data['scholarShare']?.toString() ?? '50';
 
+              String? additionalNote = data['additionalNote'];
+
+              Timestamp? timestamp = data['createdAt'];
+              String formattedDateTime = 'Recent';
+              if (timestamp != null) {
+                formattedDateTime = DateFormat('EEEE, dd MMM yyyy, hh:mm a').format(timestamp.toDate());
+              }
+
               if (!_controllers.containsKey(qId)) {
-                _controllers[qId] = TextEditingController(text: data['aiResponse'] ?? "");
+                _controllers[qId] = TextEditingController(text: data['scholarResponse'] ?? "");
               }
 
               return Card(
@@ -129,16 +323,27 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        children: [
+                          const Icon(Icons.person_outline, size: 18, color: Color(0xFF2E7D32)),
+                          const SizedBox(width: 6),
+                          Text(
+                            "User: ${widget.userName}",
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white70 : Colors.black87),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: isAnswered ? Colors.green.withOpacity(0.15) : Colors.orange.withOpacity(0.15),
+                              color: isAnswered ? Colors.green.withAlpha(38) : Colors.orange.withAlpha(38),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              isAnswered ? "Answered" : "Pending",
+                              isAnswered ? "Answered" : "New Query",
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -146,10 +351,20 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
                               ),
                             ),
                           ),
+                          Text(
+                            formattedDateTime,
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.15),
+                              color: Colors.blue.withAlpha(38),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -163,20 +378,94 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
-                      const Text("Question from User:", style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text(
-                        questionText,
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+                      const Divider(height: 20),
+
+                      // User Question Box
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.blue.withAlpha(20) : Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.blue.withAlpha(70)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "User Question",
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              questionText,
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+                            ),
+                          ],
+                        ),
                       ),
-                      const Divider(height: 24),
+                      const SizedBox(height: 12),
+
+                      if (additionalNote != null && additionalNote.trim().isNotEmpty) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.purple.withAlpha(20) : Colors.purple.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.purple.withAlpha(70)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Additional Note / Message",
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                additionalNote,
+                                style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black87),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+
+                      // AI Answer Box
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.orange.withAlpha(20) : Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.orange.withAlpha(70)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "AI Answer",
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.orange),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              aiAnswer,
+                              style: const TextStyle(fontSize: 14, color: Colors.black87),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Scholar Answer Box
                       const Row(
                         children: [
                           Icon(Icons.edit_note, size: 20, color: Color(0xFF2E7D32)),
                           SizedBox(width: 6),
                           Text(
-                            "Write Your Answer / Jawab Dein:",
+                            "Scholar Answer :",
                             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
                           ),
                         ],
@@ -187,13 +476,14 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
                         maxLines: 4,
                         enabled: !isAnswered,
                         decoration: InputDecoration(
-                          hintText: "Apna fatwa ya tafseeli jawab yahan type karein...",
+                          hintText: "Enter your Answer  ",
                           filled: true,
                           fillColor: isDark ? Colors.black26 : Colors.grey.shade100,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
                       ),
                       const SizedBox(height: 16),
+
                       if (!isAnswered) ...[
                         SizedBox(
                           width: double.infinity,
@@ -206,7 +496,7 @@ class _ScholarQuestionsScreenState extends State<ScholarQuestionsScreen> {
                             ),
                             onPressed: _isLoading
                                 ? null
-                                : () => _submitAnswer(qId, _controllers[qId]!.text, userId, scholarName),
+                                : () => _submitAnswer(qId, _controllers[qId]!.text, widget.userId, scholarName),
                             child: _isLoading
                                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : const Text("Submit Answer", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),

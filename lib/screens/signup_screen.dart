@@ -36,6 +36,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
         // 2. Database Write
         if (finalRole == 'scholar') {
+          // --- SCHOLAR BLOCK ---
           await FirebaseFirestore.instance.collection('scholars').doc(uid).set({
             'uid': uid,
             'displayName': name,
@@ -46,7 +47,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-          // 🚀 ROUTING: Scholar details par le jao
           if (mounted) {
             Navigator.pushReplacement(
               context,
@@ -54,15 +54,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
             );
           }
         } else {
+          // --- USER BLOCK (Sirf Name, Email aur Role) ---
           await FirebaseFirestore.instance.collection('users').doc(uid).set({
             'uid': uid,
             'displayName': name,
             'email': email,
             'role': 'User',
             'status': 'active',
-            'current_streak': 0,
             'createdAt': FieldValue.serverTimestamp(),
           });
+
+          // Agar aapko HomeScreen ya kahin aur bhejna ho toh yahan Navigator add kar sakte hain
         }
       } on FirebaseAuthException catch (e) {
         String message = e.code == 'email-already-in-use' ? "Email already exists." : "Sign up failed.";
