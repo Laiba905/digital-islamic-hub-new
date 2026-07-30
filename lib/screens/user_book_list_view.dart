@@ -7,27 +7,32 @@ import 'cloudinary_service.dart';
 class UserBookListView extends StatelessWidget {
   const UserBookListView({super.key});
 
-  // PDF Open karne ka behtareen tareeqa
+  // PDF Open karne ka behtareen tareeqa with URL Cleaning
   Future<void> _openPDF(BuildContext context, String pdfUrl) async {
-    // 🛠️ Cloudinary URL Fix: image/upload ko auto/upload mein convert kar rahe hain
-    String fixedUrl = pdfUrl;
+    String fixedUrl = pdfUrl.trim();
+
+    // 🛠️ 1. Cloudinary Type Fix (/image/upload/ ya /raw/upload/ ko /auto/upload/ mein badalna)
     if (fixedUrl.contains('/image/upload/')) {
       fixedUrl = fixedUrl.replaceFirst('/image/upload/', '/auto/upload/');
     } else if (fixedUrl.contains('/raw/upload/')) {
       fixedUrl = fixedUrl.replaceFirst('/raw/upload/', '/auto/upload/');
     }
 
+    // 🛠️ 2. Duplicate Extension Fix (Misformatted .pdf.pdf ko .pdf karna)
+    if (fixedUrl.endsWith('.pdf.pdf')) {
+      fixedUrl = fixedUrl.substring(0, fixedUrl.length - 4);
+    }
+
     final Uri uri = Uri.parse(fixedUrl);
     try {
-      // Web browser ke liye external application mode
+      // Web ya Mobile ke mutabiq link launch karna
       bool launched = await launchUrl(
         uri,
-        mode: LaunchMode.externalApplication,
+        mode: LaunchMode.platformDefault,
       );
 
       if (!launched) {
-        // Fallback agar pehla tareeqa kaam na kare
-        await launchUrl(uri, mode: LaunchMode.platformDefault);
+        throw 'Could not launch $fixedUrl';
       }
     } catch (e) {
       if (context.mounted) {
@@ -43,7 +48,7 @@ class UserBookListView extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('Islamic Books '),
+        title: const Text('Islamic Books'),
         backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
       ),

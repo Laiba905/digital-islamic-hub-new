@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:digital_islamic_hub_new/screens/scholar_dashboard.dart'; // (Aapke folder structure ke mutabiq path yeh hoga)
+import 'package:digital_islamic_hub_new/screens/scholar_dashboard.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
-import 'scholar_dashboard.dart';
-import 'scholar_details_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
         User? user = userCredential.user;
 
         if (user != null && mounted) {
-          // 🔍 1. Pehle 'scholars' collection check karein (Kyunke admin yahan status update karta hai)
+          // 🔍 1. Pehle 'scholars' collection check karein
           DocumentSnapshot scholarDoc = await FirebaseFirestore.instance
               .collection('scholars')
               .doc(user.uid)
@@ -45,13 +43,9 @@ class _LoginScreenState extends State<LoginScreen> {
             String status = (scholarData['status'] ?? 'pending').toString().toLowerCase().trim();
 
             if (status == 'approved') {
-              // ✅ Agar Admin ne approve kar diya hai -> Seedha Scholar Dashboard!
+              // ✅ Agar Admin ne approve kar diya hai -> Congratulations Popup dikhayein!
               if (mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) =>  ScholarDashboard()),
-                      (route) => false,
-                );
+                _showApprovedPopup();
               }
               return;
             } else if (status == 'rejected') {
@@ -60,14 +54,9 @@ class _LoginScreenState extends State<LoginScreen> {
               await FirebaseAuth.instance.signOut();
               return;
             } else {
-              // ⏳ Agar abhi 'pending' hai toh verification info screen par bhein aur message dein
-              _showSnackBar("Your account is pending admin approval. Please wait.", isError: true);
+              // ⏳ Agar abhi 'pending' hai toh English Popup dikhayein aur login screen par hi rahein
               if (mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ScholarDetailsScreen()),
-                      (route) => false,
-                );
+                _showPendingPopup();
               }
               return;
             }
@@ -106,6 +95,81 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) setState(() => _isLoading = false);
       }
     }
+  }
+
+  // 🕒 Pending Status Popup Dialog (English Version)
+  void _showPendingPopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.hourglass_top, color: Colors.orange),
+            SizedBox(width: 8),
+            Text("Application Pending"),
+          ],
+        ),
+        content: const Text(
+          "Your application is currently pending. You will be able to access the dashboard once the admin completes the verification process.",
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00C853),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(context); // Close popup
+              FirebaseAuth.instance.signOut(); // Stay on login screen securely
+            },
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🎉 Approved Status Popup Dialog (Congratulations & Go to Dashboard)
+  void _showApprovedPopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Color(0xFF00C853)),
+            SizedBox(width: 8),
+            Text("Congratulations! 🎉"),
+          ],
+        ),
+        content: const Text(
+          "Your application has been accepted. You can now access your dashboard.",
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00C853),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(context); // Close popup
+              // Navigate to Scholar Dashboard
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const ScholarDashboard()),
+                    (route) => false,
+              );
+            },
+            child: const Text("Go to Dashboard"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _handleForgotPassword() async {
@@ -171,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: isDark ? Colors.white.withAlpha(15) : Colors.white.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(30),
                       border: Border.all(color: isDark ? Colors.white10 : Colors.transparent),
-                      boxShadow: isDark ? [] : [BoxShadow(color: Colors.black12, blurRadius: 10)],
+                      boxShadow: isDark ? [] : [const BoxShadow(color: Colors.black12, blurRadius: 10)],
                     ),
                     child: Column(
                       children: [

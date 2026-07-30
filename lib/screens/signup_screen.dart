@@ -15,7 +15,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
   bool _isLoading = false;
+  bool _obscurePassword = true;
   String _selectedRole = 'user';
 
   Future<void> _handleSignUp() async {
@@ -28,33 +30,76 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final String password = _passwordController.text.trim();
 
       try {
-        // 1. Firebase Auth
-        UserCredential userCredential = await FirebaseAuth.instance
-            .createUserWithEmailAndPassword(email: email, password: password);
+        UserCredential? userCredential;
 
-        String uid = userCredential.user!.uid;
+        try {
+          // 1. Pehle Sign Up karne ki koshish karein
+          userCredential = await FirebaseAuth.instance
+              .createUserWithEmailAndPassword(email: email, password: password);
+        } on FirebaseAuthException catch (e) {
+          // 💡 Agar email pehle se mojood hai, toh hum automatically LOGIN karwa denge!
+          if (e.code == 'email-already-in-use') {
+            userCredential = await FirebaseAuth.instance
+                .signInWithEmailAndPassword(email: email, password: password);
+          } else {
+            rethrow;
+          }
+        }
 
-        // 2. Database Write
+        String uid = userCredential!.user!.uid;
+
         if (finalRole == 'scholar') {
-          // --- SCHOLAR BLOCK ---
-          await FirebaseFirestore.instance.collection('scholars').doc(uid).set({
-            'uid': uid,
-            'displayName': name,
-            'email': email,
-            'role': 'scholar',
-            'isVerifiedScholar': false,
-            'status': 'pending',
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+          // 2. Check karein ke kya scholar ki details pehle se Firestore mein hain?
+          DocumentSnapshot scholarDoc = await FirebaseFirestore.instance
+              .collection('scholars')
+              .doc(uid)
+              .get();
 
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const ScholarDetailsScreen()),
-            );
+          if (scholarDoc.exists) {
+            Map<String, dynamic> data = scholarDoc.data() as Map<String, dynamic>;
+            String status = data['status'] ?? 'pending';
+            bool isDetailsFilled = data.containsKey('phone') && data.containsKey('image'); // Check ke details bhari hain ya nahi
+
+            if (!isDetailsFilled) {
+              // Agar details adhoori hain toh wapas ScholarDetailsScreen par bhejein
+              if (mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ScholarDetailsScreen()),
+                );
+              }
+            } else if (status == 'pending') {
+              // Agar details bhari hain par admin ne approve nahi kiya, toh Popup dikhayein
+              if (mounted) {
+                _showPendingPopup(context);
+              }
+            } else if (status == 'approved') {
+              // Agar approved hai toh scholar dashboard par bhej sakte hain (Aap apne dashboard ki screen ka naam yahan likh dein)
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Welcome back, Scholar!"), backgroundColor: Colors.green),
+              );
+            }
+          } else {
+            // Agar scholar doc nahi bani toh nayi entry banayein aur details screen par bhejein
+            await FirebaseFirestore.instance.collection('scholars').doc(uid).set({
+              'uid': uid,
+              'displayName': name,
+              'email': email,
+              'role': 'scholar',
+              'isVerifiedScholar': false,
+              'status': 'pending',
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const ScholarDetailsScreen()),
+              );
+            }
           }
         } else {
-          // --- USER BLOCK (Sirf Name, Email aur Role) ---
+          // --- USER BLOCK ---
           await FirebaseFirestore.instance.collection('users').doc(uid).set({
             'uid': uid,
             'displayName': name,
@@ -62,12 +107,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
             'role': 'User',
             'status': 'active',
             'createdAt': FieldValue.serverTimestamp(),
-          });
+          }, SetOptions(merge: true));
 
-          // Agar aapko HomeScreen ya kahin aur bhejna ho toh yahan Navigator add kar sakte hain
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Login Successful!"), backgroundColor: Colors.green),
+          );
         }
       } on FirebaseAuthException catch (e) {
-        String message = e.code == 'email-already-in-use' ? "Email already exists." : "Sign up failed.";
+        String message = e.code == 'wrong-password' ? "Incorrect password for this email." : "Authentication failed: ${e.message}";
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}"), backgroundColor: Colors.red));
@@ -75,6 +122,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
         if (mounted) setState(() => _isLoading = false);
       }
     }
+  }
+
+  // 🕒 Pending Status Popup Dialog
+  void _showPendingPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.hourglass_top, color: Colors.orange),
+            SizedBox(width: 8),
+            Text("Application Pending"),
+          ],
+        ),
+        content: const Text(
+          "Aap ki application abhi pending mein hai. Admin ki taraf se verification mukammal hone ke baad hi aap dashboard access kar sakenge.",
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
+            onPressed: () {
+              Navigator.pop(context);
+              FirebaseAuth.instance.signOut(); // Logout kar dein taake unauthorized access na ho
+            },
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -112,11 +191,41 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   const SizedBox(height: 25),
 
-                  TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: "Full Name", border: OutlineInputBorder()), validator: (v) => v!.isEmpty ? "Enter name" : null),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(labelText: "Full Name", border: OutlineInputBorder()),
+                    validator: (v) => v!.isEmpty ? "Enter name" : null,
+                  ),
                   const SizedBox(height: 20),
-                  TextFormField(controller: _emailController, decoration: const InputDecoration(labelText: "Email", border: OutlineInputBorder()), validator: (v) => !v!.contains("@") ? "Invalid email" : null),
+
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: const InputDecoration(labelText: "Email", border: OutlineInputBorder()),
+                    validator: (v) => !v!.contains("@") ? "Invalid email" : null,
+                  ),
                   const SizedBox(height: 20),
-                  TextFormField(controller: _passwordController, obscureText: true, decoration: const InputDecoration(labelText: "Password", border: OutlineInputBorder()), validator: (v) => v!.length < 6 ? "Min 6 chars" : null),
+
+                  // Password Field with Eye Icon
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: "Password",
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                    ),
+                    validator: (v) => v!.length < 6 ? "Min 6 chars" : null,
+                  ),
                   const SizedBox(height: 35),
 
                   SizedBox(
@@ -125,7 +234,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _handleSignUp,
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
-                      child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Sign Up"),
+                      child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Sign Up / Continue"),
                     ),
                   ),
                 ],

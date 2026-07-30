@@ -3,8 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:digital_islamic_hub_new/screens/scholar_questions_screen.dart';
 import 'package:digital_islamic_hub_new/screens/scholar_payments_screen.dart';
-import 'package:digital_islamic_hub_new/screens/scholar_notifications_screen.dart';
-import 'package:digital_islamic_hub_new/screens/scholar_profile_screen.dart'; // <-- Profile screen import
+import 'package:digital_islamic_hub_new/screens/scholar_profile_screen.dart';
 
 class ScholarDashboard extends StatefulWidget {
   const ScholarDashboard({super.key});
@@ -15,78 +14,6 @@ class ScholarDashboard extends StatefulWidget {
 
 class _ScholarDashboardState extends State<ScholarDashboard> {
   final User? user = FirebaseAuth.instance.currentUser;
-
-  @override
-  void initState() {
-    super.initState();
-    _listenToIncomingNotifications();
-  }
-
-  void _listenToIncomingNotifications() {
-    if (user == null) return;
-
-    FirebaseFirestore.instance
-        .collection('scholar_notifications')
-        .where('scholarId', isEqualTo: user!.uid)
-        .where('status', isEqualTo: 'unread')
-        .snapshots()
-        .listen((snapshot) {
-      for (var change in snapshot.docChanges) {
-        if (change.type == DocumentChangeType.added) {
-          var data = change.doc.data() as Map<String, dynamic>;
-          String docId = change.doc.id;
-          String title = data['title'] ?? "Alert";
-          String message = data['message'] ?? "New update available.";
-
-          _showTopNotificationBanner(title, message, docId);
-        }
-      }
-    });
-  }
-
-  void _showTopNotificationBanner(String title, String message, String docId) {
-    if (!mounted) return;
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Container(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            children: [
-              const Icon(Icons.notifications_active, color: Colors.amber, size: 26),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white)),
-                    const SizedBox(height: 2),
-                    Text(message, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Colors.white70)),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: () async {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  await FirebaseFirestore.instance.collection('scholar_notifications').doc(docId).update({'status': 'read'});
-                },
-                child: const Text("OK", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: isDark ? const Color(0xFF002921) : const Color(0xFF1B5E20),
-        duration: const Duration(seconds: 7),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: EdgeInsets.only(bottom: MediaQuery.of(context).size.height - 160, left: 16, right: 16),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,22 +28,13 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
         title: const Text("Scholar Dashboard", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
-          // 👤 Profile Icon Button Added in AppBar (right side)
+          // 👤 Profile Icon Button
           IconButton(
             icon: const Icon(Icons.person_outline_rounded, size: 26, color: Colors.white),
             tooltip: "Profile",
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ScholarProfileScreen()),
-            ),
-          ),
-          // Notifications Icon Button
-          IconButton(
-            icon: const Icon(Icons.notifications_none_outlined, size: 26, color: Colors.white),
-            tooltip: "Notifications",
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => ScholarNotificationsScreen(currentScholarId: user!.uid)),
             ),
           ),
           const SizedBox(width: 8),
@@ -131,28 +49,40 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
               Text("Assalamu Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 14)),
               const SizedBox(height: 4),
               Text(userName, style: TextStyle(color: isDark ? const Color(0xFF81C784) : const Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 26)),
-              const SizedBox(height: 24),
-              GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 1.4,
-                children: [
-                  _DashboardCard(
-                    title: "Questions",
-                    icon: Icons.chat_bubble_rounded,
-                    color: Colors.orange,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScholarQuestionsScreen(scholarId: user!.uid))),
+              const SizedBox(height: 30),
+
+              // 👇 Yahan humne Row use kiya hai taake cards ki width aur height dono controlled (choti) rahein
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800), // Web ke liye maximum width limit
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 260, // 👈 Yahan se aap cards ki height mazeed kam ya zyada kar sakte hain
+                          child: _DashboardCard(
+                            title: "Questions",
+                            icon: Icons.chat_bubble_rounded,
+                            color: Colors.orange,
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScholarQuestionsScreen(scholarId: user!.uid))),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16), // Dono cards ke darmiyan fasla
+                      Expanded(
+                        child: SizedBox(
+                          height: 260, // 👈 Height dono ki barabar rahegi
+                          child: _DashboardCard(
+                            title: "Payments",
+                            icon: Icons.account_balance_wallet_rounded,
+                            color: Colors.blue,
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScholarPaymentsScreen(scholarId: user!.uid))),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  _DashboardCard(
-                    title: "Payments",
-                    icon: Icons.account_balance_wallet_rounded,
-                    color: Colors.blue,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScholarPaymentsScreen(scholarId: user!.uid))),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -185,9 +115,17 @@ class _DashboardCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 30),
+            Icon(icon, color: color, size: 28),
             const SizedBox(height: 8),
-            Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
           ],
         ),
       ),
