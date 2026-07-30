@@ -20,6 +20,7 @@ class _DailyDeedsState extends State<DailyDeeds> {
     _validateAndResetMissedStreak();
   }
 
+  // 🔄 Streak Validation Logic (Missed Days Check)
   Future<void> _validateAndResetMissedStreak() async {
     try {
       DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(widget.userId);
@@ -37,27 +38,22 @@ class _DailyDeedsState extends State<DailyDeeds> {
         DateTime lastUpdateMidnight = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
         int differenceInDays = todayMidnight.difference(lastUpdateMidnight).inDays;
 
-        // Agar 1 din ya us se zyada ka gap hai, toh check karo ke kya us guzre hue din mein admin ne deeds banaye thay ya nahi
         if (differenceInDays > 1) {
-          // Pichle din ki date string nikalte hain jis din user ne miss kiya
           DateTime missedDay = lastUpdateMidnight.add(const Duration(days: 1));
           String missedDayStr = missedDay.toIso8601String().split('T')[0];
 
-          // Check karte hain ke kya us din admin ne koi deeds publish kiye thay
+          // Check if admin posted deeds on that missed day either via old collection or 30-day program
           QuerySnapshot adminDeedsCheck = await FirebaseFirestore.instance
               .collection('daily_deeds')
               .where('dateStr', isEqualTo: missedDayStr)
               .get();
 
-          // Sirf tab streak 0 hogi jab admin ne deeds banaye thay lekin user ne miss kar diye
           if (adminDeedsCheck.docs.isNotEmpty) {
             await userRef.update({
               'streak': 0,
               'completedTodayDate': "",
             });
-            debugPrint("Streak Reset to 0 because admin posted deeds, but user missed them!");
-          } else {
-            debugPrint("Streak Safe! Admin didn't post any deeds on that day.");
+            debugPrint("Streak Reset to 0 because user missed a day!");
           }
         }
       }
@@ -66,6 +62,7 @@ class _DailyDeedsState extends State<DailyDeeds> {
     }
   }
 
+  // 🚀 Submit Streak & Points
   void _submitStreak(int pointsCalculated) async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
@@ -93,7 +90,7 @@ class _DailyDeedsState extends State<DailyDeeds> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Mashallah! Aaj ki streak update ho gayi! 🔥"), backgroundColor: Colors.green),
+          const SnackBar(content: Text("MashaAllah! Today's streak has been successfully updated!"), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -107,9 +104,7 @@ class _DailyDeedsState extends State<DailyDeeds> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     String todayStr = DateTime.now().toIso8601String().split('T')[0];
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    final double horizontalPadding = screenWidth > 800 ? 32.0 : 16.0;
+    final double horizontalPadding = MediaQuery.of(context).size.width > 800 ? 32.0 : 16.0;
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.primaryDark : const Color(0xFFF1F8E9),
@@ -124,56 +119,82 @@ class _DailyDeedsState extends State<DailyDeeds> {
         builder: (context, userSnap) {
           int displayStreak = 0;
           String lastDate = "";
+          Timestamp? createdAt;
 
           if (userSnap.hasData && userSnap.data != null && userSnap.data!.exists) {
             final data = userSnap.data!.data() as Map<String, dynamic>?;
             if (data != null) {
               displayStreak = data['streak'] ?? 0;
               lastDate = data['completedTodayDate'] ?? "";
+              createdAt = data['createdAt'] as Timestamp?;
             }
           }
 
           bool alreadyDone = (lastDate == todayStr);
 
-          return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('daily_deeds')
-                .where('dateStr', isEqualTo: todayStr)
-                .snapshots(),
-            builder: (context, deedsSnap) {
-              if ((!deedsSnap.hasData || deedsSnap.data!.docs.isEmpty)) {
-                return FutureBuilder<QuerySnapshot>(
-                  future: FirebaseFirestore.instance
-                      .collection('daily_deeds')
-                      .orderBy('createdAt', descending: true)
-                      .limit(10)
-                      .get(),
+          // 🔥 30-Day Program Data Stream Fetching
+          return StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('app_content').doc('ramadan_or_deeds_30_days').snapshots(),
+            builder: (context, thirtyDaysSnap) {
+              List<Map<String, dynamic>> todayDeedsList = [];
+
+              if (thirtyDaysSnap.hasData && thirtyDaysSnap.data != null && thirtyDaysSnap.data!.exists) {
+                var data = thirtyDaysSnap.data!.data() as Map<String, dynamic>?;
+                if (data != null && data['deeds_list'] != null) {
+                  List list = data['deeds_list'];
+
+                  // 🧮 Calculate which Day (1 to 30) belongs to today based on user's registration/start date
+                  int currentDayNumber = 1;
+                  if (createdAt != null) {
+                    DateTime startDate = createdAt.toDate();
+                    DateTime now = DateTime.now();
+                    int diffDays = DateTime(now.year, now.month, now.day).difference(DateTime(startDate.year, startDate.month, startDate.day)).inDays;
+                    currentDayNumber = (diffDays % 30) + 1; // 30 days complete hone par dobara cycle shuru ho jayegi
+                  }
+
+                  // Match current day deed from the 30-day list
+                  for (var item in list) {
+                    if (item['day'] == currentDayNumber) {
+                      todayDeedsList.add({
+                        'id': 'day_$currentDayNumber',
+                        'title': item['title'] ?? '',
+                        'description': item['description'] ?? '',
+                        'points': item['points'] ?? 5,
+                      });
+                    }
+                  }
+                }
+              }
+
+              // Fallback to old single-day collection if 30-day list is empty
+              if (todayDeedsList.isEmpty) {
+                return StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance.collection('daily_deeds').where('dateStr', isEqualTo: todayStr).snapshots(),
                   builder: (context, fallbackSnap) {
                     if (fallbackSnap.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator(color: Color(0xFF004D40)));
                     }
-
-                    var deeds = fallbackSnap.hasData ? fallbackSnap.data!.docs : [];
-
-                    if (deeds.isEmpty) {
-                      return const Center(
-                        child: Text("No deeds available right now.", style: TextStyle(color: Colors.grey, fontSize: 16)),
-                      );
+                    var deedsDocs = fallbackSnap.hasData ? fallbackSnap.data!.docs : [];
+                    if (deedsDocs.isEmpty) {
+                      return const Center(child: Text("No deeds available for today.", style: TextStyle(color: Colors.grey, fontSize: 16)));
                     }
 
-                    String latestDateStr = deeds.first['dateStr'] ?? '';
-                    var filteredDeeds = deeds
-                        .where((doc) => (doc.data() as Map<String, dynamic>)['dateStr'] == latestDateStr)
-                        .toList()
-                        .cast<QueryDocumentSnapshot<Object?>>();
+                    List<Map<String, dynamic>> mappedDeeds = deedsDocs.map((doc) {
+                      var d = doc.data() as Map<String, dynamic>;
+                      return {
+                        'id': doc.id,
+                        'title': d['title'] ?? '',
+                        'description': '',
+                        'points': d['points'] ?? 5,
+                      };
+                    }).toList();
 
-                    return _buildDeedsContent(context, filteredDeeds, displayStreak, alreadyDone, isDark, horizontalPadding);
+                    return _buildDeedsContent(context, mappedDeeds, displayStreak, alreadyDone, isDark, horizontalPadding);
                   },
                 );
               }
 
-              var deeds = deedsSnap.data!.docs;
-              return _buildDeedsContent(context, deeds, displayStreak, alreadyDone, isDark, horizontalPadding);
+              return _buildDeedsContent(context, todayDeedsList, displayStreak, alreadyDone, isDark, horizontalPadding);
             },
           );
         },
@@ -181,12 +202,11 @@ class _DailyDeedsState extends State<DailyDeeds> {
     );
   }
 
-  Widget _buildDeedsContent(BuildContext context, List<QueryDocumentSnapshot<Object?>> deeds, int displayStreak, bool alreadyDone, bool isDark, double horizontalPadding) {
+  Widget _buildDeedsContent(BuildContext context, List<Map<String, dynamic>> deeds, int displayStreak, bool alreadyDone, bool isDark, double horizontalPadding) {
     int totalCalculatedPoints = 0;
-    for (var doc in deeds) {
-      if (_localTicks.contains(doc.id)) {
-        int pts = (doc.data() as Map<String, dynamic>)['points'] ?? 10;
-        totalCalculatedPoints += pts;
+    for (var deed in deeds) {
+      if (_localTicks.contains(deed['id'])) {
+        totalCalculatedPoints += (deed['points'] as num).toInt();
       }
     }
 
@@ -221,11 +241,11 @@ class _DailyDeedsState extends State<DailyDeeds> {
               child: ListView.builder(
                 itemCount: deeds.length,
                 itemBuilder: (context, index) {
-                  var doc = deeds[index];
-                  var data = doc.data() as Map<String, dynamic>;
-                  String title = data['title'] ?? "Untitled";
-                  String id = doc.id;
-                  int pts = (data['points'] as num? ?? 10).toInt();
+                  var deed = deeds[index];
+                  String title = deed['title'];
+                  String description = deed['description'];
+                  String id = deed['id'];
+                  int pts = deed['points'];
 
                   bool ticked = alreadyDone || _localTicks.contains(id);
 
@@ -235,20 +255,28 @@ class _DailyDeedsState extends State<DailyDeeds> {
                     elevation: 0.5,
                     color: isDark ? Colors.white.withAlpha(15) : Colors.white,
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                       title: Text(
                         title,
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                           color: ticked ? Colors.grey : (isDark ? Colors.white : Colors.black87),
                         ),
                       ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          "+$pts Points",
-                          style: TextStyle(color: ticked ? Colors.grey : Colors.green, fontWeight: FontWeight.w500, fontSize: 13),
-                        ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (description.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(description, style: TextStyle(color: ticked ? Colors.grey : Colors.black54, fontSize: 13)),
+                          ],
+                          const SizedBox(height: 6),
+                          Text(
+                            "+$pts Points",
+                            style: TextStyle(color: ticked ? Colors.grey : Colors.green, fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ],
                       ),
                       trailing: GestureDetector(
                         onTap: alreadyDone ? null : () {

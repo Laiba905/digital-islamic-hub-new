@@ -42,10 +42,24 @@ class _LoginScreenState extends State<LoginScreen> {
             Map<String, dynamic> scholarData = scholarDoc.data() as Map<String, dynamic>;
             String status = (scholarData['status'] ?? 'pending').toString().toLowerCase().trim();
 
+            // Yeh check karein ke kya pehle popup dikhaya ja chuka hai ya nahi
+            bool popupShown = scholarData['isApprovedPopupShown'] ?? false;
+
             if (status == 'approved') {
-              // ✅ Agar Admin ne approve kar diya hai -> Congratulations Popup dikhayein!
-              if (mounted) {
-                _showApprovedPopup();
+              if (popupShown) {
+                // Agar popup pehle dikh chuka hai, toh seedha Scholar Dashboard par bhej dein
+                if (mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ScholarDashboard()),
+                        (route) => false,
+                  );
+                }
+              } else {
+                // Agar pehli baar approve hone ke baad login kiya hai, toh Congratulations Popup dikhayein
+                if (mounted) {
+                  _showApprovedPopup(user.uid);
+                }
               }
               return;
             } else if (status == 'rejected') {
@@ -133,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // 🎉 Approved Status Popup Dialog (Congratulations & Go to Dashboard)
-  void _showApprovedPopup() {
+  void _showApprovedPopup(String uid) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -156,14 +170,21 @@ class _LoginScreenState extends State<LoginScreen> {
               backgroundColor: const Color(0xFF00C853),
               foregroundColor: Colors.white,
             ),
-            onPressed: () {
-              Navigator.pop(context); // Close popup
-              // Navigate to Scholar Dashboard
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const ScholarDashboard()),
-                    (route) => false,
-              );
+            onPressed: () async {
+              // Jaise hi user click kare, database mein update kardein ke popup dikhaya ja chuka hai
+              await FirebaseFirestore.instance.collection('scholars').doc(uid).update({
+                'isApprovedPopupShown': true,
+              });
+
+              if (context.mounted) {
+                Navigator.pop(context); // Close popup
+                // Navigate to Scholar Dashboard
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ScholarDashboard()),
+                      (route) => false,
+                );
+              }
             },
             child: const Text("Go to Dashboard"),
           ),

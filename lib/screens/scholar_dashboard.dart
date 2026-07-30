@@ -59,7 +59,7 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
                     children: [
                       Expanded(
                         child: SizedBox(
-                          height: 260, // 👈 Yahan se aap cards ki height mazeed kam ya zyada kar sakte hain
+                          height: 26git add .0, // 👈 Yahan se aap cards ki height mazeed kam ya zyada kar sakte hain
                           child: _DashboardCard(
                             title: "Questions",
                             icon: Icons.chat_bubble_rounded,
