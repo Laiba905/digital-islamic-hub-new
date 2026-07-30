@@ -1,177 +1,196 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class ManageUsersView extends StatelessWidget {
+class ManageUsersView extends StatefulWidget {
   const ManageUsersView({super.key});
 
-  Stream<int> getUserCount({String? statusValue}) {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.where((doc) {
-        var data = doc.data() as Map<String, dynamic>;
-        String status = (data['status'] ?? 'active').toString();
+  @override
+  State<ManageUsersView> createState() => _ManageUsersViewState();
+}
 
-        if (statusValue != null) {
-          return status == statusValue;
-        }
-        return status != 'blocked';
-      }).length;
-    });
+class _ManageUsersViewState extends State<ManageUsersView> {
+  // 🚫 FUNCTION: User ko Block ya Unblock karne ke liye
+  Future<void> _toggleBlockStatus(String userId, bool currentBlockStatus) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'isBlocked': !currentBlockStatus,
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(currentBlockStatus ? 'User Unblocked Successfully!' : 'User Blocked Successfully!'),
+            backgroundColor: currentBlockStatus ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double dynamicPadding = screenWidth > 800 ? 40.0 : 16.0;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFB),
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text("Manage Users Account Control"),
-        backgroundColor: const Color(0xFF003D33),
+        title: const Text('Manage Users'),
+        backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("User Overview", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                _counterCard("Total Users", getUserCount(), Colors.blue, Icons.people_outline),
-                const SizedBox(width: 16),
-                _counterCard("Active", getUserCount(statusValue: 'active'), Colors.green, Icons.check_circle_outline),
-                const SizedBox(width: 16),
-                _counterCard("Blocked", getUserCount(statusValue: 'blocked'), Colors.red, Icons.block_outlined),
-              ],
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF004D40)));
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(
+              child: Text("No users found.", style: TextStyle(color: Colors.grey, fontSize: 16)),
+            );
+          }
+
+          var userDocs = snapshot.data!.docs;
+
+          int totalUsers = userDocs.length;
+          int blockedUsers = userDocs.where((doc) {
+            var data = doc.data() as Map<String, dynamic>;
+            return data['isBlocked'] == true;
+          }).length;
+          int activeUsers = totalUsers - blockedUsers;
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.all(dynamicPadding),
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard("Total Users", totalUsers.toString(), Colors.blue, Icons.people),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStatCard("Active Users", activeUsers.toString(), Colors.green, Icons.person_add),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStatCard("Blocked Users", blockedUsers.toString(), Colors.red, Icons.block),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 30),
+                    const Text(
+                      "All Registered Users",
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF004D40)),
+                    ),
+                    const SizedBox(height: 16),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: userDocs.length,
+                      itemBuilder: (context, index) {
+                        var doc = userDocs[index];
+                        var data = doc.data() as Map<String, dynamic>;
+
+                        String userId = doc.id;
+
+                        // 🌟 SCHOLARS CODE KI TARAH EXACT FALLBACK LOGIC
+                        String name = data['name'] ?? data['displayName'] ?? data['fullName'] ?? '';
+                        if (name.isEmpty && data['email'] != null) {
+                          String emailStr = data['email'];
+                          name = emailStr.split('@')[0];
+                          if (name.isNotEmpty) {
+                            name = name[0].toUpperCase() + name.substring(1);
+                          }
+                        }
+                        if (name.isEmpty) {
+                          name = 'User';
+                        }
+
+                        String email = data['email'] ?? 'No Email';
+                        bool isBlocked = data['isBlocked'] ?? false;
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 1,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            leading: CircleAvatar(
+                              backgroundColor: isBlocked ? Colors.red.shade100 : const Color(0xFF004D40),
+                              child: Text(
+                                name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                                style: TextStyle(
+                                  color: isBlocked ? Colors.red : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: isBlocked ? Colors.grey : Colors.black87,
+                              ),
+                            ),
+                            subtitle: Text(
+                              email,
+                              style: const TextStyle(color: Colors.grey, fontSize: 13),
+                            ),
+                            trailing: ElevatedButton(
+                              onPressed: () => _toggleBlockStatus(userId, isBlocked),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isBlocked ? Colors.green : Colors.red,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: Text(
+                                isBlocked ? 'Unblock' : 'Block',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 40),
-            const Text("Registered Users List", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            _buildUsersList(),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildUsersList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Color(0xFF003D33)));
-        }
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20.0),
-              child: Text("No users found in users collection.", style: TextStyle(color: Colors.grey)),
-            ),
-          );
-        }
-
-        var docs = snapshot.data!.docs;
-
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: docs.length,
-          itemBuilder: (context, index) {
-            var data = docs[index].data() as Map<String, dynamic>;
-            String docId = docs[index].id;
-
-            String userName = (data['displayName'] ?? data['name'] ?? '').toString().trim();
-            String userEmail = (data['email'] ?? 'No Email').toString().trim();
-            String status = (data['status'] ?? 'active').toString();
-
-            if (userName.isEmpty) {
-              if (userEmail != 'No Email' && userEmail.contains('@')) {
-                userName = userEmail.split('@')[0];
-              } else {
-                userName = "User_${docId.substring(0, 5)}";
-              }
-            }
-
-            bool isBlocked = status == 'blocked';
-
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 1,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: isBlocked ? Colors.red.shade50 : Colors.teal.shade50,
-                    child: Icon(isBlocked ? Icons.block : Icons.person_outline, color: isBlocked ? Colors.red : const Color(0xFF003D33)),
-                  ),
-                  title: Text(
-                    userName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  subtitle: Text(
-                    userEmail,
-                    style: const TextStyle(color: Colors.black54),
-                  ),
-                  trailing: SizedBox(
-                    width: 120,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        await FirebaseFirestore.instance.collection('users').doc(docId).update({
-                          'status': isBlocked ? 'active' : 'blocked',
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isBlocked ? Colors.green : Colors.red,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: Text(
-                        isBlocked ? "Unblock" : "Block Account",
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _counterCard(String title, Stream<int> stream, Color color, IconData icon) {
-    return Expanded(
-      child: StreamBuilder<int>(
-        stream: stream,
-        builder: (context, snapshot) => Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            border: Border(left: BorderSide(color: color, width: 5)),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: color),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(
-                    snapshot.data?.toString() ?? '0',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              )
-            ],
-          ),
+  Widget _buildStatCard(String title, String count, Color color, IconData icon) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 8),
+            Text(count, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+            const SizedBox(height: 4),
+            Text(title, style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
+          ],
         ),
       ),
     );

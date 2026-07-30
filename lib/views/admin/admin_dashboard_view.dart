@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:admin/view_models/theme_provider.dart';
 import 'package:admin/view_models/profile_view_model.dart';
 import 'admin_information_screen.dart';
-import 'scholar_answer_view.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({super.key});
@@ -316,18 +315,6 @@ class _Sidebar extends StatelessWidget {
           _SidebarItem(icon: Icons.library_books_outlined, label: 'Manage Library', isActive: false, onTap: () => Navigator.pushNamed(context, '/upload_books')),
 
           _SidebarItem(
-              icon: Icons.question_answer_outlined,
-              label: 'Scholar Answer',
-              isActive: false,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ScholarAnswerView()),
-                );
-              }
-          ),
-
-          _SidebarItem(
               icon: Icons.admin_panel_settings_outlined,
               label: 'Admin Information',
               isActive: false,
@@ -392,7 +379,15 @@ class _TopHeader extends StatelessWidget {
               icon: const Icon(Icons.menu),
               onPressed: () => scaffoldKey.currentState?.openDrawer(),
             ),
-          const Expanded(child: TextField(decoration: InputDecoration(hintText: 'Search modules...', prefixIcon: Icon(Icons.search, size: 20), border: InputBorder.none))),
+          const Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search modules...',
+                prefixIcon: Icon(Icons.search, size: 20),
+                border: InputBorder.none,
+              ),
+            ),
+          ),
           IconButton(icon: Icon(themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode, size: 22), onPressed: () => themeProvider.toggleTheme(!themeProvider.isDarkMode)),
           const SizedBox(width: 16),
           InkWell(
@@ -443,20 +438,11 @@ final List<DashboardModule> dashboardModulesConfig = [
   ),
   const DashboardModule(
     title: 'Manage Scholar',
-    subtitle: ' Check Scholars registration aur .',
+    subtitle: 'Check Scholars registration aur .',
     icon: Icons.school_outlined,
     iconColor: Color(0xFF00695C),
     backgroundColor: Color(0xFFE8F5E9),
     route: '/scholar_hub',
-    spacingAfter: 8.0,
-  ),
-  const DashboardModule(
-    title: 'Scholar Answers',
-    subtitle: 'Scholars  Aswers.',
-    icon: Icons.question_answer_outlined,
-    iconColor: Color(0xFF00695C),
-    backgroundColor: Color(0xFFE0F7FA),
-    route: '/scholar_answer',
     spacingAfter: 8.0,
   ),
   const DashboardModule(

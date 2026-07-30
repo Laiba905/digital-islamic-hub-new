@@ -20,10 +20,9 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
   @override
   void initState() {
     super.initState();
-    _loadExistingSettings(); // Screen khulte hi purana data load ho jaye ga
+    _loadExistingSettings();
   }
 
-  // Database se pehle se save shuda data uthana
   void _loadExistingSettings() async {
     try {
       var doc = await FirebaseFirestore.instance
@@ -42,19 +41,24 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
         });
       }
     } catch (e) {
-      // Handle error quietly or show message if needed
+      // Handle error quietly
     }
   }
 
-  // Firebase Firestore mein user data update / change karne ka function
   void _saveSettings() async {
-    if (_feeController.text.isEmpty ||
-        _easyPaisaNumController.text.isEmpty ||
-        _easyPaisaNameController.text.isEmpty ||
-        _jazzCashNumController.text.isEmpty ||
-        _jazzCashNameController.text.isEmpty) {
+    if (_feeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Tamam fields ko fill karna zaroori hai!"), backgroundColor: Colors.red),
+        const SnackBar(content: Text("Please enter the Question Processing Fee!"), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    bool hasEasyPaisa = _easyPaisaNumController.text.isNotEmpty || _easyPaisaNameController.text.isNotEmpty;
+    bool hasJazzCash = _jazzCashNumController.text.isNotEmpty || _jazzCashNameController.text.isNotEmpty;
+
+    if (!hasEasyPaisa && !hasJazzCash) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill at least one payment method (EasyPaisa or JazzCash)!"), backgroundColor: Colors.red),
       );
       return;
     }
@@ -78,7 +82,7 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Admin Information Kamiyabi se Change & Save ho gayi! 🚀"), backgroundColor: Colors.green),
+          const SnackBar(content: Text("Admin Information changed successfully! 🚀"), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -100,7 +104,7 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Admin Information Setup"),
+        title: const Text("Admin Information"),
         backgroundColor: const Color(0xFF1B5E20),
         foregroundColor: Colors.white,
       ),
@@ -123,7 +127,7 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      "Yahan aap jab chahein details change kar ke save kar sakti hain, woh foran update ho jayengi.",
+                      "Here you can change and save details whenever you want, and they will update immediately.",
                       style: TextStyle(color: Colors.grey, fontSize: 13),
                     ),
                     const Divider(height: 40),
@@ -135,14 +139,14 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
                       controller: _feeController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        hintText: "Jaise: 50",
+                        hintText: "e.g: 50",
                         prefixIcon: const Icon(Icons.attach_money, color: Colors.green),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // EasyPaisa Section
+                    // EasyPaisa Section (Without Optional word)
                     const Text("EasyPaisa Account Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green)),
                     const SizedBox(height: 10),
                     TextField(
@@ -165,7 +169,7 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // JazzCash Section
+                    // JazzCash Section (Without Optional word)
                     const Text("JazzCash Account Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.orange)),
                     const SizedBox(height: 10),
                     TextField(
