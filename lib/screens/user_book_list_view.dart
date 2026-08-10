@@ -1,38 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:cloudinary_public/cloudinary_public.dart';
-import 'cloudinary_service.dart';
 
 class UserBookListView extends StatelessWidget {
   const UserBookListView({super.key});
 
-  // PDF Open karne ka behtareen tareeqa with URL Cleaning
+  // 🛠️ URL ko change kiye baghair original link kholna taake 400 Error na aaye
   Future<void> _openPDF(BuildContext context, String pdfUrl) async {
-    String fixedUrl = pdfUrl.trim();
-
-    // 🛠️ 1. Cloudinary Type Fix (/image/upload/ ya /raw/upload/ ko /auto/upload/ mein badalna)
-    if (fixedUrl.contains('/image/upload/')) {
-      fixedUrl = fixedUrl.replaceFirst('/image/upload/', '/auto/upload/');
-    } else if (fixedUrl.contains('/raw/upload/')) {
-      fixedUrl = fixedUrl.replaceFirst('/raw/upload/', '/auto/upload/');
-    }
-
-    // 🛠️ 2. Duplicate Extension Fix (Misformatted .pdf.pdf ko .pdf karna)
-    if (fixedUrl.endsWith('.pdf.pdf')) {
-      fixedUrl = fixedUrl.substring(0, fixedUrl.length - 4);
-    }
-
-    final Uri uri = Uri.parse(fixedUrl);
+    final Uri uri = Uri.parse(pdfUrl.trim());
     try {
-      // Web ya Mobile ke mutabiq link launch karna
       bool launched = await launchUrl(
         uri,
-        mode: LaunchMode.platformDefault,
+        mode: LaunchMode.externalApplication,
       );
 
       if (!launched) {
-        throw 'Could not launch $fixedUrl';
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
       }
     } catch (e) {
       if (context.mounted) {
@@ -48,7 +31,7 @@ class UserBookListView extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('Islamic Books'),
+        title: const Text('Islamic Books Library'),
         backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
       ),

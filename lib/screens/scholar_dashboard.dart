@@ -59,7 +59,7 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
                     children: [
                       Expanded(
                         child: SizedBox(
-                          height: 26git add .0, // 👈 Yahan se aap cards ki height mazeed kam ya zyada kar sakte hain
+                          height: 160, // 👈 Fixed height for better UI
                           child: _DashboardCard(
                             title: "Questions",
                             icon: Icons.chat_bubble_rounded,
@@ -71,7 +71,7 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
                       const SizedBox(width: 16), // Dono cards ke darmiyan fasla
                       Expanded(
                         child: SizedBox(
-                          height: 260, // 👈 Height dono ki barabar rahegi
+                          height: 160, // 👈 Height fixed at 160 for both cards
                           child: _DashboardCard(
                             title: "Payments",
                             icon: Icons.account_balance_wallet_rounded,
