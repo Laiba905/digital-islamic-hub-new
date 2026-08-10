@@ -45,10 +45,18 @@ class MyApp extends StatelessWidget {
           title: 'Admin Panel',
           debugShowCheckedModeBanner: false,
           themeMode: themeProvider.themeMode,
-          theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF004D40)), useMaterial3: true),
-          darkTheme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF004D40), brightness: Brightness.dark), useMaterial3: true, brightness: Brightness.dark),
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF004D40)),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF004D40), brightness: Brightness.dark),
+            useMaterial3: true,
+            brightness: Brightness.dark,
+          ),
           initialRoute: '/',
           routes: {
+            // Root route ab LoginView par set kar diya gaya hai
             '/': (context) => const LoginView(),
             '/dashboard': (context) => const AdminDashboardView(),
             '/profile': (context) => const ProfileView(),
@@ -63,7 +71,7 @@ class MyApp extends StatelessWidget {
             // Others
             '/sunnah_deeds': (context) => const SunnahDeedsView(),
             //'/payments': (context) => const PaymentManagementView(),
-            '/upload_books': (context) => UploadBooksView(), // 🟢 'const' yahan se hata diya gaya hai
+            '/upload_books': (context) => UploadBooksView(), // ⬅️ Yahan se 'const' hata diya gaya hai
             '/scholar_answer': (context) => const ScholarAnswerView(),
           },
         );

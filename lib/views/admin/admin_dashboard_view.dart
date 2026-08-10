@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:admin/view_models/theme_provider.dart';
 import 'package:admin/view_models/profile_view_model.dart';
 import 'admin_information_screen.dart';
+import 'package:admin/views/admin/upload_books_view.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({super.key});
@@ -180,7 +181,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 iconColor: module.iconColor,
                                 backgroundColor: module.backgroundColor,
                                 spacingAfter: module.spacingAfter,
-                                onTap: () => Navigator.pushNamed(context, module.route),
+                                onTap: () {
+                                  // Route handling for Upload Books screen
+                                  if (module.route == '/upload_books') {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const UploadBooksView()),
+                                    );
+                                  } else {
+                                    Navigator.pushNamed(context, module.route);
+                                  }
+                                },
                               );
                             },
                           ),
@@ -379,15 +390,7 @@ class _TopHeader extends StatelessWidget {
               icon: const Icon(Icons.menu),
               onPressed: () => scaffoldKey.currentState?.openDrawer(),
             ),
-          const Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search modules...',
-                prefixIcon: Icon(Icons.search, size: 20),
-                border: InputBorder.none,
-              ),
-            ),
-          ),
+          const Expanded(child: TextField(decoration: InputDecoration(hintText: 'Search modules...', prefixIcon: Icon(Icons.search, size: 20), border: InputBorder.none))),
           IconButton(icon: Icon(themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode, size: 22), onPressed: () => themeProvider.toggleTheme(!themeProvider.isDarkMode)),
           const SizedBox(width: 16),
           InkWell(
@@ -438,11 +441,11 @@ final List<DashboardModule> dashboardModulesConfig = [
   ),
   const DashboardModule(
     title: 'Manage Scholar',
-    subtitle: 'Check Scholars registration aur .',
+    subtitle: 'Scholars ki registration aur profiles check krein.',
     icon: Icons.school_outlined,
     iconColor: Color(0xFF00695C),
     backgroundColor: Color(0xFFE8F5E9),
-    route: '/scholar_hub',
+    route: '/manage_scholars',
     spacingAfter: 8.0,
   ),
   const DashboardModule(
@@ -452,6 +455,16 @@ final List<DashboardModule> dashboardModulesConfig = [
     iconColor: Color(0xFF00796B),
     backgroundColor: Color(0xFFFFF3E0),
     route: '/sunnah_deeds',
+    spacingAfter: 8.0,
+  ),
+  // 📚 Card ka naam "Add" rakh diya gaya hai jo click hone par upload screen kholega
+  const DashboardModule(
+    title: 'Add',
+    subtitle: 'Library mein nayi Islamic books ya PDFs add krein.',
+    icon: Icons.library_add_outlined,
+    iconColor: Color(0xFF004D40),
+    backgroundColor: Color(0xFFE0F7FA),
+    route: '/add new',
     spacingAfter: 8.0,
   ),
 ];
