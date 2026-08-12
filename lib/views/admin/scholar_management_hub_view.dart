@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'queries_payments_view.dart';
-import 'scholar_requests_view.dart'; // 🌟 1. Yahan aapka naya page import kiya
+import 'scholar_requests_view.dart';
+import 'scholar_analytics_view.dart'; // 🌟 1. Import ScholarAnalyticsView if missing
 
 class ScholarManagementHubView extends StatelessWidget {
   const ScholarManagementHubView({super.key});
@@ -28,7 +29,7 @@ class ScholarManagementHubView extends StatelessWidget {
                 onTap: () => Navigator.pushNamed(context, '/manage_scholars'),
               ),
 
-              // 🌟 2. FIXED: Is card ka pushNamed hata kar Direct Route laga diya jo aap chahti thin
+              // Scholar Requests Card
               _HubCard(
                 title: 'Scholar Requests',
                 subtitle: 'New registration requests from scholars.',
@@ -37,19 +38,28 @@ class ScholarManagementHubView extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ScholarRequestsView(), // 👈 Direct Open Hoga Ab!
+                      builder: (context) => const ScholarRequestsView(),
                     ),
                   );
                 },
               ),
 
+              // 🌟 2. FIXED: Scholar Analytics Card (Corrected Navigator syntax)
               _HubCard(
                 title: 'Scholar Analytics',
                 subtitle: 'View registration trends and active counts.',
                 icon: Icons.analytics_outlined,
-                onTap: () => Navigator.pushNamed(context, '/scholar_analytics'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ScholarAnalyticsView(),
+                    ),
+                  );
+                },
               ),
 
+              // Queries & Payments Card
               _HubCard(
                 title: 'Queries & Payments',
                 subtitle: 'Verify user payments, view screenshots, and assign to scholars.',

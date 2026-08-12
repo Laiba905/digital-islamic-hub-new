@@ -10,15 +10,25 @@ class SunnahDeedsView extends StatefulWidget {
 }
 
 class _SunnahDeedsViewState extends State<SunnahDeedsView> {
-  final TextEditingController _taskController = TextEditingController();
-  final TextEditingController _pointsController = TextEditingController(text: '10');
+  // 🚀 3 Controllers for 3 separate deed titles and points
+  final List<TextEditingController> _taskControllers = List.generate(3, (_) => TextEditingController());
+  final List<TextEditingController> _pointsControllers = List.generate(3, (_) => TextEditingController(text: '10'));
 
   bool _isUploading = false;
 
-  Future<void> _updateDailyTask() async {
-    if (_taskController.text.isEmpty || _pointsController.text.isEmpty) {
+  Future<void> _updateDailyTasks() async {
+    // Check karein ke teeno mein se koi khali toh nahi
+    bool hasEmpty = false;
+    for (int i = 0; i < 3; i++) {
+      if (_taskControllers[i].text.trim().isEmpty || _pointsControllers[i].text.trim().isEmpty) {
+        hasEmpty = true;
+        break;
+      }
+    }
+
+    if (hasEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Meharbani karke Title aur Points lazmi likhein!')),
+        const SnackBar(content: Text('Meharbani karke teeno deeds ke Titles aur Points lazmi likhein!')),
       );
       return;
     }
@@ -27,24 +37,37 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
     try {
       String todayDateStr = DateTime.now().toIso8601String().split('T')[0];
 
-      await FirebaseFirestore.instance.collection('daily_deeds').add({
-        'title': _taskController.text.trim(),
-        'points': int.parse(_pointsController.text.trim()),
-        'createdAt': Timestamp.now(),
-        'dateStr': todayDateStr,
-      });
+      // Purane 24 hours ke deeds delete karna taake naye 3 deeds active ho sakein (optional agar replace karna ho)
+      // Ya direct batch mein add kar dein:
+      FirebaseFirestore firestore = FirebaseFirestore.instance;
+      WriteBatch batch = firestore.batch();
+
+      for (int i = 0; i < 3; i++) {
+        DocumentReference docRef = firestore.collection('daily_deeds').doc();
+        batch.set(docRef, {
+          'title': _taskControllers[i].text.trim(),
+          'points': int.tryParse(_pointsControllers[i].text.trim()) ?? 10,
+          'createdAt': Timestamp.now(),
+          'dateStr': todayDateStr,
+          'deedIndex': i + 1,
+        });
+      }
+
+      await batch.commit();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Daily Sunnah Published Successfully! 🎉')),
+          const SnackBar(content: Text('3 Daily Deeds Successfully Published! 🎉'), backgroundColor: Colors.green),
         );
       }
 
-      _taskController.clear();
-      _pointsController.text = '10';
+      for (int i = 0; i < 3; i++) {
+        _taskControllers[i].clear();
+        _pointsControllers[i].text = '10';
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isUploading = false);
@@ -67,6 +90,13 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
   }
 
   @override
+  void dispose() {
+    for (var c in _taskControllers) c.dispose();
+    for (var c in _pointsControllers) c.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     String todayDateStr = DateTime.now().toIso8601String().split('T')[0];
     final screenWidth = MediaQuery.of(context).size.width;
@@ -79,7 +109,6 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
         backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
         actions: [
-          // 🚀 30-DAYS MANAGEMENT BUTTON IN APPBAR
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
             child: ElevatedButton.icon(
@@ -108,6 +137,7 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 📝 3 DEEDS INPUT CARD
                 Card(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 2,
@@ -117,31 +147,56 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('Publish New Daily Sunnah/Deed', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        const Text('Publish 3 Daily Sunnah/Deeds', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
+                        const SizedBox(height: 8),
+                        const Text('Aap yahan aik sath 3 deeds aur unke points set kar ke publish kar sakte hain.', style: TextStyle(color: Colors.grey, fontSize: 13)),
                         const SizedBox(height: 24),
-                        TextField(
-                          controller: _taskController,
-                          decoration: const InputDecoration(labelText: 'Task Title (e.g., Smile, it\'s Sunnah.)', border: OutlineInputBorder()),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _pointsController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Points for completing this deed (e.g., 10)', border: OutlineInputBorder()),
-                        ),
+
+                        // Loop to create 3 input rows
+                        for (int i = 0; i < 3; i++) ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: TextField(
+                                  controller: _taskControllers[i],
+                                  decoration: InputDecoration(
+                                    labelText: 'Deed ${i + 1} Title',
+                                    hintText: 'e.g., Smile, it\'s Sunnah.',
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 1,
+                                child: TextField(
+                                  controller: _pointsControllers[i],
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Points',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (i < 2) const SizedBox(height: 16),
+                        ],
+
                         const SizedBox(height: 24),
                         Align(
                           alignment: Alignment.centerRight,
                           child: SizedBox(
-                            width: 180,
-                            height: 42,
+                            width: 200,
+                            height: 45,
                             child: ElevatedButton(
-                              onPressed: _isUploading ? null : _updateDailyTask,
+                              onPressed: _isUploading ? null : _updateDailyTasks,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF004D40),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
                               ),
                               child: _isUploading
                                   ? const SizedBox(
@@ -149,7 +204,7 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                                 height: 20,
                                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                               )
-                                  : const Text('Publish Deed to Users', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                  : const Text('Publish All 3 Deeds', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                             ),
                           ),
                         ),
@@ -188,7 +243,7 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
-                        child: const Center(child: Text("No deeds active for last 24 hours.", style: TextStyle(color: Colors.grey, fontSize: 15, fontStyle: FontStyle.italic))),
+                        child: const Center(child: Text("No deeds active for today.", style: TextStyle(color: Colors.grey, fontSize: 15, fontStyle: FontStyle.italic))),
                       );
                     }
 
@@ -248,7 +303,73 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
   }
 }
 
-// 🗓️ NEW DEDICATED SCREEN TO MANAGE 30 DAYS PROGRAM
+// 📱 USER SIDE SCREEN TO VIEW TODAY'S 3 DEEDS
+class UserDeedsView extends StatelessWidget {
+  const UserDeedsView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    String todayDateStr = DateTime.now().toIso8601String().split('T')[0];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Today\'s Sunnah & Deeds'),
+        backgroundColor: const Color(0xFF004D40),
+        foregroundColor: Colors.white,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('daily_deeds')
+            .where('dateStr', isEqualTo: todayDateStr)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF004D40)));
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text("No deeds available for today yet.", style: TextStyle(color: Colors.grey, fontSize: 16)));
+          }
+
+          var docs = snapshot.data!.docs;
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              var deed = docs[index].data() as Map<String, dynamic>;
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 2,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFF004D40),
+                    child: Text(
+                      "+${deed['points'] ?? 10}",
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  title: Text(
+                    deed['title'] ?? 'Sunnah Deed',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  subtitle: const Padding(
+                    padding: EdgeInsets.only(top: 4.0),
+                    child: Text("Complete this deed to earn points!", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+// 🗓️ 30 DAYS PROGRAM MANAGEMENT SCREEN (UNCHANGED)
 class Manage30DaysDeedsView extends StatefulWidget {
   const Manage30DaysDeedsView({super.key});
 
@@ -257,7 +378,6 @@ class Manage30DaysDeedsView extends StatefulWidget {
 }
 
 class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
-  // 30 din ke liye controllers lists
   final List<TextEditingController> _titleControllers = List.generate(30, (_) => TextEditingController());
   final List<TextEditingController> _descControllers = List.generate(30, (_) => TextEditingController());
   final List<TextEditingController> _pointsControllers = List.generate(30, (_) => TextEditingController(text: '10'));
@@ -271,7 +391,6 @@ class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
     _fetchExisting30DaysData();
   }
 
-  // Agar pehle se 30 days ka data save hai toh usey load karna taake admin edit kar sake
   Future<void> _fetchExisting30DaysData() async {
     try {
       var doc = await FirebaseFirestore.instance.collection('app_content').doc('ramadan_or_deeds_30_days').get();

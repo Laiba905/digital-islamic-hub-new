@@ -183,7 +183,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 spacingAfter: module.spacingAfter,
                                 onTap: () {
                                   // Route handling for Upload Books screen
-                                  if (module.route == '/upload_books') {
+                                  if (module.route == '/upload_books' || module.route == '/upload_book_screen') {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(builder: (context) => const UploadBooksView()),
@@ -323,7 +323,12 @@ class _Sidebar extends StatelessWidget {
           Text('Admin Panel', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: isDark ? Colors.tealAccent : const Color(0xFF004D40))),
           const SizedBox(height: 40),
           _SidebarItem(icon: Icons.dashboard_outlined, label: 'Dashboard', isActive: true, onTap: () => Navigator.pushReplacementNamed(context, '/dashboard')),
-          _SidebarItem(icon: Icons.library_books_outlined, label: 'Manage Library', isActive: false, onTap: () => Navigator.pushNamed(context, '/upload_books')),
+          _SidebarItem(icon: Icons.library_books_outlined, label: 'Manage Library', isActive: false, onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const UploadBooksView()),
+            );
+          }),
 
           _SidebarItem(
               icon: Icons.admin_panel_settings_outlined,
@@ -445,7 +450,7 @@ final List<DashboardModule> dashboardModulesConfig = [
     icon: Icons.school_outlined,
     iconColor: Color(0xFF00695C),
     backgroundColor: Color(0xFFE8F5E9),
-    route: '/manage_scholars',
+    route: '/scholar_hub',
     spacingAfter: 8.0,
   ),
   const DashboardModule(
@@ -457,14 +462,5 @@ final List<DashboardModule> dashboardModulesConfig = [
     route: '/sunnah_deeds',
     spacingAfter: 8.0,
   ),
-  // 📚 Card ka naam "Add" rakh diya gaya hai jo click hone par upload screen kholega
-  const DashboardModule(
-    title: 'Add',
-    subtitle: 'Library mein nayi Islamic books ya PDFs add krein.',
-    icon: Icons.library_add_outlined,
-    iconColor: Color(0xFF004D40),
-    backgroundColor: Color(0xFFE0F7FA),
-    route: '/add new',
-    spacingAfter: 8.0,
-  ),
+
 ];

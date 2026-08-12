@@ -5,11 +5,12 @@ import 'package:admin/views/auth/login_view.dart';
 import 'package:admin/views/admin/admin_dashboard_view.dart';
 import 'package:admin/views/admin/profile_view.dart';
 import 'package:admin/views/admin/user_management_hub_view.dart';
-import 'package:admin/views/admin/manage_users_view.dart';
 import 'package:admin/views/admin/user_analytics_view.dart';
 import 'package:admin/views/admin/scholar_management_hub_view.dart';
 import 'package:admin/views/admin/manage_scholars_view.dart';
 import 'package:admin/views/admin/scholar_analytics_view.dart';
+import 'package:admin/views/admin/scholar_requests_view.dart';
+import 'package:admin/views/admin/queries_payments_view.dart';
 import 'package:admin/views/admin/sunnah_deeds_view.dart';
 //import 'package:admin/views/admin/payment_management_view.dart';
 import 'package:admin/views/admin/upload_books_view.dart';
@@ -56,23 +57,23 @@ class MyApp extends StatelessWidget {
           ),
           initialRoute: '/',
           routes: {
-            // Root route ab LoginView par set kar diya gaya hai
+            // Root route set to LoginView
             '/': (context) => const LoginView(),
             '/dashboard': (context) => const AdminDashboardView(),
             '/profile': (context) => const ProfileView(),
             // User Flow
             '/user_hub': (context) => const UserManagementHubView(),
-            '/manage_users': (context) => const ManageUsersView(),
             '/user_analytics': (context) => const UserAnalyticsView(),
             // Scholar Flow
             '/scholar_hub': (context) => const ScholarManagementHubView(),
             '/manage_scholars': (context) => const ManageScholarsPage(),
             '/scholar_analytics': (context) => const ScholarAnalyticsView(),
-            // Others
+            '/scholar_requests': (context) => const ScholarRequestsView(),
+            '/scholar_answer': (context) => const ScholarAnswerView(),
+            '/queries_payments': (context) => const QueriesPaymentsView(),
             '/sunnah_deeds': (context) => const SunnahDeedsView(),
             //'/payments': (context) => const PaymentManagementView(),
-            '/upload_books': (context) => UploadBooksView(), // ⬅️ Yahan se 'const' hata diya gaya hai
-            '/scholar_answer': (context) => const ScholarAnswerView(),
+            '/upload_books': (context) => const UploadBooksView(),
           },
         );
       },

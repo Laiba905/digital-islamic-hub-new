@@ -17,8 +17,6 @@ class UserManagementHubView extends StatelessWidget {
       ),
       body: Center(
         child: Padding(
-          //padding: const EdgeInsets.symmetric(horizontal: 20.0,
-            //vertical: 10.0,),
           padding: const EdgeInsets.all(100),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -38,7 +36,7 @@ class UserManagementHubView extends StatelessWidget {
               _HubCard(
                 title: 'User Analytics',
                 subtitle: 'View detailed charts and registration statistics.',
-               icon: Icons.analytics_outlined,
+                icon: Icons.analytics_outlined,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -166,7 +164,7 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                     controller: _searchController,
                     onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
                     decoration: InputDecoration(
-                      hintText: "Search user by name...",
+                      hintText: "Search user by email...",
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0),
@@ -189,8 +187,8 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
 
                   var docs = snapshot.data!.docs.where((doc) {
                     var data = doc.data() as Map<String, dynamic>;
-                    String name = (data['name'] ?? '').toString().toLowerCase();
-                    return name.contains(_searchQuery);
+                    String email = (data['email'] ?? '').toString().toLowerCase();
+                    return email.contains(_searchQuery);
                   }).toList();
 
                   return Card(
@@ -202,10 +200,8 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                         var doc = docs[index];
                         var data = doc.data() as Map<String, dynamic>;
 
-                        String name = data['name'] ?? 'Anonymous';
                         String email = data['email'] ?? 'No Email';
                         String status = data['status'] ?? 'active';
-                        int streak = data['streak'] ?? 0;
 
                         bool isBlocked = (status == 'blocked');
 
@@ -220,7 +216,14 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                           ),
                           title: Row(
                             children: [
-                              Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text(
+                                email,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: isBlocked ? Colors.grey : Colors.black87,
+                                ),
+                              ),
                               const SizedBox(width: 12),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -239,7 +242,6 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                               )
                             ],
                           ),
-                          subtitle: Text("Email: $email\nCurrent Streak: $streak Days 🔥"),
                           trailing: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isBlocked ? Colors.green : Colors.red,
@@ -263,6 +265,8 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
     );
   }
 }
+
+// =========================================================================
 // 📊 3. USER ANALYTICS SCREEN WITH LIVE BAR CHART
 // =========================================================================
 class UserAnalyticsDetailScreen extends StatelessWidget {

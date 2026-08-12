@@ -20,8 +20,8 @@ class _ProfileViewState extends State<ProfileView> {
   bool _isUploading = false;
 
   // ⚙️ TODO: Apne Cloudinary credentials yahan enter karein
-  final String _cloudName = "your_cloud_name";
-  final String _uploadPreset = "your_upload_preset";
+  final String _cloudName = "lxuuhill";
+  final String _uploadPreset = "AppPresent";
 
   @override
   void initState() {
