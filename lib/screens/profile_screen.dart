@@ -1,11 +1,11 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart'; // For kIsWeb check
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:http/http.dart' as http; // Required for Cloudinary multipart requests
+import 'package:http/http.dart' as http;
 import '../theme/app_theme.dart';
 import '../main.dart';
 import 'login_screen.dart';
@@ -21,13 +21,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final User? user = FirebaseAuth.instance.currentUser;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  String? _profileImageUrl; // Changed from _base64Image to store Cloudinary URL
+  String? _profileImageUrl;
   bool _isDarkMode = false;
   bool _isNotificationEnabled = true;
-  bool _isUploading = false; // Loading state for image upload
+  bool _isUploading = false;
   final TextEditingController _nameController = TextEditingController();
 
-  // ⚙️ TODO: Replace these with your actual Cloudinary credentials
   final String _cloudName = "lxuuhill";
   final String _uploadPreset = "AppPresent";
 
@@ -42,21 +41,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       try {
         DocumentSnapshot doc = await _firestore.collection('users').doc(user!.uid).get();
         if (doc.exists) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          setState(() {
-            _profileImageUrl = data['profileImage']; // Fetching image URL from Firestore
-            _isNotificationEnabled = data['notifications'] ?? true;
-            _nameController.text = data['displayName'] ?? user?.displayName ?? "";
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
+          if (mounted) {
+            setState(() {
+              var img = data['profileImage'];
+              _profileImageUrl = (img is String && img.isNotEmpty) ? img : null;
 
-            if (data['darkMode'] != null) {
-              _isDarkMode = data['darkMode'];
-              themeNotifier.value = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
-            } else {
-              final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
-              _isDarkMode = brightness == Brightness.dark;
-              themeNotifier.value = ThemeMode.system;
-            }
-          });
+              _isNotificationEnabled = data['notifications'] ?? true;
+              _nameController.text = data['displayName'] ?? user?.displayName ?? "";
+
+              if (data['darkMode'] != null) {
+                _isDarkMode = data['darkMode'];
+                themeNotifier.value = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+              } else {
+                final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+                _isDarkMode = brightness == Brightness.dark;
+                themeNotifier.value = ThemeMode.system;
+              }
+            });
+          }
         }
       } catch (e) {
         debugPrint("Error loading user data: $e");
@@ -113,7 +116,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // 🚀 Cloudinary Upload Functionality
   Future<void> _uploadToCloudinary(Uint8List imageBytes, String fileName) async {
     setState(() {
       _isUploading = true;
@@ -123,11 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       var uri = Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
       var request = http.MultipartRequest("POST", uri)
         ..fields['upload_preset'] = _uploadPreset
-        ..files.add(http.MultipartFile.fromBytes(
-          'file',
-          imageBytes,
-          filename: fileName,
-        ));
+        ..files.add(http.MultipartFile.fromBytes('file', imageBytes, filename: fileName));
 
       var response = await request.send();
       if (response.statusCode == 200) {
@@ -135,7 +133,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         var jsonData = json.decode(responseData);
         String secureUrl = jsonData['secure_url'];
 
-        // Save URL to Firestore
         await _saveProfileImageUrl(secureUrl);
 
         if (mounted) {
@@ -155,9 +152,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     } finally {
-      setState(() {
-        _isUploading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
     }
   }
 
@@ -166,9 +165,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'profileImage': imageUrl,
     }, SetOptions(merge: true));
 
-    setState(() {
-      _profileImageUrl = imageUrl;
-    });
+    if (mounted) {
+      setState(() {
+        _profileImageUrl = imageUrl;
+      });
+    }
   }
 
   @override
@@ -270,14 +271,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircleAvatar(
                   radius: 55,
                   backgroundColor: Colors.white,
-                  backgroundImage: (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
-                      ? NetworkImage(_profileImageUrl!) as ImageProvider
-                      : null,
                   child: _isUploading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : (_profileImageUrl == null || _profileImageUrl!.isEmpty)
-                      ? Icon(Icons.person, size: 50, color: Colors.green.shade800)
-                      : null,
+                      ? const CircularProgressIndicator(color: Colors.green)
+                      : (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
+                      ? ClipOval(
+                    child: Image.network(
+                      _profileImageUrl!,
+                      width: 110,
+                      height: 110,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(Icons.person, size: 50, color: Colors.green.shade800);
+                      },
+                    ),
+                  )
+                      : Icon(Icons.person, size: 50, color: Colors.green.shade800),
                 ),
               ),
               Positioned(
@@ -296,7 +304,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 15),
           Text(
-            _nameController.text,
+            _nameController.text.isEmpty ? "Islamic Hub Member" : _nameController.text,
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const Text(
@@ -404,8 +412,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ElevatedButton(
             onPressed: () async {
               await _firestore.collection('users').doc(user!.uid).update({'displayName': _nameController.text});
-              setState(() {});
-              if (mounted) Navigator.pop(context);
+              if (mounted) {
+                setState(() {});
+                Navigator.pop(context);
+              }
             },
             child: const Text("Save"),
           ),

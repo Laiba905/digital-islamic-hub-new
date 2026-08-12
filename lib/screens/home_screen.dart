@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
-import 'package:flutter/foundation.dart'; // 🚀 Added for kIsWeb check
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
@@ -10,8 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
-import 'user_answer_screen.dart'; // 🚀 Alag file se import kiya gaya hai
-// 🚀 FIXED: Removed dart:io import entirely to prevent Web crashes
+import 'user_answer_screen.dart';
 
 import '../services/prayer_service.dart';
 import '../theme/app_theme.dart';
@@ -23,8 +22,8 @@ import 'profile_screen.dart';
 import 'safar_dua_screen.dart';
 import 'hadith_books_screen.dart';
 import 'bookmarks_screen.dart';
-import 'daily_deeds.dart'; // 🚀 DailyDeeds link navigation
-import 'user_book_list_view.dart'; // 📚 Books Library View Import
+import 'daily_deeds.dart';
+import 'user_book_list_view.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final User? user = FirebaseAuth.instance.currentUser;
 
-  // Ayah of the Day States
   String dailyAyah = "Loading Ayah...";
   String dailyUrdu = "";
   String ayahRef = "";
@@ -55,7 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // 🔥 Live Scholar Answer Listener
   void _listenForScholarAnswers() {
     if (user == null) return;
 
@@ -66,22 +63,18 @@ class _HomeScreenState extends State<HomeScreen> {
         .where('isRead', isEqualTo: false)
         .snapshots()
         .listen((QuerySnapshot snapshot) {
-
       for (var change in snapshot.docChanges) {
         if (change.type == DocumentChangeType.added) {
           var data = change.doc.data() as Map<String, dynamic>;
           String notificationId = change.doc.id;
-
           String title = data['title'] ?? 'Jawab Alert! ✅';
           String message = data['message'] ?? 'Scholar ne aapke sawal ka jawab de diya hai.';
-
           _showUserAnswerPopup(title, message, notificationId);
         }
       }
     });
   }
 
-  // 🔥 Khoobsurat PopUp Dialog Box
   void _showUserAnswerPopup(String title, String message, String notificationId) {
     if (!mounted) return;
 
@@ -98,21 +91,16 @@ class _HomeScreenState extends State<HomeScreen> {
               const Icon(Icons.gavel_rounded, color: Color(0xFF2E7D32), size: 26),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                    title,
+                child: Text(title,
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        color: isDark ? Colors.white : const Color(0xFF003D33)
-                    )
-                ),
+                        color: isDark ? Colors.white : const Color(0xFF003D33))),
               ),
             ],
           ),
-          content: Text(
-              message,
-              style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14)
-          ),
+          content: Text(message,
+              style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14)),
           actions: [
             TextButton(
               onPressed: () async {
@@ -121,10 +109,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   'isRead': true,
                 });
               },
-              child: const Text(
-                  'OK',
-                  style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)
-              ),
+              child: const Text('OK',
+                  style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -233,7 +219,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHomeDashboardView() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    String userName = user?.displayName ?? "User";
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -245,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: SafeArea(
         child: CustomScrollView(
           slivers: [
-            _buildHeader(userName, isDark),
+            _buildHeader(isDark),
             SliverToBoxAdapter(
               child: Column(
                 children: [
@@ -269,9 +254,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // 🔥 Fixed Deeds Module with Proper Fallback & Streak Update Logic
   Widget _buildDeedsModule(bool isDark) {
     if (user == null) return const SizedBox();
 
+    String todayStr = DateTime.now().toIso8601String().split('T')[0];
     final screenWidth = MediaQuery.of(context).size.width;
     final double horizontalMargin = screenWidth > 800 ? 32.0 : 15.0;
 
@@ -281,49 +268,64 @@ class _HomeScreenState extends State<HomeScreen> {
         if (!userSnap.hasData || !userSnap.data!.exists) return const SizedBox();
         var userData = userSnap.data!.data() as Map<String, dynamic>;
         int currentStreak = userData['streak'] ?? 0;
+        List completedToday = userData['completedToday'] ?? [];
 
-        return Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 800),
-            margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
-            child: Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-                side: BorderSide(color: isDark ? Colors.white10 : Colors.green.shade50),
-              ),
-              color: isDark ? Colors.white.withAlpha(13) : Colors.white,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(24),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => DailyDeeds(userId: user!.uid),
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('daily_deeds')
+              .orderBy('dateStr', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: Colors.green));
+            }
+
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return const SizedBox();
+            }
+
+            var allDocs = snapshot.data!.docs;
+
+            // 1. Aaj ki date ke deeds check karein
+            var todayDeeds = allDocs.where((doc) {
+              var data = doc.data() as Map<String, dynamic>;
+              return data['dateStr'] == todayStr;
+            }).toList();
+
+            // 2. Fallback: Agar aaj ke deeds nahi hain, toh sabse latest available deeds show honge
+            var displayDeeds = todayDeeds.isNotEmpty ? todayDeeds : allDocs.where((doc) {
+              var data = doc.data() as Map<String, dynamic>;
+              String firstDateStr = (allDocs.first.data() as Map<String, dynamic>)['dateStr'] ?? '';
+              return data['dateStr'] == firstDateStr;
+            }).toList();
+
+            if (displayDeeds.isEmpty) return const SizedBox();
+
+            return Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 800),
+                margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Icon(Icons.auto_awesome, color: Colors.orange, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            "Daily Deeds",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                color: isDark ? Colors.white70 : Colors.black87
-                            ),
+                          Row(
+                            children: [
+                              const Icon(Icons.auto_awesome, color: Colors.orange, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Daily Sunnah & Deeds",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: isDark ? Colors.white : Colors.black87),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      Row(
-                        children: [
                           Text(
                             "🔥 Streak: $currentStreak",
                             style: const TextStyle(
@@ -332,16 +334,120 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          Icon(Icons.arrow_forward_ios, size: 13, color: isDark ? Colors.white54 : Colors.grey),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 8),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: displayDeeds.length,
+                      itemBuilder: (context, index) {
+                        var deedDoc = displayDeeds[index];
+                        var deedData = deedDoc.data() as Map<String, dynamic>;
+                        String deedId = deedDoc.id;
+                        String title = deedData['title'] ?? 'Deed';
+                        String description = deedData['description'] ?? '';
+                        int points = deedData['points'] ?? 10;
+                        bool isCompleted = completedToday.contains(deedId);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withAlpha(13) : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isCompleted
+                                  ? Colors.green.withAlpha(100)
+                                  : (isDark ? Colors.white10 : Colors.green.shade50),
+                            ),
+                          ),
+                          child: CheckboxListTile(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            title: Text(
+                              title,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            subtitle: description.isNotEmpty
+                                ? Text(
+                              description,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white60 : Colors.black54,
+                              ),
+                            )
+                                : null,
+                            secondary: CircleAvatar(
+                              backgroundColor: Colors.orange.withAlpha(30),
+                              child: Text("+$points",
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange)),
+                            ),
+                            value: isCompleted,
+                            activeColor: Colors.green,
+                            onChanged: (bool? value) async {
+                              // 🔥 Local setState taake UI foran update hojaye
+                              setState(() {
+                                if (value == true) {
+                                  if (!completedToday.contains(deedId)) {
+                                    completedToday.add(deedId);
+                                  }
+                                } else {
+                                  completedToday.remove(deedId);
+                                }
+                              });
+
+                              DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
+                              var userSnap = await userRef.get();
+                              if (!userSnap.exists) return;
+                              var uData = userSnap.data() as Map<String, dynamic>;
+                              List compToday = List.from(uData['completedToday'] ?? []);
+                              int currentPoints = uData['totalPoints'] ?? 0;
+                              int streak = uData['streak'] ?? 0;
+
+                              if (value == true) {
+                                if (!compToday.contains(deedId)) {
+                                  compToday.add(deedId);
+                                  currentPoints += points;
+                                }
+                              } else {
+                                if (compToday.contains(deedId)) {
+                                  compToday.remove(deedId);
+                                  currentPoints -= points;
+                                  if (currentPoints < 0) currentPoints = 0;
+                                }
+                              }
+
+                              // 🔥 Streak Update Logic: Agar koi bhi deed tick hai to streak kam az kam 1 ho jaye, warna 0 rahe
+                              if (compToday.isNotEmpty) {
+                                if (streak == 0) streak = 1;
+                              } else {
+                                streak = 0;
+                              }
+
+                              await userRef.update({
+                                'completedToday': compToday,
+                                'totalPoints': currentPoints,
+                                'streak': streak,
+                                'lastUpdate': Timestamp.now(),
+                              });
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -379,19 +485,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeader(String name, bool isDark) {
+  Widget _buildHeader(bool isDark) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text("Assalamu Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13)),
-              Text(name, style: TextStyle(color: isDark ? Colors.white : const Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 24)),
-            ]),
-            _buildAvatar(isDark),
-          ],
+        child: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance.collection('users').doc(user?.uid).snapshots(),
+          builder: (context, snapshot) {
+            String name = user?.displayName ?? "User";
+            if (snapshot.hasData && snapshot.data!.exists) {
+              var data = snapshot.data!.data() as Map<String, dynamic>?;
+              if (data != null && data.containsKey('name') && data['name'] != null) {
+                name = data['name'];
+              }
+            }
+
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Assalamu Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13)),
+                    Text(
+                      name,
+                      style: TextStyle(
+                          color: isDark ? Colors.white : const Color(0xFF1B5E20),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 24
+                      ),
+                    ),
+                  ],
+                ),
+                _buildAvatar(isDark),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -403,14 +532,18 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, snapshot) {
         String? img;
         if (snapshot.hasData && snapshot.data!.exists) {
-          img = (snapshot.data!.data() as Map<String, dynamic>?)?['profileImage'];
+          var data = snapshot.data!.data() as Map<String, dynamic>?;
+          var rawImg = data?['profileImage'];
+          if (rawImg is String && rawImg.isNotEmpty) {
+            img = rawImg;
+          }
         }
         return GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
           child: CircleAvatar(
             radius: 22,
             backgroundColor: isDark ? Colors.white10 : Colors.green.shade50,
-            backgroundImage: (img != null && img.isNotEmpty) ? MemoryImage(base64Decode(img)) : null,
+            backgroundImage: (img != null && img.isNotEmpty) ? NetworkImage(img) as ImageProvider : null,
             child: (img == null || img.isEmpty) ? Icon(Icons.person, color: isDark ? Colors.white : Colors.green.shade700) : null,
           ),
         );
