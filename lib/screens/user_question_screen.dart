@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -27,6 +28,7 @@ class UserQuestionScreen extends StatefulWidget {
 
 class _UserQuestionScreenState extends State<UserQuestionScreen> {
   final _tidController = TextEditingController();
+  final _amountController = TextEditingController();
   final _suggestionController = TextEditingController();
   bool _isLoading = false;
 
@@ -98,6 +100,10 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
   }
 
   Future<void> _submitRequest() async {
+    if (_amountController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter paid amount")));
+      return;
+    }
     if (_tidController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter Transaction ID")));
       return;
@@ -111,18 +117,19 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
 
-      // 🔥 User ka naam ya email fetch karna taake scholar aur admin ke paas proper show ho
       String userName = user?.displayName ?? user?.email?.split('@').first ?? 'User';
+      String enteredAmount = _amountController.text.trim();
 
       // 1. User ka question aur payment details Firestore mein save karein
-      await FirebaseFirestore.instance.collection('user_questions').add({
+      DocumentReference questionDoc = await FirebaseFirestore.instance.collection('user_questions').add({
         'userId': user?.uid,
-        'userName': userName, // 🔥 Added user name here
-        'userEmail': user?.email, // 🔥 Added user email here
+        'userName': userName,
+        'userEmail': user?.email,
         'questionText': widget.question,
         'aiResponse': widget.aiAnswer,
         'scholarId': widget.selectedScholarId,
         'scholarName': widget.selectedScholarName,
+        'amountPaid': enteredAmount,
         'transactionId': _tidController.text.trim(),
         'paymentProofUrl': _paymentProofUrl,
         'additionalNote': _suggestionController.text.trim(),
@@ -130,12 +137,16 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 2. 🔔 Admin ke liye notifications collection mein entry
-      await FirebaseFirestore.instance.collection('admin_notifications').add({
-        'title': 'New Question Verification',
-        'message': '$userName ne ${widget.selectedScholarName} ke liye sawal bheja hai.',
-        'createdAt': FieldValue.serverTimestamp(),
+      // 2. 🔔 Admin ke liye notifications collection mein amount bhejna
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'targetRole': 'admin',
+        'questionId': questionDoc.id,
+        'userName': userName,
+        'amountPaid': enteredAmount,
+        'title': 'New Payment & Question!',
+        'message': '$userName ne Rs $enteredAmount ki payment ke sath sawal bheja hai.',
         'isRead': false,
+        'timestamp': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
@@ -164,60 +175,60 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Row: Scholar Info on Left, Payment Details Card on Right
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    "Scholar: ${widget.selectedScholarName}",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF2E7D32)),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                // 💳 Payment Details Card on Top Right
-                FutureBuilder<DocumentSnapshot>(
-                  future: FirebaseFirestore.instance.collection('app_settings').doc('payment_details').get(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const SizedBox(width: 150, child: LinearProgressIndicator());
-                    }
+            // Top Right: Payment Details Card
+            Align(
+              alignment: Alignment.centerRight,
+              child: FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance.collection('app_settings').doc('payment_details').get(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox(width: 150, child: LinearProgressIndicator());
+                  }
 
-                    if (!snapshot.hasData || !snapshot.data!.exists || snapshot.data!.data() == null) {
-                      return Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
-                        child: const Text("No payment info", style: TextStyle(fontSize: 12)),
-                      );
-                    }
-
-                    var paymentData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-
+                  if (!snapshot.hasData || !snapshot.data!.exists || snapshot.data!.data() == null) {
                     return Container(
-                      width: 240,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.green.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Fee Amount: ${paymentData['feeAmount'] ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2E7D32))),
-                          const Divider(height: 8),
-                          Text("EasyPaisa: ${paymentData['easyPaisaName'] ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                          Text("${paymentData['easyPaisaNumber'] ?? 'N/A'}", style: const TextStyle(fontSize: 11)),
-                          const SizedBox(height: 4),
-                          Text("JazzCash: ${paymentData['jazzCashName'] ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                          Text("${paymentData['jazzCashNumber'] ?? 'N/A'}", style: const TextStyle(fontSize: 11)),
-                        ],
-                      ),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
+                      child: const Text("No payment info", style: TextStyle(fontSize: 12)),
                     );
-                  },
-                ),
-              ],
+                  }
+
+                  var paymentData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+
+                  String epName = paymentData['easyPaisaName'] ?? '';
+                  String epNumber = paymentData['easyPaisaNumber'] ?? '';
+                  String jpName = paymentData['jazzCashName'] ?? '';
+                  String jpNumber = paymentData['jazzCashNumber'] ?? '';
+
+                  return Container(
+                    width: 260,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Fee Amount: ${paymentData['feeAmount'] ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2E7D32))),
+                        const Divider(height: 8),
+
+                        // EasyPaisa: Name - Number ek hi line mein
+                        if (epName.isNotEmpty || epNumber.isNotEmpty) ...[
+                          Text("EasyPaisa: $epName - $epNumber", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                        ],
+
+                        // JazzCash: Name - Number ek hi line mein (Sirf tab dikhega jab data hoga)
+                        if (jpName.isNotEmpty || jpNumber.isNotEmpty) ...[
+                          Text("JazzCash: $jpName - $jpNumber", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        ],
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
 
             const Divider(height: 30),
@@ -236,6 +247,17 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
+            ),
+            const SizedBox(height: 15),
+
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "Paid Amount (e.g., 300)",
+                border: OutlineInputBorder(),
+                hintText: "Enter exact amount you paid",
+              ),
             ),
             const SizedBox(height: 15),
 

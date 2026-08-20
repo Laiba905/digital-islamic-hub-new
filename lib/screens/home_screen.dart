@@ -11,6 +11,7 @@ import 'package:hijri/hijri_calendar.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'user_answer_screen.dart';
+import 'user_notification_screen.dart';
 
 import '../services/prayer_service.dart';
 import '../theme/app_theme.dart';
@@ -48,74 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         _fetchDailyAyah();
         _checkAndResetStreak();
-        _listenForScholarAnswers();
       }
     });
-  }
-
-  void _listenForScholarAnswers() {
-    if (user == null) return;
-
-    FirebaseFirestore.instance
-        .collection('notifications')
-        .where('targetRole', isEqualTo: 'user')
-        .where('targetId', isEqualTo: user!.uid)
-        .where('isRead', isEqualTo: false)
-        .snapshots()
-        .listen((QuerySnapshot snapshot) {
-      for (var change in snapshot.docChanges) {
-        if (change.type == DocumentChangeType.added) {
-          var data = change.doc.data() as Map<String, dynamic>;
-          String notificationId = change.doc.id;
-          String title = data['title'] ?? 'Jawab Alert! ✅';
-          String message = data['message'] ?? 'Scholar ne aapke sawal ka jawab de diya hai.';
-          _showUserAnswerPopup(title, message, notificationId);
-        }
-      }
-    });
-  }
-
-  void _showUserAnswerPopup(String title, String message, String notificationId) {
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: isDark ? const Color(0xFF1A332E) : Colors.white,
-          title: Row(
-            children: [
-              const Icon(Icons.gavel_rounded, color: Color(0xFF2E7D32), size: 26),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(title,
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isDark ? Colors.white : const Color(0xFF003D33))),
-              ),
-            ],
-          ),
-          content: Text(message,
-              style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14)),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await FirebaseFirestore.instance.collection('notifications').doc(notificationId).update({
-                  'isRead': true,
-                });
-              },
-              child: const Text('OK',
-                  style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _checkAndResetStreak() async {
@@ -254,7 +189,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 🔥 Fixed Deeds Module with Proper Fallback & Streak Update Logic
   Widget _buildDeedsModule(bool isDark) {
     if (user == null) return const SizedBox();
 
@@ -286,13 +220,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
             var allDocs = snapshot.data!.docs;
 
-            // 1. Aaj ki date ke deeds check karein
             var todayDeeds = allDocs.where((doc) {
               var data = doc.data() as Map<String, dynamic>;
               return data['dateStr'] == todayStr;
             }).toList();
 
-            // 2. Fallback: Agar aaj ke deeds nahi hain, toh sabse latest available deeds show honge
             var displayDeeds = todayDeeds.isNotEmpty ? todayDeeds : allDocs.where((doc) {
               var data = doc.data() as Map<String, dynamic>;
               String firstDateStr = (allDocs.first.data() as Map<String, dynamic>)['dateStr'] ?? '';
@@ -393,7 +325,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             value: isCompleted,
                             activeColor: Colors.green,
                             onChanged: (bool? value) async {
-                              // 🔥 Local setState taake UI foran update hojaye
                               setState(() {
                                 if (value == true) {
                                   if (!completedToday.contains(deedId)) {
@@ -425,7 +356,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 }
                               }
 
-                              // 🔥 Streak Update Logic: Agar koi bhi deed tick hai to streak kam az kam 1 ho jaye, warna 0 rahe
                               if (compToday.isNotEmpty) {
                                 if (streak == 0) streak = 1;
                               } else {
@@ -495,8 +425,15 @@ class _HomeScreenState extends State<HomeScreen> {
             String name = user?.displayName ?? "User";
             if (snapshot.hasData && snapshot.data!.exists) {
               var data = snapshot.data!.data() as Map<String, dynamic>?;
-              if (data != null && data.containsKey('name') && data['name'] != null) {
-                name = data['name'];
+              if (data != null) {
+                // Firestore mein name, displayName ya fullName kisi bhi field mein ho sakta hai
+                if (data.containsKey('name') && data['name'] != null) {
+                  name = data['name'];
+                } else if (data.containsKey('displayName') && data['displayName'] != null) {
+                  name = data['displayName'];
+                } else if (data.containsKey('fullName') && data['fullName'] != null) {
+                  name = data['fullName'];
+                }
               }
             }
 
@@ -517,7 +454,67 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                _buildAvatar(isDark),
+                Row(
+                  children: [
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('notifications')
+                          .where('isRead', isEqualTo: false)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        int unreadCount = 0;
+                        if (snapshot.hasData) {
+                          unreadCount = snapshot.data!.docs.length;
+                        }
+
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.notifications_active_outlined,
+                                size: 28,
+                                color: unreadCount > 0
+                                    ? Colors.red
+                                    : (isDark ? Colors.white : const Color(0xFF1B5E20)),
+                              ),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => UserNotificationScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            if (unreadCount > 0)
+                              Positioned(
+                                right: 6,
+                                top: 6,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    '$unreadCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    _buildAvatar(isDark),
+                  ],
+                ),
               ],
             );
           },

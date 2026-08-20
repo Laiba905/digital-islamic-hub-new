@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
 import 'scholar_list_screen.dart';
-import 'user_answer_screen.dart';
 
 class AIChatScreen extends StatefulWidget {
   const AIChatScreen({super.key});
@@ -19,7 +18,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
   final List<Map<String, String>> _messages = [
     {
       "role": "assistant",
-      "content": "user question?"
+      "content": "Assalamu Alaikum! How can I help you with your Islamic queries today?"
     }
   ];
 
@@ -42,7 +41,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
     if (_controller.text.trim().isEmpty) return;
 
     final userText = _controller.text.trim();
-    final aiText = "AI Answer";
+    final aiText = "This is a sample AI response. You can integrate your generative AI API here.";
 
     setState(() {
       _messages.add({"role": "user", "content": userText});
@@ -65,7 +64,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
         backgroundColor: isDark ? AppTheme.primaryDark : const Color(0xFF2E7D32),
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: const [], // Adhoora code yahan se theek kar diya gaya hai
       ),
       body: Column(
         children: [
@@ -88,6 +86,9 @@ class _AIChatScreenState extends State<AIChatScreen> {
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.75,
+                        ),
                         decoration: BoxDecoration(
                           color: isUser
                               ? const Color(0xFF2E7D32)
@@ -119,7 +120,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
                                   _messages[index - 1]["content"] ?? "";
                               final aiAnswer = msg["content"] ?? "";
 
-                              // 🚀 Yahan hum questionData ke sath ScholarListScreen par bhej rahe hain
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -170,7 +170,19 @@ class _AIChatScreenState extends State<AIChatScreen> {
               },
             ),
           ),
-          _buildInputArea(isDark),
+
+          // 🚀 Floating Input Area with extra bottom margin/padding so it stays well above screen bottom on mobiles
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 900),
+                  child: _buildInputArea(isDark),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -178,14 +190,19 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
   Widget _buildInputArea(bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black26 : Colors.white,
+        color: isDark ? Colors.grey.shade900 : Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: isDark ? Colors.white24 : Colors.grey.shade300,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(isDark ? 50 : 10),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withAlpha(isDark ? 60 : 20),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -204,10 +221,9 @@ class _AIChatScreenState extends State<AIChatScreen> {
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor:
-                isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
+                fillColor: Colors.transparent,
                 contentPadding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
             ),
           ),
@@ -215,7 +231,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
           CircleAvatar(
             backgroundColor: const Color(0xFF2E7D32),
             child: IconButton(
-              icon: const Icon(Icons.send, color: Colors.white),
+              icon: const Icon(Icons.send, color: Colors.white, size: 18),
               onPressed: _sendMessage,
             ),
           ),

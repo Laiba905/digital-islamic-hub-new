@@ -21,13 +21,12 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
   final User? user = FirebaseAuth.instance.currentUser;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  String? _profileImageUrl; // Changed from _base64Image to store Cloudinary URL
+  String? _profileImageUrl;
   bool _isDarkMode = false;
   bool _isNotificationEnabled = true;
-  bool _isUploading = false; // Loading state for Cloudinary upload
+  bool _isUploading = false;
   final TextEditingController _nameController = TextEditingController();
 
-  // ⚙️ TODO: Replace these with your actual Cloudinary credentials
   final String _cloudName = "lxuuhill";
   final String _uploadPreset = "AppPresent";
 
@@ -42,11 +41,10 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
       try {
         DocumentSnapshot doc = await _firestore.collection('scholars').doc(user!.uid).get();
         if (doc.exists) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
           setState(() {
-            _profileImageUrl = data['profileImage']; // Fetching image URL from Firestore
+            _profileImageUrl = data['profileImage'];
             _isNotificationEnabled = data['notifications'] ?? true;
-            // Dynamic real-time name handling (No hardcoded names)
             _nameController.text = data['displayName'] ?? user?.displayName ?? "Scholar";
 
             if (data['darkMode'] != null) {
@@ -118,7 +116,6 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
     }
   }
 
-  // 🚀 Cloudinary Upload Functionality with Error Response Logging
   Future<void> _uploadToCloudinary(Uint8List imageBytes, String fileName) async {
     setState(() {
       _isUploading = true;
@@ -135,13 +132,12 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
         ));
 
       var response = await request.send();
-      var responseData = await response.stream.bytesToString(); // Capture response body for debugging
+      var responseData = await response.stream.bytesToString();
 
       if (response.statusCode == 200) {
         var jsonData = json.decode(responseData);
         String secureUrl = jsonData['secure_url'];
 
-        // Save URL to Firestore 'scholars' collection
         await _saveProfileImageUrl(secureUrl);
 
         if (mounted) {
@@ -150,11 +146,10 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
           );
         }
       } else {
-        // 🔥 Print exact error in debug console to catch configuration issues (e.g., Unsigned preset missing)
         debugPrint("Cloudinary Upload Failed Response: $responseData");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Upload failed: Check preset settings.")),
+            const SnackBar(content: Text("Upload failed: Check preset settings.")),
           );
         }
       }
@@ -192,6 +187,10 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context, true), // Data update pass karne ke liye
+        ),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -230,7 +229,7 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
                       isDark: isDark,
                       onChanged: (val) {
                         setState(() => _isDarkMode = val);
-                        _firestore.collection('scholars').doc(user!.uid).update({'darkMode': val});
+                        _firestore.collection('scholars').doc(user!.uid).set({'darkMode': val}, SetOptions(merge: true));
                         themeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
                       },
                     ),
@@ -242,10 +241,9 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
                       isDark: isDark,
                       onChanged: (val) {
                         setState(() => _isNotificationEnabled = val);
-                        _firestore.collection('scholars').doc(user!.uid).update({'notifications': val});
+                        _firestore.collection('scholars').doc(user!.uid).set({'notifications': val}, SetOptions(merge: true));
                       },
                     ),
-
                   ]),
                   const SizedBox(height: 40),
                   _buildLogoutButton(),
@@ -349,7 +347,7 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(color: const Color(0xFF1B5E20).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-        child:  Icon(icon, color: Color(0xFF1B5E20), size: 20),
+        child: Icon(icon, color: const Color(0xFF1B5E20), size: 20),
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black54)),
@@ -368,20 +366,6 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
       value: value,
       activeColor: const Color(0xFF1B5E20),
       onChanged: onChanged,
-    );
-  }
-
-  Widget _buildHistoryTile({required IconData icon, required String title, required String subtitle, required Color color, required bool isDark, required VoidCallback onTap}) {
-    return ListTile(
-      onTap: onTap,
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
-      subtitle: Text(subtitle, style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black54)),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
     );
   }
 
@@ -432,10 +416,10 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B5E20)),
             onPressed: () async {
-              await _firestore.collection('scholars').doc(user!.uid).update({
+              await _firestore.collection('scholars').doc(user!.uid).set({
                 'displayName': _nameController.text.trim()
-              });
-              setState(() {}); // Updates UI instantly with the new name
+              }, SetOptions(merge: true));
+              setState(() {});
               if (mounted) Navigator.pop(context);
             },
             child: const Text("Save", style: TextStyle(color: Colors.white)),

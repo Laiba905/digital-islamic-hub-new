@@ -76,7 +76,6 @@ class ScholarQuestionsScreen extends StatelessWidget {
                 formattedDate = DateFormat('EEE, dd MMM yyyy, hh:mm a').format(latestTimestamp.toDate());
               }
 
-              // Firestore se user ka naam nikalne ka secure tareeqa (displayName shamil kiya gaya hai)
               return FutureBuilder<DocumentSnapshot>(
                 future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
                 builder: (context, userSnapshot) {
@@ -85,7 +84,6 @@ class ScholarQuestionsScreen extends StatelessWidget {
                   if (userSnapshot.hasData && userSnapshot.data!.exists) {
                     var userData = userSnapshot.data!.data() as Map<String, dynamic>?;
 
-                    // Yahan sabse pehle 'displayName' ko check kiya gaya hai
                     String? fetchedName = userData?['displayName'] ?? userData?['name'] ?? userData?['fullName'] ?? userData?['userName'];
                     String? fetchedEmail = userData?['email'] ?? userData?['userEmail'];
 
@@ -217,6 +215,7 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // 1️⃣ Update Question in Firestore
       await FirebaseFirestore.instance.collection('user_questions').doc(questionId).update({
         'scholarResponse': answer.trim(),
         'scholarName': scholarName,
@@ -224,17 +223,29 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
         'answeredAt': FieldValue.serverTimestamp(),
       });
 
+      // 2️⃣ Notification for User
       await FirebaseFirestore.instance.collection('notifications').add({
         'targetRole': 'user',
-        'targetId': userId,
+        'userId': userId,
         'title': 'Jawab Agaya! ✅',
         'message': 'Scholar ($scholarName) ne aapke sawal ka jawab de diya hai.',
         'isRead': false,
-        'timestamp': Timestamp.now(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      // 3️⃣ Notification for Admin
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'targetRole': 'admin',
+        'title': 'Scholar Answered!',
+        'message': 'Scholar ($scholarName) ne aik sawal ka jawab submit kar diya hai.',
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'timestamp': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Jawab kamyabi se bhej diya gaya hai!")));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Jawab aur notifications kamyabi se bhej diye gaye hain!")));
         setState(() => _isLoading = false);
       }
     } catch (e) {
@@ -278,7 +289,6 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
 
           var docs = snapshot.data!.docs;
 
-          // Local sorting: Newest messages first
           docs.sort((a, b) {
             Timestamp? timeA = (a.data() as Map<String, dynamic>)['createdAt'];
             Timestamp? timeB = (b.data() as Map<String, dynamic>)['createdAt'];
@@ -323,12 +333,22 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Icon(Icons.person_outline, size: 18, color: Color(0xFF2E7D32)),
-                          const SizedBox(width: 6),
+                          Row(
+                            children: [
+                              const Icon(Icons.person_outline, size: 18, color: Color(0xFF2E7D32)),
+                              const SizedBox(width: 6),
+                              Text(
+                                "User: ${widget.userName}",
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white70 : Colors.black87),
+                              ),
+                            ],
+                          ),
                           Text(
-                            "User: ${widget.userName}",
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white70 : Colors.black87),
+                            formattedDateTime,
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                           ),
                         ],
                       ),
@@ -351,16 +371,6 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                               ),
                             ),
                           ),
-                          Text(
-                            formattedDateTime,
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
@@ -380,7 +390,6 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                       ),
                       const Divider(height: 20),
 
-                      // User Question Box
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
@@ -433,7 +442,6 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                         const SizedBox(height: 12),
                       ],
 
-                      // AI Answer Box
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
@@ -459,7 +467,6 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Scholar Answer Box
                       const Row(
                         children: [
                           Icon(Icons.edit_note, size: 20, color: Color(0xFF2E7D32)),
@@ -470,13 +477,13 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       TextField(
                         controller: _controllers[qId],
                         maxLines: 4,
                         enabled: !isAnswered,
                         decoration: InputDecoration(
-                          hintText: "Enter your Answer  ",
+                          hintText: "Enter your Answer",
                           filled: true,
                           fillColor: isDark ? Colors.black26 : Colors.grey.shade100,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),

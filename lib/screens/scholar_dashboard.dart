@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:digital_islamic_hub_new/screens/scholar_questions_screen.dart';
 import 'package:digital_islamic_hub_new/screens/scholar_payments_screen.dart';
 import 'package:digital_islamic_hub_new/screens/scholar_profile_screen.dart';
+import 'scholar_notification_screen.dart';
 
 class ScholarDashboard extends StatefulWidget {
   const ScholarDashboard({super.key});
@@ -18,76 +19,163 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    String userName = user?.displayName ?? "Scholar";
 
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF9FBE7),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: const Color(0xFF1B5E20),
-        title: const Text("Scholar Dashboard", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        actions: [
-          // 👤 Profile Icon Button
-          IconButton(
-            icon: const Icon(Icons.person_outline_rounded, size: 26, color: Colors.white),
-            tooltip: "Profile",
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ScholarProfileScreen()),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Assalamu Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 14)),
-              const SizedBox(height: 4),
-              Text(userName, style: TextStyle(color: isDark ? const Color(0xFF81C784) : const Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 26)),
-              const SizedBox(height: 30),
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('scholars').doc(user?.uid).snapshots(),
+      builder: (context, snapshot) {
+        String userName = user?.displayName ?? "Scholar";
+        String? profileImageUrl;
 
-              // 👇 Yahan humne Row use kiya hai taake cards ki width aur height dono controlled (choti) rahein
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800), // Web ke liye maximum width limit
-                  child: Row(
+        if (snapshot.hasData && snapshot.data!.exists) {
+          var data = snapshot.data!.data() as Map<String, dynamic>?;
+          if (data != null) {
+            userName = data['displayName'] ?? user?.displayName ?? "Scholar";
+            profileImageUrl = data['profileImage'];
+          }
+        }
+
+        return Scaffold(
+          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF9FBE7),
+          appBar: AppBar(
+            elevation: 0,
+            backgroundColor: const Color(0xFF1B5E20),
+            title: const Text("Scholar Dashboard", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            centerTitle: true,
+            actions: [
+              // 🔔 Bell Icon for Scholar Notifications
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('notifications')
+                    .where('scholarId', isEqualTo: user?.uid)
+                    .where('isRead', isEqualTo: false)
+                    .snapshots(),
+                builder: (context, notifSnapshot) {
+                  int unreadCount = 0;
+                  if (notifSnapshot.hasData) {
+                    unreadCount = notifSnapshot.data!.docs.length;
+                  }
+
+                  return Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 160, // 👈 Fixed height for better UI
-                          child: _DashboardCard(
-                            title: "Questions",
-                            icon: Icons.chat_bubble_rounded,
-                            color: Colors.orange,
-                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScholarQuestionsScreen(scholarId: user!.uid))),
+                      IconButton(
+                        icon: Icon(
+                          Icons.notifications_active_outlined,
+                          size: 26,
+                          color: unreadCount > 0 ? Colors.amberAccent : Colors.white,
+                        ),
+                        tooltip: "Notifications",
+                        onPressed: () {
+                          if (user != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ScholarNotificationsScreen(
+                                  currentScholarId: user!.uid,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '$unreadCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16), // Dono cards ke darmiyan fasla
-                      Expanded(
-                        child: SizedBox(
-                          height: 160, // 👈 Height fixed at 160 for both cards
-                          child: _DashboardCard(
-                            title: "Payments",
-                            icon: Icons.account_balance_wallet_rounded,
-                            color: Colors.blue,
-                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScholarPaymentsScreen(scholarId: user!.uid))),
-                          ),
-                        ),
-                      ),
                     ],
+                  );
+                },
+              ),
+              const SizedBox(width: 4),
+              // 👤 Profile Icon / Image Button with Real-time Image Support
+              IconButton(
+                icon: Padding(
+                  padding: const EdgeInsets.all(2.0),
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Colors.white24,
+                    backgroundImage: (profileImageUrl != null && profileImageUrl.isNotEmpty)
+                        ? NetworkImage(profileImageUrl) as ImageProvider
+                        : null,
+                    child: (profileImageUrl == null || profileImageUrl.isEmpty)
+                        ? const Icon(Icons.person_outline_rounded, size: 18, color: Colors.white)
+                        : null,
                   ),
                 ),
+                tooltip: "Profile",
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ScholarProfileScreen()),
+                ),
               ),
+              const SizedBox(width: 8),
             ],
           ),
-        ),
-      ),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Assalamu Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text(userName, style: TextStyle(color: isDark ? const Color(0xFF81C784) : const Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 26)),
+                  const SizedBox(height: 30),
+
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 800),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 160,
+                              child: _DashboardCard(
+                                title: "Questions",
+                                icon: Icons.chat_bubble_rounded,
+                                color: Colors.orange,
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScholarQuestionsScreen(scholarId: user!.uid))),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: SizedBox(
+                              height: 160,
+                              child: _DashboardCard(
+                                title: "Payments",
+                                icon: Icons.account_balance_wallet_rounded,
+                                color: Colors.blue,
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ScholarPaymentsScreen(scholarId: user!.uid))),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
