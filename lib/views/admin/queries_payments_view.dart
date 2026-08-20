@@ -79,9 +79,9 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                       String? scholarId = data['scholarId'] ?? data['assignedScholarId'];
                       String? userId = data['userId'];
 
+                      // User ki enter ki hui actual amount yahan fetch ho rahi hai
                       String amountPaid = data['amountPaid']?.toString() ?? data['feeAmount']?.toString() ?? '100';
 
-                      // Fetching User & Scholar names dynamically from Firestore
                       return FutureBuilder<DocumentSnapshot>(
                         future: userId != null ? FirebaseFirestore.instance.collection('users').doc(userId).get() : Future.value(null),
                         builder: (context, userSnapshot) {
@@ -150,6 +150,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                           ),
                                         ),
                                         const SizedBox(width: 8),
+                                        // Admin ko user ki bheji hui exact amount (e.g. Paid: RS 300) nazar aayegi
                                         Text(
                                           "Paid: RS $amountPaid",
                                           style: TextStyle(color: Colors.orange.shade800, fontSize: 12, fontWeight: FontWeight.w600),
@@ -249,7 +250,8 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF004D40), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
       icon: const Icon(Icons.verified_user_rounded, size: 18),
       label: Text("Verify & Forward to $scholarName"),
-      onPressed: () => _processVerification(questionId, scholarId, scholarName, data),
+      // Direct click par baghair kisi popup ke user ki amount ka half calculate ho kar forward ho jaye ga
+      onPressed: () => _processVerificationDirectly(questionId, scholarId, scholarName, data),
     );
 
     if (isDesktopOrWeb) {
@@ -259,8 +261,12 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
     }
   }
 
-  Future<void> _processVerification(String questionId, String? scholarId, String scholarName, Map<String, dynamic> data) async {
+  // 👈 Direct verification aur user ki amount ka half calculation
+  Future<void> _processVerificationDirectly(String questionId, String? scholarId, String scholarName, Map<String, dynamic> data) async {
+    // User ne jo amount enter ki thi (e.g., 300), usay yahan read kia ja raha hai
     double totalPaid = double.tryParse(data['amountPaid']?.toString() ?? data['feeAmount']?.toString() ?? '100') ?? 100.0;
+
+    // Automatically half calculate karna (e.g., 300 ka 150)
     double adminShare = totalPaid / 2;
     double scholarShare = totalPaid / 2;
 
@@ -277,7 +283,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
         'scholarId': scholarId,
         'scholarName': scholarName,
         'questionId': questionId,
-        'amount': scholarShare,
+        'amount': scholarShare, // Yeh half amount scholar ke ledger mein save hogi realtime mein
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'accumulated',
       });
@@ -307,7 +313,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Verified! RS $scholarShare allocated to scholar's earnings ledger."))
+          SnackBar(content: Text("Verified! RS $scholarShare (Half of RS $totalPaid) allocated to scholar's ledger."))
       );
     }
   }
@@ -331,7 +337,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text("Payment Receipt", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context))]),
             const SizedBox(height: 16),
-            Text("Amount: RS $amountPaid", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text("Amount Sent by User: RS $amountPaid", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Expanded(
               child: Container(

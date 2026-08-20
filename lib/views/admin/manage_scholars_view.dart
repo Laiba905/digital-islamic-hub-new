@@ -4,23 +4,26 @@ import 'package:flutter/material.dart';
 class ManageScholarsPage extends StatelessWidget {
   const ManageScholarsPage({Key? key}) : super(key: key);
 
-  // 📈 Dynamic Stream: Scholars ke status ke mutabik counting
+  // 📈 Dynamic Stream: Scholars ke status ke mutabik accurate counting
   Stream<int> getScholarCount({String? statusValue}) {
-    Query query = FirebaseFirestore.instance.collection('scholars');
-
-    if (statusValue != null) {
-      query = query.where('status', isEqualTo: statusValue);
-    } else {
-      // Total verified scholars ke liye blocked ko nikal kar baaki sab (active ya empty status) count karein
-      return FirebaseFirestore.instance
-          .collection('scholars')
-          .snapshots()
-          .map((snapshot) => snapshot.docs.where((doc) {
-        var data = doc.data() as Map<String, dynamic>;
-        return data['status'] != 'blocked';
-      }).length);
-    }
-    return query.snapshots().map((snapshot) => snapshot.docs.length);
+    return FirebaseFirestore.instance.collection('scholars').snapshots().map((snapshot) {
+      if (statusValue == 'blocked') {
+        // Sirf woh count honge jinka status explicitly 'blocked' hai
+        return snapshot.docs.where((doc) {
+          var data = doc.data() as Map<String, dynamic>;
+          return data['status'] == 'blocked';
+        }).length;
+      } else if (statusValue == 'active') {
+        // Woh sab count honge jinka status 'blocked' NAHI hai (yani active ya empty status wale)
+        return snapshot.docs.where((doc) {
+          var data = doc.data() as Map<String, dynamic>;
+          return data['status'] != 'blocked';
+        }).length;
+      } else {
+        // Total scholars ki kul taadad
+        return snapshot.docs.length;
+      }
+    });
   }
 
   @override
@@ -60,10 +63,9 @@ class ManageScholarsPage extends StatelessWidget {
     );
   }
 
-  // 🛠️ UI: Verified Scholars ki List (Fallbacks ke saath)
+  // 🛠️ UI: Verified Scholars ki List (Sirf Email aur Block/Unblock Button)
   Widget _buildVerifiedScholarsList() {
     return StreamBuilder<QuerySnapshot>(
-      // 🔥 FIX: Phele sirf status check ho rha tha, ab pooray scholars collection ko listen krengay
       stream: FirebaseFirestore.instance.collection('scholars').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -79,7 +81,6 @@ class ManageScholarsPage extends StatelessWidget {
           );
         }
 
-        // Filter out blocked ones if needed, or display all who completed sign up
         var docs = snapshot.data!.docs;
 
         return ListView.builder(
@@ -91,8 +92,7 @@ class ManageScholarsPage extends StatelessWidget {
             String docId = docs[index].id;
             bool isBlocked = scholar['status'] == 'blocked';
 
-            // AAPKE FIELDS: Database ke exact keys key mutabik
-            String scholarName = scholar['name'] ?? scholar['displayName'] ?? 'Verified Scholar';
+            // Sirf Email fetch ki ja rahi hai
             String scholarEmail = scholar['email'] ?? 'No Email';
 
             return Card(
@@ -108,18 +108,17 @@ class ManageScholarsPage extends StatelessWidget {
                     child: Icon(Icons.school, color: isBlocked ? Colors.red : const Color(0xFF003D33)),
                   ),
                   title: Text(
-                    scholarName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  subtitle: Text(
                     scholarEmail,
-                    style: const TextStyle(color: Colors.black54),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: isBlocked ? Colors.grey : Colors.black87,
+                    ),
                   ),
                   trailing: SizedBox(
                     width: 100,
                     child: ElevatedButton(
                       onPressed: () async {
-                        // Directly update status in scholars collection
                         await FirebaseFirestore.instance.collection('scholars').doc(docId).update({
                           'status': isBlocked ? 'active' : 'blocked',
                         });

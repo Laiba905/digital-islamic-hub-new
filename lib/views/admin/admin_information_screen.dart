@@ -162,7 +162,7 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
                     TextField(
                       controller: _easyPaisaNameController,
                       decoration: InputDecoration(
-                        hintText: "EasyPaisa Account Title Name",
+                        hintText: "Owner Name",
                         prefixIcon: const Icon(Icons.person),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -185,7 +185,7 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
                     TextField(
                       controller: _jazzCashNameController,
                       decoration: InputDecoration(
-                        hintText: "JazzCash Account Title Name",
+                        hintText: "Owner Name",
                         prefixIcon: const Icon(Icons.person),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -204,7 +204,7 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
                         onPressed: _isLoading ? null : _saveSettings,
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text("Change & Save Settings 🚀", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                            : const Text("Change & Save Settings ", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],

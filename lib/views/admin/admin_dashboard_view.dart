@@ -1,11 +1,14 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:admin/view_models/theme_provider.dart';
 import 'package:admin/view_models/profile_view_model.dart';
 import 'admin_information_screen.dart';
+import 'admin_notification_screen.dart';
 import 'package:admin/views/admin/upload_books_view.dart';
+import 'scholar_management_hub_view.dart';
+import 'user_management_hub_view.dart';
+import 'scholar_answer_view.dart'; // 🚀 ScholarAnswerView import kar liya gaya hai
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({super.key});
@@ -35,7 +38,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       for (var change in snapshot.docChanges) {
         if (change.type == DocumentChangeType.added) {
           var data = change.doc.data() as Map<String, dynamic>;
-          String notificationId = data['doc.id'] ?? change.doc.id;
+          String notificationId = change.doc.id;
 
           String title = data['title'] ?? 'New Notification';
           String message = data['message'] ?? 'Scholar ne jawab submit kar diya hai.';
@@ -182,11 +185,27 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 backgroundColor: module.backgroundColor,
                                 spacingAfter: module.spacingAfter,
                                 onTap: () {
-                                  // Route handling for Upload Books screen
                                   if (module.route == '/upload_books' || module.route == '/upload_book_screen') {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(builder: (context) => const UploadBooksView()),
+                                    );
+                                  } else if (module.route == '/scholar_hub') {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const ScholarManagementHubView()),
+                                    );
+                                  } else if (module.route == '/user_hub') {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const UserManagementHubView()),
+                                    );
+                                  } else if (module.route == '/scholar_answer') {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const ScholarAnswerView(),
+                                      ),
                                     );
                                   } else {
                                     Navigator.pushNamed(context, module.route);
@@ -395,7 +414,59 @@ class _TopHeader extends StatelessWidget {
               icon: const Icon(Icons.menu),
               onPressed: () => scaffoldKey.currentState?.openDrawer(),
             ),
-          const Expanded(child: TextField(decoration: InputDecoration(hintText: 'Search modules...', prefixIcon: Icon(Icons.search, size: 20), border: InputBorder.none))),
+
+          // 🚀 Search bar yahan se khatam kar ke Spacer() laga diya gaya hai
+          const Spacer(),
+
+          // 🔔 Notifications Bell Icon with Live Unread Badge
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('notifications')
+                .where('targetRole', isEqualTo: 'admin')
+                .where('isRead', isEqualTo: false)
+                .snapshots(),
+            builder: (context, snapshot) {
+              int unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.notifications_outlined,
+                      size: 24,
+                      color: unreadCount > 0 ? Colors.tealAccent : (themeProvider.isDarkMode ? Colors.white70 : Colors.black87),
+                    ),
+                    tooltip: "Notifications",
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AdminNotificationScreen()),
+                      );
+                    },
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$unreadCount',
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+
           IconButton(icon: Icon(themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode, size: 22), onPressed: () => themeProvider.toggleTheme(!themeProvider.isDarkMode)),
           const SizedBox(width: 16),
           InkWell(
@@ -462,5 +533,13 @@ final List<DashboardModule> dashboardModulesConfig = [
     route: '/sunnah_deeds',
     spacingAfter: 8.0,
   ),
-
+  const DashboardModule(
+    title: 'Scholar Answer',
+    subtitle: 'Receive a scholar answer',
+    icon: Icons.forum_outlined,
+    iconColor: Color(0xFFD32F2F),
+    backgroundColor: Color(0xFFFFEBEE),
+    route: '/scholar_answer',
+    spacingAfter: 8.0,
+  ),
 ];

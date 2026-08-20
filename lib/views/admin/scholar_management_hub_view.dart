@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'queries_payments_view.dart';
 import 'scholar_requests_view.dart';
-import 'scholar_analytics_view.dart'; // 🌟 1. Import ScholarAnalyticsView if missing
+import 'manage_scholars_view.dart';
+import 'scholar_analytics_view.dart';
 
 class ScholarManagementHubView extends StatelessWidget {
   const ScholarManagementHubView({super.key});
@@ -22,14 +23,22 @@ class ScholarManagementHubView extends StatelessWidget {
             runSpacing: 32,
             alignment: WrapAlignment.center,
             children: [
+              // 1. Manage Scholars Card
               _HubCard(
                 title: 'Manage Scholars',
                 subtitle: 'Verify, Block, or Unblock Scholar accounts.',
                 icon: Icons.school_outlined,
-                onTap: () => Navigator.pushNamed(context, '/manage_scholars'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ManageScholarsPage(),
+                    ),
+                  );
+                },
               ),
 
-              // Scholar Requests Card
+              // 2. Scholar Requests Card
               _HubCard(
                 title: 'Scholar Requests',
                 subtitle: 'New registration requests from scholars.',
@@ -44,7 +53,7 @@ class ScholarManagementHubView extends StatelessWidget {
                 },
               ),
 
-              // 🌟 2. FIXED: Scholar Analytics Card (Corrected Navigator syntax)
+              // 3. Scholar Analytics Card
               _HubCard(
                 title: 'Scholar Analytics',
                 subtitle: 'View registration trends and active counts.',
@@ -59,7 +68,7 @@ class ScholarManagementHubView extends StatelessWidget {
                 },
               ),
 
-              // Queries & Payments Card
+              // 4. Queries & Payments Card
               _HubCard(
                 title: 'Queries & Payments',
                 subtitle: 'Verify user payments, view screenshots, and assign to scholars.',
@@ -68,7 +77,9 @@ class ScholarManagementHubView extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const QueriesPaymentsView()),
+                    MaterialPageRoute(
+                      builder: (context) => const QueriesPaymentsView(),
+                    ),
                   );
                 },
               ),

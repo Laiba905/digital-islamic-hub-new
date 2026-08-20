@@ -9,7 +9,7 @@ class ScholarAnalyticsView extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFB),
       appBar: AppBar(
-        title: const Text('Scholar Analytics & Performance'),
+        title: const Text('Scholar Analytics'),
         backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -32,10 +32,16 @@ class ScholarAnalyticsView extends StatelessWidget {
 
           final scholars = snapshot.data!.docs;
 
-          // 📊 Metrics Calculation
+          // 📊 Accurate Metrics Calculation (Corrected Logic)
           int totalScholars = scholars.length;
-          int activeScholars = scholars.where((doc) => (doc.data() as Map<String, dynamic>)['status'] == 'active').length;
-          int blockedScholars = scholars.where((doc) => (doc.data() as Map<String, dynamic>)['status'] == 'blocked').length;
+
+          int blockedScholars = scholars.where((doc) {
+            var data = doc.data() as Map<String, dynamic>;
+            return data['status'] == 'blocked';
+          }).length;
+
+          // Active scholars woh hain jo blocked nahi hain
+          int activeScholars = totalScholars - blockedScholars;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -51,11 +57,11 @@ class ScholarAnalyticsView extends StatelessWidget {
                 // 📈 Top Counters Summary Blocks
                 Row(
                   children: [
-                    _buildAnalyticsCard("Registered", totalScholars.toString(), Colors.blue, Icons.analytics),
+                    _buildAnalyticsCard("Registered Scholar", totalScholars.toString(), Colors.blue, Icons.analytics),
                     const SizedBox(width: 12),
-                    _buildAnalyticsCard("Active Verified", activeScholars.toString(), Colors.green, Icons.verified_user_outlined),
+                    _buildAnalyticsCard("Active Scholar", activeScholars.toString(), Colors.green, Icons.verified_user_outlined),
                     const SizedBox(width: 12),
-                    _buildAnalyticsCard("Suspended", blockedScholars.toString(), Colors.red, Icons.gpp_bad_outlined),
+                    _buildAnalyticsCard("Blocked Scholar", blockedScholars.toString(), Colors.red, Icons.gpp_bad_outlined),
                   ],
                 ),
 

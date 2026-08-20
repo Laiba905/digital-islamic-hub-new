@@ -10,14 +10,12 @@ class SunnahDeedsView extends StatefulWidget {
 }
 
 class _SunnahDeedsViewState extends State<SunnahDeedsView> {
-  // 🚀 3 Controllers for 3 separate deed titles and points
   final List<TextEditingController> _taskControllers = List.generate(3, (_) => TextEditingController());
   final List<TextEditingController> _pointsControllers = List.generate(3, (_) => TextEditingController(text: '10'));
 
   bool _isUploading = false;
 
   Future<void> _updateDailyTasks() async {
-    // Check karein ke teeno mein se koi khali toh nahi
     bool hasEmpty = false;
     for (int i = 0; i < 3; i++) {
       if (_taskControllers[i].text.trim().isEmpty || _pointsControllers[i].text.trim().isEmpty) {
@@ -37,8 +35,6 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
     try {
       String todayDateStr = DateTime.now().toIso8601String().split('T')[0];
 
-      // Purane 24 hours ke deeds delete karna taake naye 3 deeds active ho sakein (optional agar replace karna ho)
-      // Ya direct batch mein add kar dein:
       FirebaseFirestore firestore = FirebaseFirestore.instance;
       WriteBatch batch = firestore.batch();
 
@@ -137,7 +133,6 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 📝 3 DEEDS INPUT CARD
                 Card(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 2,
@@ -151,8 +146,6 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                         const SizedBox(height: 8),
                         const Text('Aap yahan aik sath 3 deeds aur unke points set kar ke publish kar sakte hain.', style: TextStyle(color: Colors.grey, fontSize: 13)),
                         const SizedBox(height: 24),
-
-                        // Loop to create 3 input rows
                         for (int i = 0; i < 3; i++) ...[
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,7 +177,6 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                           ),
                           if (i < 2) const SizedBox(height: 16),
                         ],
-
                         const SizedBox(height: 24),
                         Align(
                           alignment: Alignment.centerRight,
@@ -212,11 +204,9 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 40),
                 const Divider(thickness: 1.5),
                 const SizedBox(height: 20),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -231,7 +221,6 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance.collection('daily_deeds').where('dateStr', isEqualTo: todayDateStr).snapshots(),
                   builder: (context, snapshot) {
@@ -303,65 +292,107 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
   }
 }
 
-// 📱 USER SIDE SCREEN TO VIEW TODAY'S 3 DEEDS
 class UserDeedsView extends StatelessWidget {
   const UserDeedsView({super.key});
 
+  // 🔄 Automatic 30-Day Loop Calculation Logic for Users
+  int _calculateCurrentActiveDay(Timestamp? startDateTimestamp) {
+    if (startDateTimestamp == null) return 1;
+    DateTime startDate = startDateTimestamp.toDate();
+    DateTime now = DateTime.now();
+
+    // Difference in days (har 24 hours ke baad +1 day barh jayega)
+    int differenceInDays = now.difference(startDate).inDays;
+
+    // Modulo 30 lagane se jese hi 30 din khatam honge, yeh automatically wapas 0 ho kar +1 yaani Day 1 se shuru ho jayega (Infinite Loop)
+    return (differenceInDays % 30) + 1;
+  }
+
   @override
   Widget build(BuildContext context) {
-    String todayDateStr = DateTime.now().toIso8601String().split('T')[0];
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Today\'s Sunnah & Deeds'),
+        title: const Text('30-Day Sunnah Program'),
         backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('daily_deeds')
-            .where('dateStr', isEqualTo: todayDateStr)
-            .snapshots(),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('app_content').doc('ramadan_or_deeds_30_days').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(color: Color(0xFF004D40)));
           }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("No deeds available for today yet.", style: TextStyle(color: Colors.grey, fontSize: 16)));
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(child: Text("No 30-day program available yet.", style: TextStyle(color: Colors.grey, fontSize: 16)));
           }
 
-          var docs = snapshot.data!.docs;
+          var data = snapshot.data!.data() as Map<String, dynamic>;
+          Timestamp? startDate = data['program_start_date'];
+          List deedsList = data['deeds_list'] ?? [];
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              var deed = docs[index].data() as Map<String, dynamic>;
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 2,
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  leading: CircleAvatar(
-                    backgroundColor: const Color(0xFF004D40),
-                    child: Text(
-                      "+${deed['points'] ?? 10}",
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
+          if (deedsList.isEmpty) {
+            return const Center(child: Text("Program list is empty.", style: TextStyle(color: Colors.grey, fontSize: 16)));
+          }
+
+          // 🚀 Calculate current day index based on 24-hour / day-by-day loop rotation (1 to 30)
+          int activeDayNumber = _calculateCurrentActiveDay(startDate);
+
+          // Find the deed corresponding to the active day (Day index is 1-based, list is 0-based index)
+          var currentDayDeed = deedsList.firstWhere(
+                (element) => element['day'] == activeDayNumber,
+            orElse: () => deedsList[0],
+          );
+
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF004D40),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  title: Text(
-                    deed['title'] ?? 'Sunnah Deed',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  subtitle: const Padding(
-                    padding: EdgeInsets.only(top: 4.0),
-                    child: Text("Complete this deed to earn points!", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Streak / Program: Day $activeDayNumber of 30",
+                        style: const TextStyle(color: Colors.tealAccent, fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        currentDayDeed['title'] ?? 'Sunnah Task',
+                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            },
+                const SizedBox(height: 20),
+                const Text("Today's Details & Description:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Text(
+                        currentDayDeed['description'] ?? 'No description provided for today.',
+                        style: const TextStyle(fontSize: 16, color: Colors.black87, height: 1.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -369,7 +400,6 @@ class UserDeedsView extends StatelessWidget {
   }
 }
 
-// 🗓️ 30 DAYS PROGRAM MANAGEMENT SCREEN (UNCHANGED)
 class Manage30DaysDeedsView extends StatefulWidget {
   const Manage30DaysDeedsView({super.key});
 
@@ -423,15 +453,17 @@ class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
         });
       }
 
+      // 🚀 Save with program start date so the 24-hour cycle loop starts fresh from today
       await FirebaseFirestore.instance.collection('app_content').doc('ramadan_or_deeds_30_days').set({
         'total_days': 30,
         'deeds_list': thirtyDaysList,
+        'program_start_date': FieldValue.serverTimestamp(), // 👈 Yeh track karega ke 24 hours kab se shuru huwe hain
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('30 Days Deeds Successfully Saved! 🎉'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('30 Days Program & Loop Saved Successfully! 🎉'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
