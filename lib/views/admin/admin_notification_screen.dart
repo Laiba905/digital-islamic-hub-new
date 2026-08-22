@@ -15,17 +15,18 @@ class AdminNotificationScreen extends StatefulWidget {
 class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Notifications'),
-        backgroundColor: const Color(0xFF004D40),
-        foregroundColor: Colors.white,
+        // AppBar color automatic global theme se aayega
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('notifications')
+            .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -50,7 +51,6 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
               return false;
             }
 
-            // 🚀 'question' hata diya hai taake yeh list mein show na ho
             return targetRole == 'admin' ||
                 title.contains('payment') ||
                 title.contains('verification') ||
@@ -76,9 +76,9 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
               final title = data['title'] ?? 'Notification';
 
               String formattedDate = '';
-              if (data['timestamp'] != null) {
+              if (data['createdAt'] != null) {
                 try {
-                  Timestamp timestamp = data['timestamp'];
+                  Timestamp timestamp = data['createdAt'];
                   DateTime dateTime = timestamp.toDate();
                   formattedDate = DateFormat('MMM d, yyyy - hh:mm a').format(dateTime);
                 } catch (e) {
@@ -92,58 +92,36 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                color: isDark ? const Color(0xFF1E1E1E) : Colors.green.shade50,
+                // Theme colors implementation
+                color: isDark ? theme.cardColor : theme.colorScheme.primary.withOpacity(0.08),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () async {
                     final lowerTitle = title.toLowerCase();
 
                     if (lowerTitle.contains('answered')) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ScholarAnswerView(),
-                        ),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const ScholarAnswerView()));
                     } else if (lowerTitle.contains('scholar') || lowerTitle.contains('verification')) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ScholarRequestsView(),
-                        ),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const ScholarRequestsView()));
                     } else if (lowerTitle.contains('payment')) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const QueriesPaymentsView(),
-                        ),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const QueriesPaymentsView()));
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Notification read kar li gayi hai."),
-                          duration: Duration(seconds: 2),
-                        ),
+                        const SnackBar(content: Text("Notification marked as read.")),
                       );
                     }
 
                     try {
-                      await FirebaseFirestore.instance
-                          .collection('notifications')
-                          .doc(notificationId)
-                          .delete();
-                    } catch (e) {
-                      // ignore error
-                    }
+                      await FirebaseFirestore.instance.collection('notifications').doc(notificationId).delete();
+                    } catch (e) {}
                   },
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        const CircleAvatar(
-                          backgroundColor: Color(0xFF004D40),
-                          child: Icon(Icons.notifications_active, color: Colors.white),
+                        CircleAvatar(
+                          backgroundColor: theme.colorScheme.primary,
+                          child: const Icon(Icons.notifications_active, color: Colors.white),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -152,17 +130,21 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                             children: [
                               Text(
                                 title,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: Color(0xFF004D40),
+                                  color: isDark ? Colors.white : theme.colorScheme.primary,
                                 ),
                               ),
                               if (formattedDate.isNotEmpty) ...[
                                 const SizedBox(height: 6),
                                 Text(
                                   formattedDate,
-                                  style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w500),
+                                  style: TextStyle(
+                                    fontSize: 11, 
+                                    color: isDark ? Colors.white70 : Colors.blueGrey, 
+                                    fontWeight: FontWeight.w500
+                                  ),
                                 ),
                               ],
                             ],

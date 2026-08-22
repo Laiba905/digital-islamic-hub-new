@@ -332,7 +332,6 @@ class _TopHeader extends StatelessWidget {
 
           const Spacer(),
 
-          // 🔔 Dynamic Bell Icon with Red/Teal Color & Badge Count
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('notifications')

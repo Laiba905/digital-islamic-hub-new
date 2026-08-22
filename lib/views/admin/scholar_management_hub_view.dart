@@ -9,11 +9,13 @@ class ScholarManagementHubView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scholar Management Hub'),
-        backgroundColor: const Color(0xFF004D40),
-        foregroundColor: Colors.white,
+        // Global theme handles color
       ),
       body: Center(
         child: Padding(
@@ -107,6 +109,9 @@ class _HubCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return SizedBox(
       width: 300,
       height: 250,
@@ -121,11 +126,23 @@ class _HubCard extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 60, color: iconColor ?? const Color(0xFF004D40)),
+                Icon(
+                  icon, 
+                  size: 60, 
+                  color: iconColor ?? (isDark ? theme.colorScheme.primary : theme.colorScheme.primary),
+                ),
                 const SizedBox(height: 16),
-                Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                Text(
+                  title, 
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), 
+                  textAlign: TextAlign.center
+                ),
                 const SizedBox(height: 8),
-                Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+                Text(
+                  subtitle, 
+                  textAlign: TextAlign.center, 
+                  style: TextStyle(color: isDark ? Colors.white70 : Colors.grey)
+                ),
               ],
             ),
           ),
