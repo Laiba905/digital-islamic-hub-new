@@ -146,7 +146,7 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
           );
         }
       } else {
-        debugPrint("Cloudinary Upload Failed Response: $responseData");
+        debugPrint(" Upload Failed Response: $responseData");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Upload failed: Check preset settings.")),

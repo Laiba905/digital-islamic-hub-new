@@ -90,7 +90,7 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Cloudinary Error: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(" Error: $e")));
       }
     } finally {
       if (mounted) {
@@ -116,15 +116,30 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
     setState(() => _isLoading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
+      String userName = 'User';
 
-      String userName = user?.displayName ?? user?.email?.split('@').first ?? 'User';
+      // 🚀 Firestore se user ka asal naam fetch kar rahe hain
+      if (user != null) {
+        try {
+          DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+          if (userDoc.exists && userDoc.data() != null) {
+            var userData = userDoc.data() as Map<String, dynamic>;
+            userName = userData['name'] ?? userData['fullName'] ?? user.displayName ?? user.email?.split('@').first ?? 'User';
+          } else {
+            userName = user.displayName ?? user.email?.split('@').first ?? 'User';
+          }
+        } catch (e) {
+          userName = user.displayName ?? user.email?.split('@').first ?? 'User';
+        }
+      }
+
       String enteredAmount = _amountController.text.trim();
 
       // 1. User ka question aur payment details Firestore mein save karein
       DocumentReference questionDoc = await FirebaseFirestore.instance.collection('user_questions').add({
-        'userId': user?.uid,
+        'userId': user?.uid ?? 'anonymous',
         'userName': userName,
-        'userEmail': user?.email,
+        'userEmail': user?.email ?? '',
         'questionText': widget.question,
         'aiResponse': widget.aiAnswer,
         'scholarId': widget.selectedScholarId,
@@ -137,14 +152,14 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 2. 🔔 Admin ke liye notifications collection mein amount bhejna
+      // 2. 🔔 Admin ke liye 'notifications' collection mein entry bhejna (Real Name ke sath)
       await FirebaseFirestore.instance.collection('notifications').add({
         'targetRole': 'admin',
         'questionId': questionDoc.id,
         'userName': userName,
         'amountPaid': enteredAmount,
         'title': 'New Payment & Question!',
-        'message': '$userName ne Rs $enteredAmount ki payment ke sath sawal bheja hai.',
+        'message': '$userName sent a question with a payment of Rs $enteredAmount.',
         'isRead': false,
         'timestamp': FieldValue.serverTimestamp(),
       });
@@ -154,8 +169,21 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
         Navigator.popUntil(context, (route) => route.isFirst);
       }
     } catch (e) {
+      print("CRITICAL SUBMISSION ERROR: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Submission Error"),
+            content: Text("Masla aa raha hai: $e"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -214,13 +242,11 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
                         Text("Fee Amount: ${paymentData['feeAmount'] ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2E7D32))),
                         const Divider(height: 8),
 
-                        // EasyPaisa: Name - Number ek hi line mein
                         if (epName.isNotEmpty || epNumber.isNotEmpty) ...[
                           Text("EasyPaisa: $epName - $epNumber", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
                         ],
 
-                        // JazzCash: Name - Number ek hi line mein (Sirf tab dikhega jab data hoga)
                         if (jpName.isNotEmpty || jpNumber.isNotEmpty) ...[
                           Text("JazzCash: $jpName - $jpNumber", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                         ],

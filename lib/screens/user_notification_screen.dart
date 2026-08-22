@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // 🚀 Date format ke liye package import kiya hai
+import 'user_answer_screen.dart'; // Make sure this path matches your project structure
 
 class UserNotificationScreen extends StatelessWidget {
   const UserNotificationScreen({super.key});
@@ -11,7 +13,6 @@ class UserNotificationScreen extends StatelessWidget {
         title: const Text("User Notifications"),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // Firestore se notifications fetch kar rahe hain (latest pehle aayein ge)
         stream: FirebaseFirestore.instance
             .collection('notifications')
             .orderBy('timestamp', descending: true)
@@ -25,7 +26,20 @@ class UserNotificationScreen extends StatelessWidget {
             return const Center(child: Text("No notifications yet!"));
           }
 
-          var docs = snapshot.data!.docs;
+          var docs = snapshot.data!.docs.where((doc) {
+            var data = doc.data() as Map<String, dynamic>;
+            String targetRole = data['targetRole'] ?? '';
+            String title = (data['title'] ?? '').toString().toLowerCase();
+
+            if (targetRole == 'admin' || title.contains('new payment & question')) {
+              return false;
+            }
+            return true;
+          }).toList();
+
+          if (docs.isEmpty) {
+            return const Center(child: Text("No notifications yet!"));
+          }
 
           return ListView.builder(
             itemCount: docs.length,
@@ -34,15 +48,32 @@ class UserNotificationScreen extends StatelessWidget {
               String docId = docs[index].id;
               bool isRead = data['isRead'] ?? false;
 
-              // Fields ko check kar rahe hain taake agar 'body' ki jagah kuch aur ho toh wo utha le
-              String title = data['title'] ?? data['heading'] ?? 'No Title';
-              String body = data['body'] ?? data['message'] ?? data['description'] ?? 'No Body Content';
+              // Title ko English mein convert karna
+              String rawTitle = data['title'] ?? data['heading'] ?? 'Answer Received! ✅';
+              String title = rawTitle;
+              if (rawTitle.toLowerCase().contains('answer received') || rawTitle.toLowerCase().contains('new answer')) {                title = 'Answer Received! ✅';
+              }
 
-              // Jis ne notification bheja ho (Agar Firestore mein 'sender' ya 'adminName' ka field ho)
-              String sender = data['sender'] ?? data['sentBy'] ?? 'Admin / School';
+              // Body ko English mein set karna
+              String rawBody = data['body'] ?? data['message'] ?? data['description'] ?? 'Your question has been answered.';
+              String body = rawBody;
+              if (rawBody.toLowerCase().contains('has answered your question')) {                body = "A scholar has responded to your question.";
+              }
+
+              // 🚀 Timestamp (Date & Time) ko format karna
+              String formattedDate = '';
+              if (data['timestamp'] != null) {
+                try {
+                  Timestamp timestamp = data['timestamp'];
+                  DateTime dateTime = timestamp.toDate();
+                  formattedDate = DateFormat('MMM d, yyyy - hh:mm a').format(dateTime);
+                } catch (e) {
+                  formattedDate = '';
+                }
+              }
 
               return Card(
-                color: isRead ? Colors.white : Colors.blue.shade50, // Unread message highlight ho ga
+                color: isRead ? Colors.white : Colors.blue.shade50,
                 margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 child: ListTile(
                   leading: const Icon(Icons.notifications_active, color: Colors.blue),
@@ -57,24 +88,33 @@ class UserNotificationScreen extends StatelessWidget {
                     children: [
                       const SizedBox(height: 4),
                       Text(body),
-                      const SizedBox(height: 6),
-                      // Bhejne wale ka naam show karne ke liye
-                      Text(
-                        "Sent by: $sender",
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey,
-                          fontStyle: FontStyle.italic,
+                      if (formattedDate.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          formattedDate,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.blueGrey,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
-                  onTap: () {
-                    // Jab user notification par click kare ga, toh isay 'read' mark kar dein
-                    FirebaseFirestore.instance
+                  onTap: () async {
+                    // 1. Mark notification as read in Firestore
+                    await FirebaseFirestore.instance
                         .collection('notifications')
                         .doc(docId)
                         .update({'isRead': true});
+
+                    // 2. Navigate to UserAnswerScreen
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const UserAnswerScreen(),
+                      ),
+                    );
                   },
                 ),
               );

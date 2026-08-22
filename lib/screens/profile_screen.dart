@@ -143,7 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Cloudinary upload failed. Please try again.")),
+            const SnackBar(content: Text(" upload failed. Please try again.")),
           );
         }
       }

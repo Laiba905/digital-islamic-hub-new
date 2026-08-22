@@ -208,8 +208,7 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
 
   Future<void> _submitAnswer(String questionId, String answer, String userId, String scholarName) async {
     if (answer.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Jawab likhna zaroori hai!")));
-      return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please write an answer!")));      return;
     }
 
     setState(() => _isLoading = true);
@@ -227,9 +226,8 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
       await FirebaseFirestore.instance.collection('notifications').add({
         'targetRole': 'user',
         'userId': userId,
-        'title': 'Jawab Agaya! ✅',
-        'message': 'Scholar ($scholarName) ne aapke sawal ka jawab de diya hai.',
-        'isRead': false,
+        'title': 'Answer Received! ✅',
+        'message': 'Scholar ($scholarName) has answered your question.',        'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
         'timestamp': FieldValue.serverTimestamp(),
       });
@@ -238,15 +236,13 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
       await FirebaseFirestore.instance.collection('notifications').add({
         'targetRole': 'admin',
         'title': 'Scholar Answered!',
-        'message': 'Scholar ($scholarName) ne aik sawal ka jawab submit kar diya hai.',
-        'isRead': false,
+        'message': 'Scholar ($scholarName) has submitted an answer to a question.',        'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
         'timestamp': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Jawab aur notifications kamyabi se bhej diye gaye hain!")));
-        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Answer  sent successfully!")));        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {

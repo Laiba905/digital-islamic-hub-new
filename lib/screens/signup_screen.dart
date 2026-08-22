@@ -139,8 +139,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ],
         ),
         content: const Text(
-          "Aap ki application abhi pending mein hai. Admin ki taraf se verification mukammal hone ke baad hi aap dashboard access kar sakenge.",
-          style: TextStyle(fontSize: 14),
+            "Your application is currently pending. You will be able to access the dashboard once verification is completed by the admin.",          style: TextStyle(fontSize: 14),
         ),
         actions: [
           ElevatedButton(
@@ -234,7 +233,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _handleSignUp,
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
-                      child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Sign Up / Continue"),
+                      child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text(" Continue"),
                     ),
                   ),
                 ],

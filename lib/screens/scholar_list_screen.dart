@@ -41,7 +41,6 @@ class ScholarListScreen extends StatelessWidget {
               String scholarId = scholars[index].id; // Ye ID har scholar ki unique hai
 
               String scholarName = scholarDoc['displayName'] ?? scholarDoc['email'] ?? 'Unknown Scholar';
-              String specialization = scholarDoc['degree'] ?? 'Expert Scholar';
 
               return ListTile(
                 leading: const CircleAvatar(
@@ -49,18 +48,16 @@ class ScholarListScreen extends StatelessWidget {
                   child: Icon(Icons.person, color: Colors.white),
                 ),
                 title: Text(scholarName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text(specialization),
+                // 🚀 Yahan se subtitle (matric / Expert Scholar) ko remove kar diya gaya hai
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  // 🌟 Yahan hum UserQuestionScreen par navigate kar rahe hain
-                  // aur zaroori parameters pass kar rahe hain
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => UserQuestionScreen(
                         question: questionData['questionText'] ?? "",
                         aiAnswer: questionData['aiAnswer'] ?? "",
-                        selectedScholarId: scholarId, // Yahan ID pass ho gayi
+                        selectedScholarId: scholarId,
                         selectedScholarName: scholarName,
                       ),
                     ),

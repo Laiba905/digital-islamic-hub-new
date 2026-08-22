@@ -18,7 +18,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Confirm Withdrawal"),
-        content: Text("Aap Rs. ${amount.toStringAsFixed(0)} withdraw karna chahte hain?"),
+        content: Text("Do you want to withdraw Rs. ${amount.toStringAsFixed(0)}?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -30,7 +30,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text("Aap ko aglay kuch time baad paise account mein transfer kar diye jayenge!"),
+                  content: Text("Your funds will be transferred to your account shortly!"),
                   backgroundColor: Colors.green,
                   duration: Duration(seconds: 4),
                 ),
@@ -94,7 +94,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                     child: Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Text("Image load nahi ho saki.", style: TextStyle(color: Colors.red)),
+                      errorBuilder: (context, error, stackTrace) => const Text("Failed to load image.", style: TextStyle(color: Colors.red)),
                     ),
                   ),
                 )
@@ -105,7 +105,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                     color: Colors.grey.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text("Koi screenshot attach nahi hai.", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  child: const Text("No screenshot attached.", style: TextStyle(color: Colors.grey, fontSize: 12)),
                 ),
               ],
             ),
@@ -301,7 +301,6 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      // User Name Displayed Here
                                       Row(
                                         children: [
                                           const Icon(Icons.person, size: 14, color: Color(0xFF2E7D32)),
@@ -373,7 +372,6 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 10),
-                                // Agar payment already ho chuki hai, toh Withdraw button ki jagah Paid badge show hoga
                                 isPaid
                                     ? Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -476,7 +474,7 @@ class ScholarPaymentDetailsScreen extends StatelessWidget {
       body: paidQuestions.isEmpty
           ? const Center(
         child: Text(
-          "Abhi tak koi payment record mojood nahi hai.",
+          "No payment record found.",
           style: TextStyle(fontSize: 14, color: Colors.grey),
         ),
       )
@@ -515,7 +513,7 @@ class ScholarPaymentDetailsScreen extends StatelessWidget {
                         _showImageDialog(context, imageUrl);
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Koi screenshot attach nahi hai.")),
+                          const SnackBar(content: Text("No screenshot attached.")),
                         );
                       }
                     },

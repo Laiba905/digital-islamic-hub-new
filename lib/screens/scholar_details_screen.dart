@@ -63,6 +63,7 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
       }
       return response.secureUrl;
     } catch (e) {
+      print("Cloudinary Error: $e");
       return null;
     }
   }
@@ -83,6 +84,7 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
       final user = FirebaseAuth.instance.currentUser!;
       String? imageUrl = await _uploadToCloudinary(user.uid);
 
+      // 1️⃣ Scholars collection mein details save karna
       await FirebaseFirestore.instance.collection('scholars').doc(user.uid).set({
         'phone': _phoneController.text.trim(),
         'address': _addressController.text.trim(),
@@ -93,9 +95,42 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
         'timestamp': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Submitted Successfully!")));
+      // 2️⃣ 🚀 Admin ke liye notifications aur admin_notifications donon mein entry bhej rahe hain
+      final notificationData = {
+        'targetRole': 'admin',
+        'title': 'Scholar Verification Request',
+        'message': 'New scholar (${user.email ?? 'Scholar'}) has requested verification.',
+        'userName': user.email ?? 'Scholar',
+        'amountPaid': '0',
+        'isRead': false,
+        'timestamp': FieldValue.serverTimestamp(),
+      };
+
+      await FirebaseFirestore.instance.collection('notifications').add(notificationData);
+      await FirebaseFirestore.instance.collection('admin_notifications').add(notificationData);
+
+      print("SUCCESS: Notification sent successfully to Firestore!");
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Request Sent Successfully!")),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      print("CRITICAL ERROR: $e");
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Error Details"),
+          content: Text(e.toString()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -114,7 +149,7 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600), // Laptop/Web ke liye width fix ki hai taake zyada stretch na ho
+            constraints: const BoxConstraints(maxWidth: 600),
             child: Form(
               key: _formKey,
               child: Column(
@@ -159,7 +194,7 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                   ),
                   const SizedBox(height: 25),
 
-                  // 6. Please Upload Certificate Section (Centered & Balanced)
+                  // 6. Please Upload Certificate Section
                   Center(
                     child: Column(
                       children: [
@@ -173,7 +208,7 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                           onTap: _pickSanadImage,
                           child: Container(
                             height: 180,
-                            width: 320, // Mobile & Web dono ke liye aik behtareen fixed width box
+                            width: 320,
                             decoration: BoxDecoration(
                               color: Colors.grey[200],
                               borderRadius: BorderRadius.circular(12),

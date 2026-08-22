@@ -116,8 +116,7 @@ class UserAnswerScreen extends StatelessWidget {
                       children: [
                         Icon(Icons.hourglass_top, size: 16, color: Colors.orange),
                         SizedBox(width: 8),
-                        Text("Scholar ka jawab abhi pending hai.", style: TextStyle(color: Colors.orange, fontSize: 13)),
-                      ],
+                        Text("Scholar's answer is currently pending.", style: TextStyle(color: Colors.orange, fontSize: 13)),                      ],
                     ),
                   ],
 
@@ -274,8 +273,7 @@ class UserAnswerScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              showAlertBadge
-                                  ? "New Answer Aagya Hai!"
+                              showAlertBadge ? "New Answer Received!"
                                   : (isAnswered ? "Viewed" : "Pending Review"),
                               style: TextStyle(
                                 color: showAlertBadge
