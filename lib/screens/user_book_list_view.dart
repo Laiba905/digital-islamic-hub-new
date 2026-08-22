@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'pdf_viewer_screen.dart';
+import '../theme/app_theme.dart';
 
 class UserBookListView extends StatefulWidget {
   const UserBookListView({super.key});
@@ -17,8 +18,13 @@ class UserBookListView extends StatefulWidget {
 
 class _UserBookListViewState extends State<UserBookListView> {
   final Map<String, double> _downloadProgress = {};
+  final Map<String, bool> _downloadedStatus = {}; // 🚀 Yeh track karega ke kaunsi book download ho chuki hai
 
-  // File check function for mobile/web
+  @override
+  void initState() {
+    super.initState();
+  }
+
   Future<bool> _checkLocalFile(String path) async {
     if (kIsWeb) {
       return false;
@@ -27,8 +33,25 @@ class _UserBookListViewState extends State<UserBookListView> {
     }
   }
 
+  // 🚀 Har book ka local path check karne ka function
+  Future<void> _checkIfDownloaded(String title, String pdfUrl) async {
+    if (kIsWeb) return;
+    try {
+      var directory = await getApplicationDocumentsDirectory();
+      String safeTitle = title.replaceAll(RegExp(r'[^\w\s]+'), '').replaceAll(' ', '_');
+      String savePath = '${directory.path}/$safeTitle.pdf';
+      bool exists = await io.File(savePath).exists();
+      if (mounted) {
+        setState(() {
+          _downloadedStatus[pdfUrl] = exists;
+        });
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   Future<void> _downloadAndOpenPDF(BuildContext context, String fileUrl, String title) async {
-    // 1. Web ke liye: Naye tab mein safe tarike se kholna
     if (kIsWeb) {
       final Uri url = Uri.parse(fileUrl);
       try {
@@ -51,7 +74,6 @@ class _UserBookListViewState extends State<UserBookListView> {
       return;
     }
 
-    // 2. Mobile ke liye: Local storage mein smooth download aur offline view
     try {
       var directory = await getApplicationDocumentsDirectory();
       String safeTitle = title.replaceAll(RegExp(r'[^\w\s]+'), '').replaceAll(' ', '_');
@@ -60,6 +82,11 @@ class _UserBookListViewState extends State<UserBookListView> {
       bool fileExists = await _checkLocalFile(savePath);
 
       if (fileExists) {
+        if (mounted) {
+          setState(() {
+            _downloadedStatus[fileUrl] = true;
+          });
+        }
         if (context.mounted) {
           Navigator.push(
             context,
@@ -84,8 +111,6 @@ class _UserBookListViewState extends State<UserBookListView> {
         onReceiveProgress: (received, total) {
           if (total != -1) {
             double progress = received / total;
-
-            // 🚀 Hang hone se bachane ke liye optimized logic (UI bar bar refresh nahi hogi)
             if ((_downloadProgress[fileUrl] ?? 0) + 0.05 <= progress || progress == 1.0) {
               if (mounted) {
                 setState(() {
@@ -100,6 +125,7 @@ class _UserBookListViewState extends State<UserBookListView> {
       if (mounted) {
         setState(() {
           _downloadProgress.remove(fileUrl);
+          _downloadedStatus[fileUrl] = true; // 🚀 Download complete hote hi status true kar diya
         });
       }
 
@@ -127,21 +153,23 @@ class _UserBookListViewState extends State<UserBookListView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Islamic Books Library'),
-        backgroundColor: const Color(0xFF004D40),
+        title: const Text('Islamic Books Library', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('uploaded_books').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No books available.'));
+            return Center(child: Text('No books available.', style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)));
           }
 
           final books = snapshot.data!.docs;
@@ -155,28 +183,36 @@ class _UserBookListViewState extends State<UserBookListView> {
               final String author = book['author'] ?? 'Unknown Author';
               final String pdfUrl = book['pdfUrl'] ?? '';
 
+              // Check if file is already downloaded locally
+              if (_downloadedStatus[pdfUrl] == null && !kIsWeb) {
+                _checkIfDownloaded(title, pdfUrl);
+              }
+
               double? progress = _downloadProgress[pdfUrl];
               bool isDownloading = progress != null;
+              bool isDownloaded = _downloadedStatus[pdfUrl] ?? false;
 
               return Card(
-                elevation: 3,
+                elevation: isDark ? 0 : 3,
                 margin: const EdgeInsets.only(bottom: 12),
+                color: isDark ? Colors.white.withAlpha(12) : Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: isDark ? Colors.white10 : Colors.transparent),
                 ),
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFF004D40),
-                    child: Icon(Icons.menu_book, color: Colors.white),
+                  leading: CircleAvatar(
+                    backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
+                    child: Icon(Icons.menu_book, color: isDark ? AppTheme.primaryDark : Colors.white),
                   ),
                   title: Text(
                     title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87),
                   ),
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text('Author: $author', style: const TextStyle(color: Colors.grey)),
+                    child: Text('Author: $author', style: TextStyle(color: isDark ? Colors.white60 : Colors.grey)),
                   ),
                   trailing: isDownloading
                       ? SizedBox(
@@ -185,17 +221,19 @@ class _UserBookListViewState extends State<UserBookListView> {
                     child: CircularProgressIndicator(
                       value: progress,
                       strokeWidth: 3,
-                      color: const Color(0xFF004D40),
+                      color: AppTheme.accentGreen,
                     ),
                   )
                       : IconButton(
                     icon: Icon(
-                      kIsWeb ? Icons.visibility : Icons.download_rounded,
-                      color: const Color(0xFF004D40),
+                      kIsWeb
+                          ? Icons.visibility
+                          : (isDownloaded ? Icons.check_circle : Icons.download_rounded), // 🚀 Downloaded hone par tick/check_circle icon show hoga
+                      color: isDownloaded ? Colors.green : (isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                       size: 26,
                     ),
                     onPressed: () => _downloadAndOpenPDF(context, pdfUrl, title),
-                    tooltip: kIsWeb ? 'View Book' : 'Download & Read',
+                    tooltip: kIsWeb ? 'View Book' : (isDownloaded ? 'Read Book' : 'Download & Read'),
                   ),
                   onTap: () {
                     if (pdfUrl.isNotEmpty && !isDownloading) {

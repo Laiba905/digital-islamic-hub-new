@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
+import '../theme/app_theme.dart';
 
 class TasbeehCounterScreen extends StatefulWidget {
   final Map<String, dynamic> zikar;
@@ -27,7 +28,6 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
   }
 
   void _increment() async {
-    // Logic: Agar counter goal tak pohnch gaya hai to mazeed increment nahi hoga
     if (_counter >= widget.zikar['goal']) {
       return;
     }
@@ -57,24 +57,33 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
   }
 
   void _showSuccessDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Center(child: Text("MashAllah! ❤️")),
+        backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
+        title: Center(child: Text("MashAllah! ❤️", style: TextStyle(color: isDark ? Colors.white : AppTheme.primaryLight))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 60),
+            Icon(Icons.check_circle, color: AppTheme.accentGreen, size: 60),
             const SizedBox(height: 10),
-            Text("Aapne ${widget.zikar['name']} ka target poora kar liya!"),
+            Text(
+              "Aapne ${widget.zikar['name']} ka target poora kar liya!",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+            ),
           ],
         ),
         actions: [
           Center(
             child: ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, 
+                foregroundColor: isDark ? AppTheme.primaryDark : Colors.white
+              ),
               onPressed: () => Navigator.pop(context),
               child: const Text("Alhamdulillah"),
             ),
@@ -86,14 +95,18 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     bool isGoalReached = _counter >= widget.zikar['goal'];
 
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.zikar['name']),
+        title: Text(widget.zikar['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _reset,
             tooltip: "Reset Counter",
           )
@@ -115,7 +128,11 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
                 children: [
                   Text(
                     isGoalReached ? "Goal Reached! Click Reset to start again." : "Target: ${widget.zikar['goal']}",
-                    style: TextStyle(fontSize: 18, color: isGoalReached ? Colors.green : Colors.grey, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 18, 
+                      color: isGoalReached ? AppTheme.accentGreen : (isDark ? Colors.white38 : Colors.grey), 
+                      fontWeight: FontWeight.bold
+                    ),
                   ),
                   const SizedBox(height: 30),
                   Container(
@@ -123,11 +140,16 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
                     height: 280,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isGoalReached ? Colors.green.withOpacity(0.1) : Theme.of(context).primaryColor.withOpacity(0.05),
-                      border: Border.all(color: isGoalReached ? Colors.green : Theme.of(context).primaryColor, width: 8),
+                      color: isGoalReached 
+                        ? AppTheme.accentGreen.withAlpha(20) 
+                        : (isDark ? Colors.white.withAlpha(10) : AppTheme.primaryLight.withAlpha(10)),
+                      border: Border.all(
+                        color: isGoalReached ? AppTheme.accentGreen : (isDark ? AppTheme.accentGreen : AppTheme.primaryLight), 
+                        width: 8
+                      ),
                       boxShadow: [
                         BoxShadow(
-                            color: (isGoalReached ? Colors.green : Theme.of(context).primaryColor).withOpacity(0.1),
+                            color: (isGoalReached ? AppTheme.accentGreen : AppTheme.primaryLight).withAlpha(30),
                             blurRadius: 20,
                             spreadRadius: 5
                         )
@@ -138,7 +160,7 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
                           style: TextStyle(
                               fontSize: 80,
                               fontWeight: FontWeight.bold,
-                              color: isGoalReached ? Colors.green : Theme.of(context).primaryColor
+                              color: isGoalReached ? AppTheme.accentGreen : (isDark ? Colors.white : AppTheme.primaryLight)
                           )),
                     ),
                   ),
@@ -148,7 +170,7 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
-                        color: isGoalReached ? Colors.green : Colors.grey
+                        color: isGoalReached ? AppTheme.accentGreen : (isDark ? Colors.white38 : Colors.grey)
                     ),
                   ),
                 ],

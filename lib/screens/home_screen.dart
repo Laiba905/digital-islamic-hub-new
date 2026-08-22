@@ -146,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: IndexedStack(index: _selectedIndex, children: tabs),
       bottomNavigationBar: _buildBottomNav(isDark),
     );
@@ -159,7 +159,9 @@ class _HomeScreenState extends State<HomeScreen> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: isDark ? [const Color(0xFF003D33), AppTheme.primaryDark] : [const Color(0xFFF1F8E9), Colors.white],
+          colors: isDark
+              ? [AppTheme.primaryLight, AppTheme.primaryDark]
+              : [const Color(0xFFE8F5E9), Colors.white],
         ),
       ),
       child: SafeArea(
@@ -211,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: Colors.green));
+              return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
             }
 
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -290,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isCompleted
-                                  ? Colors.green.withAlpha(100)
+                                  ? AppTheme.accentGreen.withAlpha(150)
                                   : (isDark ? Colors.white10 : Colors.green.shade50),
                             ),
                           ),
@@ -323,7 +325,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       color: Colors.orange)),
                             ),
                             value: isCompleted,
-                            activeColor: Colors.green,
+                            activeColor: AppTheme.accentGreen,
                             onChanged: (bool? value) async {
                               setState(() {
                                 if (value == true) {
@@ -402,10 +404,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 15),
-          if (isAyahLoading) const Center(child: CircularProgressIndicator(color: Colors.green))
+          if (isAyahLoading) const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen))
           else Column(
             children: [
-              Text(dailyAyah, textAlign: TextAlign.center, textDirection: TextDirection.rtl, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF003D33), height: 1.5)),
+              Text(dailyAyah, textAlign: TextAlign.center, textDirection: TextDirection.rtl, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryLight, height: 1.5)),
               const SizedBox(height: 10),
               Text(dailyUrdu, textAlign: TextAlign.center, textDirection: TextDirection.rtl, style: TextStyle(fontSize: 14, color: isDark ? Colors.white60 : Colors.black54, height: 1.4)),
             ],
@@ -416,6 +418,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader(bool isDark) {
+    // 🚀 Current logged-in user ki ID nikalna
+    final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -426,13 +431,10 @@ class _HomeScreenState extends State<HomeScreen> {
             if (snapshot.hasData && snapshot.data!.exists) {
               var data = snapshot.data!.data() as Map<String, dynamic>?;
               if (data != null) {
-                // Firestore mein name, displayName ya fullName kisi bhi field mein ho sakta hai
                 if (data.containsKey('name') && data['name'] != null) {
                   name = data['name'];
                 } else if (data.containsKey('displayName') && data['displayName'] != null) {
                   name = data['displayName'];
-                } else if (data.containsKey('fullName') && data['fullName'] != null) {
-                  name = data['fullName'];
                 }
               }
             }
@@ -447,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(
                       name,
                       style: TextStyle(
-                          color: isDark ? Colors.white : const Color(0xFF1B5E20),
+                          color: isDark ? Colors.white : AppTheme.primaryLight,
                           fontWeight: FontWeight.bold,
                           fontSize: 24
                       ),
@@ -457,8 +459,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   children: [
                     StreamBuilder<QuerySnapshot>(
+                      // 🚀 Sirf current user ki unread notifications count hongi
                       stream: FirebaseFirestore.instance
                           .collection('notifications')
+                          .where('userId', isEqualTo: currentUserId)
                           .where('isRead', isEqualTo: false)
                           .snapshots(),
                       builder: (context, snapshot) {
@@ -476,13 +480,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 size: 28,
                                 color: unreadCount > 0
                                     ? Colors.red
-                                    : (isDark ? Colors.white : const Color(0xFF1B5E20)),
+                                    : (isDark ? Colors.white : AppTheme.primaryLight),
                               ),
                               onPressed: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => UserNotificationScreen(),
+                                    builder: (context) => const UserNotificationScreen(),
                                   ),
                                 );
                               },
@@ -539,9 +543,9 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
           child: CircleAvatar(
             radius: 22,
-            backgroundColor: isDark ? Colors.white10 : Colors.green.shade50,
+            backgroundColor: isDark ? Colors.white10 : AppTheme.primaryLight.withAlpha(20),
             backgroundImage: (img != null && img.isNotEmpty) ? NetworkImage(img) as ImageProvider : null,
-            child: (img == null || img.isEmpty) ? Icon(Icons.person, color: isDark ? Colors.white : Colors.green.shade700) : null,
+            child: (img == null || img.isEmpty) ? Icon(Icons.person, color: isDark ? Colors.white : AppTheme.primaryLight) : null,
           ),
         );
       },
@@ -561,7 +565,11 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.all(15),
           padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: isDark ? [const Color(0xFF004D40), const Color(0xFF002921)] : [const Color(0xFF2E7D32), const Color(0xFF1B5E20)]),
+            gradient: LinearGradient(
+                colors: isDark
+                    ? [AppTheme.primaryLight, const Color(0xFF002921)]
+                    : [AppTheme.primaryLight, const Color(0xFF00695C)]
+            ),
             borderRadius: BorderRadius.circular(24),
           ),
           child: Column(
@@ -587,7 +595,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(children: [
       Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
       Text(name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-      Text(formattedTime, style: const TextStyle(color: Color(0xFFA5D6A7), fontSize: 12)),
+      Text(formattedTime, style: const TextStyle(color: AppTheme.accentGreen, fontSize: 12)),
     ]);
   }
 
@@ -621,7 +629,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(i, color: c, size: 26),
+            Icon(i, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, size: 26),
             const SizedBox(height: 6),
             Text(t, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87))
           ],
@@ -636,7 +644,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: (i) => setState(() => _selectedIndex = i),
       type: BottomNavigationBarType.fixed,
       backgroundColor: isDark ? const Color(0xFF001A12) : Colors.white,
-      selectedItemColor: const Color(0xFF2E7D32),
+      selectedItemColor: AppTheme.accentGreen,
       unselectedItemColor: isDark ? Colors.white38 : Colors.grey.shade400,
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: "Home"),

@@ -22,7 +22,6 @@ class _DailyDeedsState extends State<DailyDeeds> {
     _lastCheckedDate = DateTime.now().toIso8601String().split('T')[0];
   }
 
-  // 🔄 Smart Streak Validation: Sirf tab zero ho jab admin ne deed bheja ho aur user ne miss kiya ho
   Future<void> _validateAndResetMissedStreakStrict() async {
     try {
       DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(widget.userId);
@@ -40,7 +39,6 @@ class _DailyDeedsState extends State<DailyDeeds> {
         DateTime lastUpdateMidnight = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
         int differenceInDays = todayMidnight.difference(lastUpdateMidnight).inDays;
 
-        // Agar user ne 1 din se zyada ka gap diya hai
         if (differenceInDays > 1) {
           bool adminDeedsExistInGap = false;
 
@@ -59,15 +57,11 @@ class _DailyDeedsState extends State<DailyDeeds> {
             }
           }
 
-          // Sirf tab streak 0 ho jab admin ki taraf se active deeds aye thay aur user ne miss kiye
           if (adminDeedsExistInGap) {
             await userRef.update({
               'streak': 0,
               'completedTodayDate': "",
             });
-            debugPrint("Streak Reset to 0 because user missed active admin deeds!");
-          } else {
-            debugPrint("Streak safe because admin didn't post any new deeds on missed days.");
           }
         }
       }
@@ -76,7 +70,6 @@ class _DailyDeedsState extends State<DailyDeeds> {
     }
   }
 
-  // 🚀 Toggle & Save Individual Deed Status to Firestore instantly
   Future<void> _toggleDeed(String deedId, bool currentStatus, String todayStr) async {
     setState(() {
       if (currentStatus) {
@@ -100,7 +93,6 @@ class _DailyDeedsState extends State<DailyDeeds> {
     }
   }
 
-  // 🚀 Submit Streak & Points
   void _submitStreak(int pointsCalculated, String todayStr) async {
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
@@ -123,7 +115,7 @@ class _DailyDeedsState extends State<DailyDeeds> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("MashaAllah! Today's streak has been successfully updated!"), backgroundColor: Colors.green),
+          const SnackBar(content: Text("MashaAllah! Today's streak has been successfully updated!"), backgroundColor: AppTheme.primaryLight),
         );
       }
     } catch (e) {
@@ -138,7 +130,6 @@ class _DailyDeedsState extends State<DailyDeeds> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     String todayStr = DateTime.now().toIso8601String().split('T')[0];
 
-    // Agar din badal gaya hai toh local ticks ko automatically clear kar dein taake naye din naye ticks hon
     if (_lastCheckedDate != todayStr) {
       _lastCheckedDate = todayStr;
       _localTicks.clear();
@@ -150,7 +141,7 @@ class _DailyDeedsState extends State<DailyDeeds> {
       backgroundColor: isDark ? AppTheme.primaryDark : const Color(0xFFF1F8E9),
       appBar: AppBar(
         title: const Text("Daily Sunnah & Deeds"),
-        backgroundColor: const Color(0xFF004D40),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
@@ -172,7 +163,6 @@ class _DailyDeedsState extends State<DailyDeeds> {
 
           bool alreadyDone = (lastDate == todayStr);
 
-          // 🔥 Fetch Today's Saved Ticks from Firestore subcollection
           return StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('users')
@@ -186,7 +176,6 @@ class _DailyDeedsState extends State<DailyDeeds> {
                 savedProgress = progressSnap.data!.data() as Map<String, dynamic>? ?? {};
               }
 
-              // 🔥 30-Day Program Data Stream Fetching with Infinite Loop (% 30)
               return StreamBuilder<DocumentSnapshot>(
                 stream: FirebaseFirestore.instance.collection('app_content').doc('ramadan_or_deeds_30_days').snapshots(),
                 builder: (context, thirtyDaysSnap) {
@@ -202,15 +191,13 @@ class _DailyDeedsState extends State<DailyDeeds> {
                         DateTime startDate = createdAt.toDate();
                         DateTime now = DateTime.now();
                         int diffDays = DateTime(now.year, now.month, now.day).difference(DateTime(startDate.year, startDate.month, startDate.day)).inDays;
-
-                        // 🔄 Infinite Loop Logic: Day 30 ke baad automatically Day 1 par le ayega
                         currentDayNumber = (diffDays % 30) + 1;
                       }
 
                       for (var item in list) {
                         if (item['day'] == currentDayNumber) {
                           todayDeedsList.add({
-                            'id': 'day_${currentDayNumber}_${item['title'].hashCode}', // Unique ID based on day & title
+                            'id': 'day_${currentDayNumber}_${item['title'].hashCode}',
                             'title': item['title'] ?? '',
                             'description': item['description'] ?? '',
                             'points': item['points'] ?? 5,
@@ -225,7 +212,7 @@ class _DailyDeedsState extends State<DailyDeeds> {
                       stream: FirebaseFirestore.instance.collection('daily_deeds').where('dateStr', isEqualTo: todayStr).snapshots(),
                       builder: (context, fallbackSnap) {
                         if (fallbackSnap.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator(color: Color(0xFF004D40)));
+                          return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
                         }
                         var deedsDocs = fallbackSnap.hasData ? fallbackSnap.data!.docs : [];
                         if (deedsDocs.isEmpty) {
@@ -277,7 +264,7 @@ class _DailyDeedsState extends State<DailyDeeds> {
             Card(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               elevation: 1,
-              color: isDark ? Colors.white10 : Colors.white,
+              color: isDark ? Colors.white.withAlpha(10) : Colors.white,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                 child: Row(
@@ -326,12 +313,12 @@ class _DailyDeedsState extends State<DailyDeeds> {
                         children: [
                           if (description.isNotEmpty) ...[
                             const SizedBox(height: 4),
-                            Text(description, style: TextStyle(color: ticked ? Colors.grey : Colors.black54, fontSize: 13)),
+                            Text(description, style: TextStyle(color: ticked ? Colors.grey : (isDark ? Colors.white60 : Colors.black54), fontSize: 13)),
                           ],
                           const SizedBox(height: 6),
                           Text(
                             "+$pts Points",
-                            style: TextStyle(color: ticked ? Colors.grey : Colors.green, fontWeight: FontWeight.w600, fontSize: 13),
+                            style: TextStyle(color: ticked ? Colors.grey : AppTheme.accentGreen, fontWeight: FontWeight.w600, fontSize: 13),
                           ),
                         ],
                       ),
@@ -345,9 +332,9 @@ class _DailyDeedsState extends State<DailyDeeds> {
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: ticked ? Colors.green : Colors.transparent,
+                            color: ticked ? AppTheme.accentGreen : Colors.transparent,
                             shape: BoxShape.circle,
-                            border: Border.all(color: ticked ? Colors.green : Colors.grey, width: 2),
+                            border: Border.all(color: ticked ? AppTheme.accentGreen : Colors.grey, width: 2),
                           ),
                           child: ticked ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
                         ),
@@ -364,7 +351,7 @@ class _DailyDeedsState extends State<DailyDeeds> {
                 height: 52,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: alreadyDone ? Colors.grey : const Color(0xFF004D40),
+                    backgroundColor: alreadyDone ? Colors.grey : AppTheme.primaryLight,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
                     elevation: 2,

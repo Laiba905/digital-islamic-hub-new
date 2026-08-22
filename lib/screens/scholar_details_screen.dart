@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloudinary_public/cloudinary_public.dart';
 import 'cloudinary_service.dart';
+import '../theme/app_theme.dart';
 
 class ScholarDetailsScreen extends StatefulWidget {
   const ScholarDetailsScreen({super.key});
@@ -63,7 +64,7 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
       }
       return response.secureUrl;
     } catch (e) {
-      print("Cloudinary Error: $e");
+      debugPrint("Cloudinary Error: $e");
       return null;
     }
   }
@@ -84,7 +85,6 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
       final user = FirebaseAuth.instance.currentUser!;
       String? imageUrl = await _uploadToCloudinary(user.uid);
 
-      // 1️⃣ Scholars collection mein details save karna
       await FirebaseFirestore.instance.collection('scholars').doc(user.uid).set({
         'phone': _phoneController.text.trim(),
         'address': _addressController.text.trim(),
@@ -95,7 +95,6 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
         'timestamp': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // 2️⃣ 🚀 Admin ke liye notifications aur admin_notifications donon mein entry bhej rahe hain
       final notificationData = {
         'targetRole': 'admin',
         'title': 'Scholar Verification Request',
@@ -109,14 +108,11 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
       await FirebaseFirestore.instance.collection('notifications').add(notificationData);
       await FirebaseFirestore.instance.collection('admin_notifications').add(notificationData);
 
-      print("SUCCESS: Notification sent successfully to Firestore!");
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Request Sent Successfully!")),
+        const SnackBar(content: Text("Request Sent Successfully!"), backgroundColor: AppTheme.primaryLight),
       );
     } catch (e) {
-      print("CRITICAL ERROR: $e");
       if (!mounted) return;
       showDialog(
         context: context,
@@ -138,13 +134,17 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Scholar Verification"),
-        backgroundColor: const Color(0xFF2E7D32),
+        title: const Text("Scholar Verification", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
+        foregroundColor: Colors.white,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: AppTheme.accentGreen))
           : Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -155,52 +155,76 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Phone Field
                   TextFormField(
                     controller: _phoneController,
-                    decoration: const InputDecoration(labelText: 'Phone Number', border: OutlineInputBorder()),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Phone Number', 
+                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                      border: const OutlineInputBorder()
+                    ),
+                    validator: (v) => v!.isEmpty ? "Enter phone number" : null,
                   ),
                   const SizedBox(height: 20),
 
-                  // 2. Payment Dropdown
                   DropdownButtonFormField<String>(
                     value: _selectedPaymentMethod,
-                    decoration: const InputDecoration(labelText: 'Accept Payments via', border: OutlineInputBorder()),
+                    dropdownColor: isDark ? AppTheme.primaryDark : Colors.white,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Accept Payments via', 
+                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                      border: const OutlineInputBorder()
+                    ),
                     items: _paymentOptions.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
                     onChanged: (val) => setState(() => _selectedPaymentMethod = val),
                   ),
                   const SizedBox(height: 20),
 
-                  // 3. Address Field
                   TextFormField(
                     controller: _addressController,
-                    decoration: const InputDecoration(labelText: 'Address', border: OutlineInputBorder()),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Address', 
+                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                      border: const OutlineInputBorder()
+                    ),
+                    validator: (v) => v!.isEmpty ? "Enter address" : null,
                   ),
                   const SizedBox(height: 20),
 
-                  // 4. Gender Dropdown
                   DropdownButtonFormField<String>(
                     value: _selectedGender,
-                    decoration: const InputDecoration(labelText: 'Gender', border: OutlineInputBorder()),
+                    dropdownColor: isDark ? AppTheme.primaryDark : Colors.white,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Gender', 
+                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                      border: const OutlineInputBorder()
+                    ),
                     items: _genderOptions.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
                     onChanged: (val) => setState(() => _selectedGender = val),
                   ),
                   const SizedBox(height: 20),
 
-                  // 5. Degree Field
                   TextFormField(
                     controller: _degreeController,
-                    decoration: const InputDecoration(labelText: 'Degree / Qualification', border: OutlineInputBorder()),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: 'Degree / Qualification', 
+                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                      border: const OutlineInputBorder()
+                    ),
+                    validator: (v) => v!.isEmpty ? "Enter degree" : null,
                   ),
                   const SizedBox(height: 25),
 
-                  // 6. Please Upload Certificate Section
                   Center(
                     child: Column(
                       children: [
-                        const Text(
+                        Text(
                           "Please upload certificate",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                         ),
                         const SizedBox(height: 12),
 
@@ -210,17 +234,17 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                             height: 180,
                             width: 320,
                             decoration: BoxDecoration(
-                              color: Colors.grey[200],
+                              color: isDark ? Colors.white.withAlpha(10) : Colors.grey[200],
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade400),
+                              border: Border.all(color: isDark ? Colors.white24 : Colors.grey.shade400),
                             ),
                             child: _pickedImageFile == null
-                                ? const Column(
+                                ? Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.camera_alt, size: 40, color: Colors.grey),
-                                SizedBox(height: 8),
-                                Text("Tap to select certificate", style: TextStyle(color: Colors.grey))
+                                Icon(Icons.camera_alt, size: 40, color: isDark ? Colors.white30 : Colors.grey),
+                                const SizedBox(height: 8),
+                                Text("Tap to select certificate", style: TextStyle(color: isDark ? Colors.white30 : Colors.grey))
                               ],
                             )
                                 : ClipRRect(
@@ -236,15 +260,14 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                   ),
                   const SizedBox(height: 35),
 
-                  // 7. Submit Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
                       onPressed: _submitDetails,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
-                        foregroundColor: Colors.white,
+                        backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
+                        foregroundColor: isDark ? AppTheme.primaryDark : Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       child: const Text("Submit Profile", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),

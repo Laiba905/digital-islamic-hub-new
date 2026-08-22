@@ -1,11 +1,11 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart'; // For kIsWeb check
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:http/http.dart' as http; // Required for Cloudinary multipart requests
+import 'package:http/http.dart' as http;
 import '../theme/app_theme.dart';
 import '../main.dart';
 import 'login_screen.dart';
@@ -42,24 +42,28 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
         DocumentSnapshot doc = await _firestore.collection('scholars').doc(user!.uid).get();
         if (doc.exists) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
-          setState(() {
-            _profileImageUrl = data['profileImage'];
-            _isNotificationEnabled = data['notifications'] ?? true;
-            _nameController.text = data['displayName'] ?? user?.displayName ?? "Scholar";
+          if (mounted) {
+            setState(() {
+              _profileImageUrl = data['profileImage'];
+              _isNotificationEnabled = data['notifications'] ?? true;
+              _nameController.text = data['displayName'] ?? user?.displayName ?? "Scholar";
 
-            if (data['darkMode'] != null) {
-              _isDarkMode = data['darkMode'];
-              themeNotifier.value = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
-            } else {
-              final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
-              _isDarkMode = brightness == Brightness.dark;
-              themeNotifier.value = ThemeMode.system;
-            }
-          });
+              if (data['darkMode'] != null) {
+                _isDarkMode = data['darkMode'];
+                themeNotifier.value = _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+              } else {
+                final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+                _isDarkMode = brightness == Brightness.dark;
+                themeNotifier.value = ThemeMode.system;
+              }
+            });
+          }
         } else {
-          setState(() {
-            _nameController.text = user?.displayName ?? "Scholar";
-          });
+          if (mounted) {
+            setState(() {
+              _nameController.text = user?.displayName ?? "Scholar";
+            });
+          }
         }
       } catch (e) {
         debugPrint("Error loading scholar data: $e");
@@ -75,12 +79,12 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Color(0xFF1B5E20)),
+              leading: const Icon(Icons.photo_library, color: AppTheme.primaryLight),
               title: const Text('Gallery'),
               onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.gallery, imageQuality: 70)),
             ),
             ListTile(
-              leading: const Icon(Icons.camera_alt, color: Color(0xFF1B5E20)),
+              leading: const Icon(Icons.camera_alt, color: AppTheme.primaryLight),
               title: const Text('Camera'),
               onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.camera, imageQuality: 70)),
             ),
@@ -99,7 +103,7 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
           uiSettings: [
             AndroidUiSettings(
               toolbarTitle: 'Crop Profile Picture',
-              toolbarColor: const Color(0xFF1B5E20),
+              toolbarColor: AppTheme.primaryLight,
               toolbarWidgetColor: Colors.white,
               initAspectRatio: CropAspectRatioPreset.square,
               lockAspectRatio: true,
@@ -117,19 +121,13 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
   }
 
   Future<void> _uploadToCloudinary(Uint8List imageBytes, String fileName) async {
-    setState(() {
-      _isUploading = true;
-    });
+    if (mounted) setState(() => _isUploading = true);
 
     try {
       var uri = Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
       var request = http.MultipartRequest("POST", uri)
         ..fields['upload_preset'] = _uploadPreset
-        ..files.add(http.MultipartFile.fromBytes(
-          'file',
-          imageBytes,
-          filename: fileName,
-        ));
+        ..files.add(http.MultipartFile.fromBytes('file', imageBytes, filename: fileName));
 
       var response = await request.send();
       var responseData = await response.stream.bytesToString();
@@ -146,22 +144,18 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
           );
         }
       } else {
-        debugPrint(" Upload Failed Response: $responseData");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Upload failed: Check preset settings.")),
+            const SnackBar(content: Text("Upload failed. Please try again.")),
           );
         }
       }
     } catch (e) {
-      debugPrint("Cloudinary Exception: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     } finally {
-      setState(() {
-        _isUploading = false;
-      });
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
@@ -170,9 +164,11 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
       'profileImage': imageUrl,
     }, SetOptions(merge: true));
 
-    setState(() {
-      _profileImageUrl = imageUrl;
-    });
+    if (mounted) {
+      setState(() {
+        _profileImageUrl = imageUrl;
+      });
+    }
   }
 
   @override
@@ -180,16 +176,16 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF9FBE7),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Scholar Profile", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: const Color(0xFF1B5E20),
+        title: const Text("Scholar Profile", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context, true), // Data update pass karne ke liye
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context, true),
         ),
       ),
       body: SingleChildScrollView(
@@ -202,7 +198,7 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionTitle("Account Info"),
+                  _buildSectionTitle("Account Info", isDark),
                   _buildSettingsCard(isDark, [
                     _buildSettingsTile(
                       icon: Icons.person_outline,
@@ -219,7 +215,7 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
                     ),
                   ]),
                   const SizedBox(height: 25),
-                  _buildSectionTitle("Settings & Analytics"),
+                  _buildSectionTitle("Settings & Analytics", isDark),
                   _buildSettingsCard(isDark, [
                     _buildSwitchTile(
                       icon: Icons.dark_mode_outlined,
@@ -246,7 +242,7 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
                     ),
                   ]),
                   const SizedBox(height: 40),
-                  _buildLogoutButton(),
+                  _buildLogoutButton(isDark),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -261,9 +257,9 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(bottom: 35, top: 20),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1B5E20),
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
+        borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(32),
           bottomRight: Radius.circular(32),
         ),
@@ -282,9 +278,9 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
                       ? NetworkImage(_profileImageUrl!) as ImageProvider
                       : null,
                   child: _isUploading
-                      ? const CircularProgressIndicator(color: Color(0xFF1B5E20))
+                      ? const CircularProgressIndicator(color: AppTheme.primaryLight)
                       : (_profileImageUrl == null || _profileImageUrl!.isEmpty)
-                      ? const Icon(Icons.person, size: 55, color: Color(0xFF1B5E20))
+                      ? const Icon(Icons.person, size: 55, color: AppTheme.primaryLight)
                       : null,
                 ),
               ),
@@ -293,10 +289,10 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
                 right: 4,
                 child: GestureDetector(
                   onTap: _isUploading ? null : _pickAndCropImage,
-                  child: const CircleAvatar(
+                  child: CircleAvatar(
                     radius: 18,
-                    backgroundColor: Colors.orangeAccent,
-                    child: Icon(Icons.edit, size: 16, color: Colors.white),
+                    backgroundColor: isDark ? AppTheme.accentGreen : Colors.orangeAccent,
+                    child: Icon(Icons.edit, size: 16, color: isDark ? AppTheme.primaryDark : Colors.white),
                   ),
                 ),
               ),
@@ -317,12 +313,17 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(left: 5, bottom: 10),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(color: Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
+        style: TextStyle(
+          color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, 
+          fontWeight: FontWeight.bold, 
+          fontSize: 12, 
+          letterSpacing: 1
+        ),
       ),
     );
   }
@@ -346,8 +347,11 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
       onTap: onTap,
       leading: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: const Color(0xFF1B5E20).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: const Color(0xFF1B5E20), size: 20),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.accentGreen.withOpacity(0.1) : AppTheme.primaryLight.withOpacity(0.1), 
+          borderRadius: BorderRadius.circular(10)
+        ),
+        child: Icon(icon, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, size: 20),
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black54)),
@@ -364,23 +368,23 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
       value: value,
-      activeColor: const Color(0xFF1B5E20),
+      activeColor: AppTheme.accentGreen,
       onChanged: onChanged,
     );
   }
 
-  Widget _buildLogoutButton() {
+  Widget _buildLogoutButton(bool isDark) {
     return SizedBox(
       width: double.infinity,
       height: 55,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red.shade50,
+          backgroundColor: isDark ? Colors.red.withAlpha(30) : Colors.red.shade50,
           foregroundColor: Colors.red,
           elevation: 0,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
-              side: BorderSide(color: Colors.red.shade100)
+              side: BorderSide(color: isDark ? Colors.red.withAlpha(50) : Colors.red.shade100)
           ),
         ),
         onPressed: () async {
@@ -399,30 +403,38 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
   }
 
   void _showEditNameDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Edit Name"),
+        backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
+        title: Text("Edit Name", style: TextStyle(color: isDark ? Colors.white : AppTheme.primaryLight)),
         content: TextField(
           controller: _nameController,
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
           decoration: InputDecoration(
             hintText: "Enter your name",
+            hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel", style: TextStyle(color: isDark ? Colors.white60 : Colors.grey))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B5E20)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
+            ),
             onPressed: () async {
               await _firestore.collection('scholars').doc(user!.uid).set({
                 'displayName': _nameController.text.trim()
               }, SetOptions(merge: true));
-              setState(() {});
-              if (mounted) Navigator.pop(context);
+              if (mounted) {
+                setState(() {});
+                Navigator.pop(context);
+              }
             },
-            child: const Text("Save", style: TextStyle(color: Colors.white)),
+            child: Text("Save", style: TextStyle(color: isDark ? AppTheme.primaryDark : Colors.white)),
           ),
         ],
       ),

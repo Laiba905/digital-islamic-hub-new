@@ -35,24 +35,21 @@ class _SplashScreenState extends State<SplashScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: isDark
-                ? [const Color(0xFF003D33), AppTheme.primaryDark]
+                ? [AppTheme.primaryLight, AppTheme.primaryDark]
                 : [AppTheme.primaryLight, AppTheme.primaryDark],
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Spacer(), // Logo ko center mein rakhne ke liye vertical spacing
+            const Spacer(),
 
-            // 🎯 APP LOGO INTEGRATION
-            // Agar aapke logo ka naam ya path different hai to yahan change kar sakti hain
             Image.asset(
               'assets/images/logo.png',
               width: 140,
               height: 140,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
-                // Background safe fallback agar image load na ho ya path galat ho
                 return const Icon(
                     Icons.auto_awesome,
                     size: 100,
@@ -62,7 +59,6 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 24),
 
-            // App Name
             const Text(
               "Digital Islamic Hub",
               style: TextStyle(
@@ -73,18 +69,17 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
 
-            const Spacer(), // Niche spacing push karne ke liye
+            const Spacer(),
 
-            // ⏳ PREMIUM LOADING INDICATOR
             const SizedBox(
               width: 24,
               height: 24,
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accentGreen),
               ),
             ),
-            const SizedBox(height: 40), // Bottom edge se safe distance
+            const SizedBox(height: 40),
           ],
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/database/db_helper.dart';
 import '../services/bookmark_service.dart';
+import '../theme/app_theme.dart';
 
 class HadithListScreen extends StatefulWidget {
   final String collectionName;
@@ -26,7 +27,7 @@ class HadithListScreen extends StatefulWidget {
 class _HadithListScreenState extends State<HadithListScreen> {
   List<Map<String, dynamic>> _allHadiths = [];
   bool _isLoading = true;
-  bool _showUrduByDefault = true; // ✅ Arabic & Urdu translations show by default
+  bool _showUrduByDefault = true;
   final BookmarkService _bookmarkService = BookmarkService();
 
   @override
@@ -50,11 +51,10 @@ class _HadithListScreenState extends State<HadithListScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      print("Error fetching records: $e");
+      debugPrint("Error fetching records: $e");
     }
   }
 
-  // 📝 Automatically detects authentic status logic gracefully
   String _getHadithStatus(dynamic item) {
     if (item['status'] != null && item['status'].toString().isNotEmpty) {
       return item['status'].toString();
@@ -68,29 +68,28 @@ class _HadithListScreenState extends State<HadithListScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFFF4F7F4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.displayName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(widget.displayName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(height: 2),
-            Text(widget.chapterName, style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.white70)),
+            Text(widget.chapterName, style: const TextStyle(fontSize: 11, color: Colors.white70)),
           ],
         ),
-        backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFF006400),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
         actions: [
-          // 🔁 LANGUAGE CHANGE BUTTON (Toggles secondary translation language)
           IconButton(
             icon: Icon(_showUrduByDefault ? Icons.g_translate : Icons.translate, color: Colors.white),
-            tooltip: "Switch Translation (Urdu/English)",
+            tooltip: "Switch Translation",
             onPressed: () => setState(() => _showUrduByDefault = !_showUrduByDefault),
           )
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.green))
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen))
           : _allHadiths.isEmpty
           ? Center(child: Text("No Hadith Found in this range", style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)))
           : StreamBuilder<DocumentSnapshot>(
@@ -117,6 +116,9 @@ class _HadithListScreenState extends State<HadithListScreen> {
                   color: isDark ? Colors.white.withAlpha(12) : Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50),
+                  boxShadow: isDark ? [] : [
+                    BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -126,12 +128,20 @@ class _HadithListScreenState extends State<HadithListScreen> {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(color: Colors.green.withAlpha(35), borderRadius: BorderRadius.circular(10)),
-                          child: Text("Hadith ${h['hadith_no']}", style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppTheme.accentGreen.withAlpha(40) : AppTheme.primaryLight.withAlpha(15),
+                            borderRadius: BorderRadius.circular(10)
+                          ),
+                          child: Text("Hadith ${h['hadith_no']}", 
+                            style: TextStyle(
+                              color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, 
+                              fontSize: 12, 
+                              fontWeight: FontWeight.bold
+                            )),
                         ),
-                        // 🌟 BOOKMARK ICON
                         IconButton(
-                          icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border, color: Colors.green),
+                          icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border, 
+                            color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                           onPressed: () async {
                             int? parsedNo = int.tryParse(h['hadith_no'].toString());
                             if (parsedNo != null) {
@@ -144,7 +154,6 @@ class _HadithListScreenState extends State<HadithListScreen> {
                     ),
                     const SizedBox(height: 15),
 
-                    // 🕌 ARABIC TEXT (Contrast Fixed for Dark/Light Mode)
                     Text(
                       h['text_ar'] ?? '',
                       textAlign: TextAlign.right,
@@ -152,27 +161,29 @@ class _HadithListScreenState extends State<HadithListScreen> {
                       style: TextStyle(
                           fontSize: 22,
                           height: 1.8,
-                          color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40), // ✅ Light green in dark mode, dark green in light mode
+                          color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
                           fontWeight: FontWeight.bold
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12.0),
-                      child: Divider(color: isDark ? Colors.white12 : Colors.grey.withAlpha(40)),
+                      child: Divider(color: isDark ? Colors.white12 : Colors.grey.shade200),
                     ),
 
-                    // 📝 TRANSLATION BODY (Urdu/English)
                     Text(
                       _showUrduByDefault ? (h['text_ur'] ?? '') : (h['text_en'] ?? ''),
                       textAlign: _showUrduByDefault ? TextAlign.right : TextAlign.left,
                       textDirection: _showUrduByDefault ? TextDirection.rtl : TextDirection.ltr,
-                      style: TextStyle(fontSize: _showUrduByDefault ? 17 : 14, height: 1.6, color: isDark ? Colors.white.withAlpha(220) : Colors.black87),
+                      style: TextStyle(
+                        fontSize: _showUrduByDefault ? 17 : 14, 
+                        height: 1.6, 
+                        color: isDark ? Colors.white.withAlpha(220) : Colors.black87
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // 📌 AUTOMATIC REFERENCE GENERATION (Contrast Fixed)
                         Expanded(
                           child: Text(
                             "Reference: ${widget.displayName} / Hadith No. ${h['hadith_no']}",
@@ -181,7 +192,6 @@ class _HadithListScreenState extends State<HadithListScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        // 🏷️ HADITH STATUS BADGE
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(

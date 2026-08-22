@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../theme/app_theme.dart';
 import 'scholar_details_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -33,11 +34,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
         UserCredential? userCredential;
 
         try {
-          // 1. Pehle Sign Up karne ki koshish karein
           userCredential = await FirebaseAuth.instance
               .createUserWithEmailAndPassword(email: email, password: password);
         } on FirebaseAuthException catch (e) {
-          // 💡 Agar email pehle se mojood hai, toh hum automatically LOGIN karwa denge!
           if (e.code == 'email-already-in-use') {
             userCredential = await FirebaseAuth.instance
                 .signInWithEmailAndPassword(email: email, password: password);
@@ -49,7 +48,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
         String uid = userCredential!.user!.uid;
 
         if (finalRole == 'scholar') {
-          // 2. Check karein ke kya scholar ki details pehle se Firestore mein hain?
           DocumentSnapshot scholarDoc = await FirebaseFirestore.instance
               .collection('scholars')
               .doc(uid)
@@ -58,10 +56,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
           if (scholarDoc.exists) {
             Map<String, dynamic> data = scholarDoc.data() as Map<String, dynamic>;
             String status = data['status'] ?? 'pending';
-            bool isDetailsFilled = data.containsKey('phone') && data.containsKey('image'); // Check ke details bhari hain ya nahi
+            bool isDetailsFilled = data.containsKey('phone') && data.containsKey('image');
 
             if (!isDetailsFilled) {
-              // Agar details adhoori hain toh wapas ScholarDetailsScreen par bhejein
               if (mounted) {
                 Navigator.pushReplacement(
                   context,
@@ -69,18 +66,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 );
               }
             } else if (status == 'pending') {
-              // Agar details bhari hain par admin ne approve nahi kiya, toh Popup dikhayein
               if (mounted) {
                 _showPendingPopup(context);
               }
             } else if (status == 'approved') {
-              // Agar approved hai toh scholar dashboard par bhej sakte hain (Aap apne dashboard ki screen ka naam yahan likh dein)
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Welcome back, Scholar!"), backgroundColor: Colors.green),
               );
             }
           } else {
-            // Agar scholar doc nahi bani toh nayi entry banayein aur details screen par bhejein
             await FirebaseFirestore.instance.collection('scholars').doc(uid).set({
               'uid': uid,
               'displayName': name,
@@ -99,7 +93,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
             }
           }
         } else {
-          // --- USER BLOCK ---
           await FirebaseFirestore.instance.collection('users').doc(uid).set({
             'uid': uid,
             'displayName': name,
@@ -109,9 +102,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
             'createdAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Login Successful!"), backgroundColor: Colors.green),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Login Successful!"), backgroundColor: Colors.green),
+            );
+          }
         }
       } on FirebaseAuthException catch (e) {
         String message = e.code == 'wrong-password' ? "Incorrect password for this email." : "Authentication failed: ${e.message}";
@@ -124,7 +119,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  // 🕒 Pending Status Popup Dialog
   void _showPendingPopup(BuildContext context) {
     showDialog(
       context: context,
@@ -143,10 +137,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
         actions: [
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryLight, foregroundColor: Colors.white),
             onPressed: () {
               Navigator.pop(context);
-              FirebaseAuth.instance.signOut(); // Logout kar dein taake unauthorized access na ho
+              FirebaseAuth.instance.signOut();
             },
             child: const Text("OK"),
           ),
@@ -157,34 +151,39 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final double screenWidth = MediaQuery.of(context).size.width;
     bool isWeb = screenWidth > 600;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F5E9),
+      backgroundColor: isDark ? AppTheme.primaryDark : const Color(0xFFE8F5E9),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Container(
             width: isWeb ? 450 : double.infinity,
             padding: EdgeInsets.all(isWeb ? 40 : 20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withAlpha(15) : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: isDark ? [] : [const BoxShadow(color: Colors.black12, blurRadius: 10)],
+            ),
             child: Form(
               key: _formKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text("Create Account", style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
+                  Text("Create Account", style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryLight)),
                   const SizedBox(height: 25),
 
                   // Role Selector
                   Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: isDark ? Colors.white10 : Colors.grey[100], borderRadius: BorderRadius.circular(12)),
                     child: Row(
                       children: [
-                        _buildRoleTab('user'),
-                        _buildRoleTab('scholar'),
+                        _buildRoleTab('user', isDark),
+                        _buildRoleTab('scholar', isDark),
                       ],
                     ),
                   ),
@@ -192,29 +191,40 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                   TextFormField(
                     controller: _nameController,
-                    decoration: const InputDecoration(labelText: "Full Name", border: OutlineInputBorder()),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: "Full Name", 
+                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                      border: const OutlineInputBorder()
+                    ),
                     validator: (v) => v!.isEmpty ? "Enter name" : null,
                   ),
                   const SizedBox(height: 20),
 
                   TextFormField(
                     controller: _emailController,
-                    decoration: const InputDecoration(labelText: "Email", border: OutlineInputBorder()),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                    decoration: InputDecoration(
+                      labelText: "Email", 
+                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                      border: const OutlineInputBorder()
+                    ),
                     validator: (v) => !v!.contains("@") ? "Invalid email" : null,
                   ),
                   const SizedBox(height: 20),
 
-                  // Password Field with Eye Icon
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                     decoration: InputDecoration(
                       labelText: "Password",
+                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.grey,
+                          color: isDark ? Colors.white60 : Colors.grey,
                         ),
                         onPressed: () {
                           setState(() {
@@ -232,7 +242,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     height: 50,
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _handleSignUp,
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, 
+                        foregroundColor: isDark ? AppTheme.primaryDark : Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                       child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text(" Continue"),
                     ),
                   ),
@@ -245,15 +259,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  Widget _buildRoleTab(String role) {
+  Widget _buildRoleTab(String role, bool isDark) {
     bool isSelected = _selectedRole == role;
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _selectedRole = role),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(color: isSelected ? const Color(0xFF2E7D32) : Colors.transparent, borderRadius: BorderRadius.circular(10)),
-          child: Center(child: Text(role.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.black54))),
+          decoration: BoxDecoration(
+            color: isSelected ? (isDark ? AppTheme.accentGreen : AppTheme.primaryLight) : Colors.transparent, 
+            borderRadius: BorderRadius.circular(10)
+          ),
+          child: Center(
+            child: Text(
+              role.toUpperCase(), 
+              style: TextStyle(
+                fontWeight: FontWeight.bold, 
+                color: isSelected 
+                  ? (isDark ? AppTheme.primaryDark : Colors.white) 
+                  : (isDark ? Colors.white60 : Colors.black54)
+              )
+            )
+          ),
         ),
       ),
     );

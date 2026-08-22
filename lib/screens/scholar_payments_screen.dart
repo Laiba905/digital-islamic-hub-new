@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../theme/app_theme.dart';
 
 class ScholarPaymentsScreen extends StatefulWidget {
   final String scholarId;
@@ -14,18 +15,20 @@ class ScholarPaymentsScreen extends StatefulWidget {
 class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
 
   void _processItemWithdrawal(BuildContext context, double amount) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Confirm Withdrawal"),
-        content: Text("Do you want to withdraw Rs. ${amount.toStringAsFixed(0)}?"),
+        backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
+        title: Text("Confirm Withdrawal", style: TextStyle(color: isDark ? Colors.white : AppTheme.primaryLight)),
+        content: Text("Do you want to withdraw Rs. ${amount.toStringAsFixed(0)}?", style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel"),
+            child: Text("Cancel", style: TextStyle(color: isDark ? Colors.white60 : Colors.grey)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
+            style: ElevatedButton.styleFrom(backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
             onPressed: () {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
@@ -36,14 +39,13 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                 ),
               );
             },
-            child: const Text("Confirm", style: TextStyle(color: Colors.white)),
+            child: Text("Confirm", style: TextStyle(color: isDark ? AppTheme.primaryDark : Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  // 🖼️ Pop-up function to show Receipt & Screenshot for a specific transaction
   void _showSingleReceiptPopup(BuildContext context, Map<String, dynamic> data, bool isDark) {
     String transactionId = data['transactionId'] ?? 'TRX-Pending / Not Provided';
     String imageUrl = data['paymentScreenshot'] ?? data['screenshot'] ?? data['receiptUrl'] ?? data['paymentProofUrl'] ?? '';
@@ -58,14 +60,14 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text("Payment Receipt & Proof", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text("Payment Receipt & Proof", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryLight)),
             IconButton(
-              icon: const Icon(Icons.close, size: 20),
+              icon: Icon(Icons.close, size: 20, color: isDark ? Colors.white70 : Colors.black54),
               onPressed: () => Navigator.pop(ctx),
             ),
           ],
@@ -77,9 +79,9 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Amount: RS ${amount.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 15)),
+                Text("Amount: RS ${amount.toStringAsFixed(0)}", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : Colors.green, fontSize: 15)),
                 const SizedBox(height: 8),
-                Text("Transaction ID: $transactionId", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.tealAccent : const Color(0xFF004D40))),
+                Text("Transaction ID: $transactionId", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight)),
                 const SizedBox(height: 4),
                 Text("Date & Time: $formattedDayTime", style: const TextStyle(fontSize: 12, color: Colors.grey)),
                 const Divider(height: 20),
@@ -120,10 +122,10 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Scholar Payments & Earnings"),
-        backgroundColor: const Color(0xFF2E7D32),
+        title: const Text("Scholar Payments & Earnings", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -134,14 +136,14 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+            return Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
-                "No payment history or earnings found for this scholar.",
-                style: TextStyle(fontSize: 15, color: Colors.grey),
+                "No payment history or earnings found.",
+                style: TextStyle(fontSize: 15, color: isDark ? Colors.white60 : Colors.grey),
               ),
             );
           }
@@ -174,11 +176,11 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                 margin: const EdgeInsets.all(16),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
+                  gradient: LinearGradient(
+                    colors: isDark ? [AppTheme.primaryLight, AppTheme.primaryDark] : [AppTheme.primaryLight, const Color(0xFF00695C)],
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
+                  boxShadow: isDark ? [] : [
                     BoxShadow(
                       color: Colors.green.withOpacity(0.3),
                       blurRadius: 6,
@@ -210,8 +212,8 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF2E7D32),
+                        backgroundColor: isDark ? AppTheme.accentGreen : Colors.white,
+                        foregroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
@@ -264,19 +266,9 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                         if (userSnapshot.hasData && userSnapshot.data!.exists) {
                           var userData = userSnapshot.data!.data() as Map<String, dynamic>?;
                           String? fetchedName = userData?['displayName'] ?? userData?['name'] ?? userData?['fullName'] ?? userData?['userName'];
-                          String? fetchedEmail = userData?['email'] ?? userData?['userEmail'];
-
-                          if (fetchedName != null && fetchedName.trim().isNotEmpty) {
+                          if (fetchedName != null && fetchedName.isNotEmpty) {
                             displayName = fetchedName;
-                          } else if (fetchedEmail != null && fetchedEmail.contains('@')) {
-                            displayName = fetchedEmail.split('@').first;
-                          } else {
-                            displayName = "User ($userId)";
                           }
-                        } else if (data['userName'] != null && data['userName'].toString().trim().isNotEmpty && data['userName'] != "User") {
-                          displayName = data['userName'];
-                        } else if (data['name'] != null && data['name'].toString().trim().isNotEmpty) {
-                          displayName = data['name'];
                         }
 
                         return Container(
@@ -284,7 +276,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                           decoration: BoxDecoration(
                             color: isDark ? Colors.white.withAlpha(10) : Colors.white,
                             borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
+                            boxShadow: isDark ? [] : [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.02),
                                 blurRadius: 4,
@@ -303,14 +295,14 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                     children: [
                                       Row(
                                         children: [
-                                          const Icon(Icons.person, size: 14, color: Color(0xFF2E7D32)),
+                                          Icon(Icons.person, size: 14, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                                           const SizedBox(width: 4),
                                           Text(
                                             displayName,
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 13,
-                                              color: isDark ? Colors.tealAccent : const Color(0xFF2E7D32),
+                                              color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
                                             ),
                                           ),
                                         ],
@@ -329,17 +321,17 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                       const SizedBox(height: 2),
                                       Text(
                                         DateFormat('EEEE, dd MMM yyyy, hh:mm a').format(answerDate),
-                                        style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : Colors.grey.shade600),
+                                        style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade600),
                                       ),
                                       const SizedBox(height: 6),
                                       Row(
                                         children: [
                                           Text(
                                             "Rs. ${amount.toStringAsFixed(0)}",
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 15,
-                                              color: Color(0xFF2E7D32),
+                                              color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
                                             ),
                                           ),
                                           if (isPaid) ...[
@@ -349,17 +341,17 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.green.withOpacity(0.15),
+                                                  color: isDark ? AppTheme.accentGreen.withAlpha(20) : Colors.green.withOpacity(0.15),
                                                   borderRadius: BorderRadius.circular(6),
-                                                  border: Border.all(color: Colors.green),
+                                                  border: Border.all(color: isDark ? AppTheme.accentGreen : Colors.green),
                                                 ),
                                                 child: Row(
                                                   children: [
-                                                    const Icon(Icons.receipt, size: 12, color: Colors.green),
+                                                    Icon(Icons.receipt, size: 12, color: isDark ? AppTheme.accentGreen : Colors.green),
                                                     const SizedBox(width: 4),
                                                     Text(
                                                       transactionId.isNotEmpty ? "ID: $transactionId" : "Payment Transferred",
-                                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
+                                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : Colors.green),
                                                     ),
                                                   ],
                                                 ),
@@ -376,26 +368,26 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                     ? Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.1),
+                                    color: isDark ? AppTheme.accentGreen.withAlpha(20) : Colors.green.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.green),
+                                    border: Border.all(color: isDark ? AppTheme.accentGreen : Colors.green),
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.check_circle, size: 14, color: Colors.green),
-                                      SizedBox(width: 4),
+                                      Icon(Icons.check_circle, size: 14, color: isDark ? AppTheme.accentGreen : Colors.green),
+                                      const SizedBox(width: 4),
                                       Text(
                                         "Paid",
-                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : Colors.green),
                                       ),
                                     ],
                                   ),
                                 )
                                     : ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: isUnlocked ? Colors.green : Colors.grey.shade400,
-                                    foregroundColor: Colors.white,
+                                    backgroundColor: isUnlocked ? AppTheme.accentGreen : Colors.grey.shade400,
+                                    foregroundColor: isDark ? AppTheme.primaryDark : Colors.white,
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
@@ -465,17 +457,17 @@ class ScholarPaymentDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Payment Receipt & Transaction Proof"),
-        backgroundColor: const Color(0xFF2E7D32),
+        title: const Text("Payment History", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
       ),
       body: paidQuestions.isEmpty
-          ? const Center(
+          ? Center(
         child: Text(
           "No payment record found.",
-          style: TextStyle(fontSize: 14, color: Colors.grey),
+          style: TextStyle(fontSize: 14, color: isDark ? Colors.white38 : Colors.grey),
         ),
       )
           : ListView.builder(
@@ -484,7 +476,7 @@ class ScholarPaymentDetailsScreen extends StatelessWidget {
         itemBuilder: (context, index) {
           var item = paidQuestions[index];
 
-          String transactionId = item['transactionId'] ?? 'TRX-Pending / Not Provided';
+          String transactionId = item['transactionId'] ?? 'TRX-Pending';
           String imageUrl = item['paymentScreenshot'] ?? item['screenshot'] ?? item['receiptUrl'] ?? item['paymentProofUrl'] ?? '';
 
           double amount = double.tryParse(item['paidAmount']?.toString() ?? item['scholarShare']?.toString() ?? '0') ?? 0;
@@ -493,14 +485,13 @@ class ScholarPaymentDetailsScreen extends StatelessWidget {
           Timestamp? paidTimestamp = item['paidAt'] as Timestamp? ?? item['answeredAt'] as Timestamp?;
           String formattedDayTime = "N/A";
           if (paidTimestamp != null) {
-            DateTime dateTime = paidTimestamp.toDate();
-            formattedDayTime = DateFormat('EEEE, dd MMM yyyy, hh:mm a').format(dateTime);
+            formattedDayTime = DateFormat('EEEE, dd MMM yyyy, hh:mm a').format(paidTimestamp.toDate());
           }
 
           return Card(
             margin: const EdgeInsets.only(bottom: 16),
-            elevation: 2,
-            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            elevation: isDark ? 0 : 2,
+            color: isDark ? Colors.white.withAlpha(10) : Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -532,7 +523,7 @@ class ScholarPaymentDetailsScreen extends StatelessWidget {
                               Icon(isPaid ? Icons.check_circle : Icons.hourglass_top, size: 12, color: isPaid ? Colors.green : Colors.orange),
                               const SizedBox(width: 4),
                               Text(
-                                isPaid ? "Payment Transferred (Click for Pic)" : "Pending Transfer",
+                                isPaid ? "Transferred" : "Pending",
                                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isPaid ? Colors.green : Colors.orange),
                               ),
                             ],
@@ -540,7 +531,7 @@ class ScholarPaymentDetailsScreen extends StatelessWidget {
                         ),
                         Text(
                           "RS ${amount.toStringAsFixed(0)}",
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : Colors.red),
                         ),
                       ],
                     ),
@@ -555,11 +546,11 @@ class ScholarPaymentDetailsScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text("Transaction ID / Receipt Number:", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                            const Text("Transaction ID:", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 1),
                             SelectableText(
                               transactionId,
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.tealAccent : const Color(0xFF004D40)),
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                             ),
                           ],
                         ),
@@ -575,7 +566,7 @@ class ScholarPaymentDetailsScreen extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("Payment Day & Time:", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          const Text("Day & Time:", style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 1),
                           Text(
                             formattedDayTime,

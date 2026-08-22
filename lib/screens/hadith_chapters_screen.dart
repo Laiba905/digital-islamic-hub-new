@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/database/db_helper.dart';
 import 'hadith_list_screen.dart';
+import '../theme/app_theme.dart';
 
 class HadithChaptersScreen extends StatefulWidget {
   final String collectionName;
@@ -57,15 +58,14 @@ class _HadithChaptersScreenState extends State<HadithChaptersScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFFF4F7F4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFF006400),
+        title: Text(widget.displayName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
-          // 🔍 SEARCH BAR FOR CHAPTERS (Name or Number)
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
@@ -75,16 +75,16 @@ class _HadithChaptersScreenState extends State<HadithChaptersScreen> {
               decoration: InputDecoration(
                 hintText: "Search chapter by name or number...",
                 hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade500, fontSize: 13),
-                prefixIcon: const Icon(Icons.search, color: Colors.green),
+                prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                 filled: true,
-                fillColor: isDark ? Colors.white.withAlpha(10) : Colors.white,
+                fillColor: isDark ? Colors.white.withAlpha(10) : Colors.grey.shade200,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
               ),
             ),
           ),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.green))
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen))
                 : _filteredChapters.isEmpty
                 ? Center(child: Text("No Chapters Found", style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)))
                 : ListView.builder(
@@ -102,13 +102,14 @@ class _HadithChaptersScreenState extends State<HadithChaptersScreen> {
                   color: isDark ? Colors.white.withAlpha(10) : Colors.white,
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  elevation: isDark ? 0 : 2,
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     leading: CircleAvatar(
-                      backgroundColor: Colors.green.withAlpha(35),
+                      backgroundColor: isDark ? AppTheme.accentGreen.withAlpha(40) : AppTheme.primaryLight.withAlpha(15),
                       child: Text(
                         chNo,
-                        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, fontWeight: FontWeight.bold),
                       ),
                     ),
                     title: Text(
@@ -122,7 +123,7 @@ class _HadithChaptersScreenState extends State<HadithChaptersScreen> {
                         style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey.shade600),
                       ),
                     ),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.green),
+                    trailing: Icon(Icons.arrow_forward_ios, size: 14, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                     onTap: () {
                       Navigator.push(
                         context,

@@ -5,6 +5,7 @@ import 'package:digital_islamic_hub_new/screens/scholar_questions_screen.dart';
 import 'package:digital_islamic_hub_new/screens/scholar_payments_screen.dart';
 import 'package:digital_islamic_hub_new/screens/scholar_profile_screen.dart';
 import 'scholar_notification_screen.dart';
+import '../theme/app_theme.dart';
 
 class ScholarDashboard extends StatefulWidget {
   const ScholarDashboard({super.key});
@@ -35,14 +36,13 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
         }
 
         return Scaffold(
-          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF9FBE7),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             elevation: 0,
-            backgroundColor: const Color(0xFF1B5E20),
+            backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
             title: const Text("Scholar Dashboard", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             centerTitle: true,
             actions: [
-              // 🔔 Bell Icon for Scholar Notifications
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('notifications')
@@ -62,7 +62,7 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
                         icon: Icon(
                           Icons.notifications_active_outlined,
                           size: 26,
-                          color: unreadCount > 0 ? Colors.amberAccent : Colors.white,
+                          color: unreadCount > 0 ? AppTheme.accentGreen : Colors.white,
                         ),
                         tooltip: "Notifications",
                         onPressed: () {
@@ -103,7 +103,6 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
                 },
               ),
               const SizedBox(width: 4),
-              // 👤 Profile Icon / Image Button with Real-time Image Support
               IconButton(
                 icon: Padding(
                   padding: const EdgeInsets.all(2.0),
@@ -135,7 +134,7 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
                 children: [
                   Text("Assalamu Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 14)),
                   const SizedBox(height: 4),
-                  Text(userName, style: TextStyle(color: isDark ? const Color(0xFF81C784) : const Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 26)),
+                  Text(userName, style: TextStyle(color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, fontWeight: FontWeight.bold, fontSize: 26)),
                   const SizedBox(height: 30),
 
                   Center(
@@ -198,7 +197,7 @@ class _DashboardCard extends StatelessWidget {
           color: isDark ? Colors.white.withAlpha(15) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [if (!isDark) BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 8, offset: const Offset(0, 3))],
-          border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50),
+          border: Border.all(color: isDark ? Colors.white10 : AppTheme.primaryLight.withAlpha(30)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

@@ -22,7 +22,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
     }
   ];
 
-  // 📥 Chat ko Firestore mein save karne ka function taake history maintain rahe
   Future<void> _saveChatToHistory(String userMsg, String aiMsg) async {
     if (currentUser == null) return;
     try {
@@ -49,7 +48,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
       _controller.clear();
     });
 
-    // Background mein chat history save karna
     _saveChatToHistory(userText, aiText);
   }
 
@@ -58,10 +56,10 @@ class _AIChatScreenState extends State<AIChatScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Islamic AI Chat"),
-        backgroundColor: isDark ? AppTheme.primaryDark : const Color(0xFF2E7D32),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -81,7 +79,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
                     crossAxisAlignment:
                     isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                     children: [
-                      // --- CHAT BUBBLE ---
                       Container(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.symmetric(
@@ -91,8 +88,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: isUser
-                              ? const Color(0xFF2E7D32)
-                              : (isDark ? Colors.white10 : Colors.grey.shade200),
+                              ? (isDark ? AppTheme.accentGreen : AppTheme.primaryLight)
+                              : (isDark ? Colors.white.withAlpha(20) : Colors.grey.shade200),
                           borderRadius: BorderRadius.only(
                             topLeft: const Radius.circular(16),
                             topRight: const Radius.circular(16),
@@ -104,13 +101,12 @@ class _AIChatScreenState extends State<AIChatScreen> {
                           msg["content"]!,
                           style: TextStyle(
                             color: isUser
-                                ? Colors.white
+                                ? (isDark ? AppTheme.primaryDark : Colors.white)
                                 : (isDark ? Colors.white70 : Colors.black87),
                           ),
                         ),
                       ),
 
-                      // 🌟 VERIFY WITH SCHOLAR BUTTON 🌟
                       if (!isUser && index > 0)
                         Padding(
                           padding: const EdgeInsets.only(left: 4, bottom: 12, top: 2),
@@ -143,8 +139,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
                                     Icons.verified_user_outlined,
                                     size: 16,
                                     color: isDark
-                                        ? Colors.greenAccent
-                                        : const Color(0xFF2E7D32),
+                                        ? AppTheme.accentGreen
+                                        : AppTheme.primaryLight,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
@@ -153,8 +149,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                       color: isDark
-                                          ? Colors.greenAccent
-                                          : const Color(0xFF2E7D32),
+                                          ? AppTheme.accentGreen
+                                          : AppTheme.primaryLight,
                                     ),
                                   ),
                                 ],
@@ -171,7 +167,6 @@ class _AIChatScreenState extends State<AIChatScreen> {
             ),
           ),
 
-          // 🚀 Floating Input Area with extra bottom margin/padding so it stays well above screen bottom on mobiles
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -192,10 +187,10 @@ class _AIChatScreenState extends State<AIChatScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey.shade900 : Colors.white,
+        color: isDark ? const Color(0xFF1A332E) : Colors.white,
         borderRadius: BorderRadius.circular(30),
         border: Border.all(
-          color: isDark ? Colors.white24 : Colors.grey.shade300,
+          color: isDark ? Colors.white12 : Colors.grey.shade300,
           width: 1,
         ),
         boxShadow: [
@@ -216,12 +211,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
                 hintText: "Ask something...",
                 hintStyle:
                 TextStyle(color: isDark ? Colors.white38 : Colors.black38),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.transparent,
+                border: InputBorder.none,
+                filled: false,
                 contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
@@ -229,9 +220,9 @@ class _AIChatScreenState extends State<AIChatScreen> {
           ),
           const SizedBox(width: 8),
           CircleAvatar(
-            backgroundColor: const Color(0xFF2E7D32),
+            backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
             child: IconButton(
-              icon: const Icon(Icons.send, color: Colors.white, size: 18),
+              icon: Icon(Icons.send, color: isDark ? AppTheme.primaryDark : Colors.white, size: 18),
               onPressed: _sendMessage,
             ),
           ),

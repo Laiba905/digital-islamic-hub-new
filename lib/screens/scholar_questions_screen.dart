@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../theme/app_theme.dart';
 
-// 1. Scholar Questions Main Screen (Shows User List Cards)
 class ScholarQuestionsScreen extends StatelessWidget {
   final String scholarId;
   const ScholarQuestionsScreen({super.key, required this.scholarId});
@@ -12,10 +12,10 @@ class ScholarQuestionsScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Scholar Inquiries", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF2E7D32),
+        title: const Text("Scholar Inquiries", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -26,20 +26,18 @@ class ScholarQuestionsScreen extends StatelessWidget {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+            return Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
               child: Text(
                 "No inquiries found for this scholar.",
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                style: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade600, fontSize: 16),
               ),
             );
           }
 
           var docs = snapshot.data!.docs;
-
-          // Group questions by userId
           Map<String, List<DocumentSnapshot>> userGroups = {};
 
           for (var doc in docs) {
@@ -57,7 +55,6 @@ class ScholarQuestionsScreen extends StatelessWidget {
               String userId = userIds[index];
               var userDocs = userGroups[userId]!;
 
-              // Sort user docs to find the latest message date & pending count
               userDocs.sort((a, b) {
                 Timestamp? timeA = (a.data() as Map<String, dynamic>)['createdAt'];
                 Timestamp? timeB = (b.data() as Map<String, dynamic>)['createdAt'];
@@ -83,7 +80,6 @@ class ScholarQuestionsScreen extends StatelessWidget {
 
                   if (userSnapshot.hasData && userSnapshot.data!.exists) {
                     var userData = userSnapshot.data!.data() as Map<String, dynamic>?;
-
                     String? fetchedName = userData?['displayName'] ?? userData?['name'] ?? userData?['fullName'] ?? userData?['userName'];
                     String? fetchedEmail = userData?['email'] ?? userData?['userEmail'];
 
@@ -94,24 +90,20 @@ class ScholarQuestionsScreen extends StatelessWidget {
                     } else {
                       displayName = "User ($userId)";
                     }
-                  } else if (latestData['userName'] != null && latestData['userName'].toString().trim().isNotEmpty && latestData['userName'] != "User") {
-                    displayName = latestData['userName'];
-                  } else if (latestData['name'] != null && latestData['name'].toString().trim().isNotEmpty) {
-                    displayName = latestData['name'];
                   } else {
-                    displayName = "User";
+                    displayName = latestData['userName'] ?? latestData['name'] ?? "User";
                   }
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 16),
-                    elevation: 2,
+                    elevation: isDark ? 0 : 2,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    color: isDark ? Colors.white.withAlpha(12) : Colors.white,
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       leading: CircleAvatar(
-                        backgroundColor: const Color(0xFF2E7D32).withAlpha(30),
-                        child: const Icon(Icons.person, color: Color(0xFF2E7D32)),
+                        backgroundColor: isDark ? AppTheme.accentGreen.withAlpha(30) : AppTheme.primaryLight.withAlpha(15),
+                        child: Icon(Icons.person, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                       ),
                       title: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -150,11 +142,11 @@ class ScholarQuestionsScreen extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             formattedDate,
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                            style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500),
                           ),
                         ],
                       ),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                      trailing: Icon(Icons.arrow_forward_ios, size: 16, color: isDark ? AppTheme.accentGreen : Colors.grey),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -179,7 +171,6 @@ class ScholarQuestionsScreen extends StatelessWidget {
   }
 }
 
-// 2. User Detail Chat/Questions Screen (Shows specific user's questions in order)
 class UserChatDetailScreen extends StatefulWidget {
   final String userId;
   final String userName;
@@ -208,13 +199,13 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
 
   Future<void> _submitAnswer(String questionId, String answer, String userId, String scholarName) async {
     if (answer.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please write an answer!")));      return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please write an answer!")));      
+      return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      // 1️⃣ Update Question in Firestore
       await FirebaseFirestore.instance.collection('user_questions').doc(questionId).update({
         'scholarResponse': answer.trim(),
         'scholarName': scholarName,
@@ -222,32 +213,33 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
         'answeredAt': FieldValue.serverTimestamp(),
       });
 
-      // 2️⃣ Notification for User
       await FirebaseFirestore.instance.collection('notifications').add({
         'targetRole': 'user',
         'userId': userId,
         'title': 'Answer Received! ✅',
-        'message': 'Scholar ($scholarName) has answered your question.',        'isRead': false,
+        'message': 'Scholar ($scholarName) has answered your question.',
+        'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
         'timestamp': FieldValue.serverTimestamp(),
       });
 
-      // 3️⃣ Notification for Admin
       await FirebaseFirestore.instance.collection('notifications').add({
         'targetRole': 'admin',
         'title': 'Scholar Answered!',
-        'message': 'Scholar ($scholarName) has submitted an answer to a question.',        'isRead': false,
+        'message': 'Scholar ($scholarName) has submitted an answer to a question.',
+        'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
         'timestamp': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Answer  sent successfully!")));        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Answer sent successfully!"), backgroundColor: Colors.green));
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
       }
     }
   }
@@ -257,10 +249,10 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.userName, style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF2E7D32),
+        title: Text(widget.userName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -272,19 +264,18 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+            return Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
               child: Text(
                 "No queries found for this user.",
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                style: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade600, fontSize: 16),
               ),
             );
           }
 
           var docs = snapshot.data!.docs;
-
           docs.sort((a, b) {
             Timestamp? timeA = (a.data() as Map<String, dynamic>)['createdAt'];
             Timestamp? timeB = (b.data() as Map<String, dynamic>)['createdAt'];
@@ -305,7 +296,6 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
               String scholarName = data['scholarName'] ?? 'Aalim';
               bool isAnswered = data['status'] == 'answered';
               String scholarShare = data['scholarShare']?.toString() ?? '50';
-
               String? additionalNote = data['additionalNote'];
 
               Timestamp? timestamp = data['createdAt'];
@@ -320,9 +310,9 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 16),
-                elevation: 2,
+                elevation: isDark ? 0 : 2,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                color: isDark ? Colors.white.withAlpha(12) : Colors.white,
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -334,7 +324,7 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.person_outline, size: 18, color: Color(0xFF2E7D32)),
+                              Icon(Icons.person_outline, size: 18, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                               const SizedBox(width: 6),
                               Text(
                                 "User: ${widget.userName}",
@@ -344,7 +334,7 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                           ),
                           Text(
                             formattedDateTime,
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                            style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade600),
                           ),
                         ],
                       ),
@@ -456,20 +446,20 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                             const SizedBox(height: 4),
                             Text(
                               aiAnswer,
-                              style: const TextStyle(fontSize: 14, color: Colors.black87),
+                              style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black87),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 16),
 
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.edit_note, size: 20, color: Color(0xFF2E7D32)),
-                          SizedBox(width: 6),
+                          Icon(Icons.edit_note, size: 20, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
+                          const SizedBox(width: 6),
                           Text(
                             "Scholar Answer :",
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                           ),
                         ],
                       ),
@@ -478,8 +468,10 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                         controller: _controllers[qId],
                         maxLines: 4,
                         enabled: !isAnswered,
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                         decoration: InputDecoration(
                           hintText: "Enter your Answer",
+                          hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey),
                           filled: true,
                           fillColor: isDark ? Colors.black26 : Colors.grey.shade100,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -492,8 +484,8 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                           width: double.infinity,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2E7D32),
-                              foregroundColor: Colors.white,
+                              backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
+                              foregroundColor: isDark ? AppTheme.primaryDark : Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
@@ -506,13 +498,13 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                           ),
                         ),
                       ] else ...[
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.check_circle, color: Colors.green, size: 18),
-                            SizedBox(width: 6),
+                            const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                            const SizedBox(width: 6),
                             Text(
                               "Answer has been submitted successfully.",
-                              style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13),
+                              style: TextStyle(color: isDark ? Colors.greenAccent : Colors.green, fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                           ],
                         ),

@@ -14,14 +14,13 @@ class ScholarNotificationsScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Notifications"),
-        backgroundColor: isDark ? const Color(0xFF003D33) : const Color(0xFF1B5E20),
+        title: const Text("Notifications", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // 👈 Yahan 'isRead == false' ka filter laga diya hai taake read hote hi notification list se hat jaye
         stream: FirebaseFirestore.instance
             .collection('notifications')
             .where('scholarId', isEqualTo: currentScholarId)
@@ -30,7 +29,7 @@ class ScholarNotificationsScreen extends StatelessWidget {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -44,7 +43,6 @@ class ScholarNotificationsScreen extends StatelessWidget {
 
           var docs = snapshot.data!.docs;
 
-          // Latest notifications ko pehle dikhane ke liye sort kar rahe hain
           docs.sort((a, b) {
             var aData = a.data() as Map<String, dynamic>;
             var bData = b.data() as Map<String, dynamic>;
@@ -55,6 +53,7 @@ class ScholarNotificationsScreen extends StatelessWidget {
           });
 
           return ListView.builder(
+            padding: const EdgeInsets.all(12),
             itemCount: docs.length,
             itemBuilder: (context, index) {
               var data = docs[index].data() as Map<String, dynamic>;
@@ -62,18 +61,12 @@ class ScholarNotificationsScreen extends StatelessWidget {
               String title = data['title'] ?? "Notification";
               String message = data['message'] ?? data['body'] ?? "";
 
-              // Kyunke query mein sirf unread hain, isliye yeh hamesha true hoga
-              bool isUnread = true;
-
-              // Helper function to handle Read & Navigation
               Future<void> handleTapOrRead() async {
-                // Database mein isRead ko true kar dein ge taake query se yeh foran nikal jaye
                 await FirebaseFirestore.instance
                     .collection('notifications')
                     .doc(docId)
                     .update({'status': 'read', 'isRead': true});
 
-                // Title ya message ke mutabiq screen par navigate karein
                 if (context.mounted) {
                   if (title.contains("Question") || message.contains("question")) {
                     Navigator.push(
@@ -94,12 +87,16 @@ class ScholarNotificationsScreen extends StatelessWidget {
               }
 
               return Card(
-                color: isDark ? Colors.white.withAlpha(13) : Colors.green.shade50,
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                color: isDark ? Colors.white.withAlpha(12) : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  side: BorderSide(color: isDark ? Colors.white10 : AppTheme.primaryLight.withAlpha(30))
+                ),
+                margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Colors.amber,
-                    child: Icon(Icons.notifications, color: Colors.white),
+                  leading: CircleAvatar(
+                    backgroundColor: AppTheme.accentGreen,
+                    child: Icon(Icons.notifications, color: AppTheme.primaryDark, size: 20),
                   ),
                   title: Text(
                     title,
@@ -113,7 +110,7 @@ class ScholarNotificationsScreen extends StatelessWidget {
                     style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
                   ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.mark_email_read, color: Colors.green),
+                    icon: Icon(Icons.mark_email_read, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                     tooltip: "Mark as read & Open",
                     onPressed: handleTapOrRead,
                   ),

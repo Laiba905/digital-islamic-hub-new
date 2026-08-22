@@ -75,12 +75,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.green),
+              leading: const Icon(Icons.photo_library, color: AppTheme.primaryLight),
               title: const Text('Gallery'),
               onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.gallery, imageQuality: 70)),
             ),
             ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.green),
+              leading: const Icon(Icons.camera_alt, color: AppTheme.primaryLight),
               title: const Text('Camera'),
               onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.camera, imageQuality: 70)),
             ),
@@ -99,7 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           uiSettings: [
             AndroidUiSettings(
               toolbarTitle: 'Crop Profile Picture',
-              toolbarColor: const Color(0xFF1B5E20),
+              toolbarColor: AppTheme.primaryLight,
               toolbarWidgetColor: Colors.white,
               initAspectRatio: CropAspectRatioPreset.square,
               lockAspectRatio: true,
@@ -177,10 +177,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.primaryDark : Colors.grey[50],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("My Profile", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: isDark ? const Color(0xFF003D33) : const Color(0xFF1B5E20),
+        backgroundColor: isDark ? AppTheme.primaryLight : AppTheme.primaryLight,
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -195,7 +195,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionTitle("Account Info"),
+                  _buildSectionTitle("Account Info", isDark),
                   _buildSettingsCard(isDark, [
                     _buildSettingsTile(
                       icon: Icons.person_outline,
@@ -212,7 +212,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ]),
                   const SizedBox(height: 25),
-                  _buildSectionTitle("Settings & Theme"),
+                  _buildSectionTitle("Settings & Theme", isDark),
                   _buildSettingsCard(isDark, [
                     _buildSwitchTile(
                       icon: Icons.dark_mode_outlined,
@@ -239,7 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ]),
                   const SizedBox(height: 40),
-                  _buildLogoutButton(),
+                  _buildLogoutButton(isDark),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -255,7 +255,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       width: double.infinity,
       padding: const EdgeInsets.only(bottom: 40, top: 20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF003D33) : const Color(0xFF1B5E20),
+        color: isDark ? AppTheme.primaryLight : AppTheme.primaryLight,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(40),
           bottomRight: Radius.circular(40),
@@ -272,7 +272,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   radius: 55,
                   backgroundColor: Colors.white,
                   child: _isUploading
-                      ? const CircularProgressIndicator(color: Colors.green)
+                      ? const CircularProgressIndicator(color: AppTheme.primaryLight)
                       : (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
                       ? ClipOval(
                     child: Image.network(
@@ -281,11 +281,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       height: 110,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return Icon(Icons.person, size: 50, color: Colors.green.shade800);
+                        return const Icon(Icons.person, size: 50, color: AppTheme.primaryLight);
                       },
                     ),
                   )
-                      : Icon(Icons.person, size: 50, color: Colors.green.shade800),
+                      : const Icon(Icons.person, size: 50, color: AppTheme.primaryLight),
                 ),
               ),
               Positioned(
@@ -293,10 +293,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 right: 4,
                 child: GestureDetector(
                   onTap: _isUploading ? null : _pickAndCropImage,
-                  child: const CircleAvatar(
+                  child: CircleAvatar(
                     radius: 18,
-                    backgroundColor: Colors.orangeAccent,
-                    child: Icon(Icons.edit, size: 16, color: Colors.white),
+                    backgroundColor: isDark ? AppTheme.accentGreen : Colors.orangeAccent,
+                    child: Icon(Icons.edit, size: 16, color: isDark ? AppTheme.primaryDark : Colors.white),
                   ),
                 ),
               ),
@@ -316,12 +316,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(left: 5, bottom: 10),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1),
+        style: TextStyle(
+          color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, 
+          fontWeight: FontWeight.bold, 
+          fontSize: 12, 
+          letterSpacing: 1
+        ),
       ),
     );
   }
@@ -342,8 +347,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onTap: onTap,
       leading: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: const Color(0xFF2E7D32), size: 20),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.accentGreen.withOpacity(0.1) : AppTheme.primaryLight.withOpacity(0.1), 
+          borderRadius: BorderRadius.circular(10)
+        ),
+        child: Icon(icon, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, size: 20),
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black54)),
@@ -360,23 +368,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
       value: value,
-      activeColor: const Color(0xFF2E7D32),
+      activeColor: AppTheme.accentGreen,
       onChanged: onChanged,
     );
   }
 
-  Widget _buildLogoutButton() {
+  Widget _buildLogoutButton(bool isDark) {
     return SizedBox(
       width: double.infinity,
       height: 55,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red.shade50,
+          backgroundColor: isDark ? Colors.red.withAlpha(30) : Colors.red.shade50,
           foregroundColor: Colors.red,
           elevation: 0,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
-              side: BorderSide(color: Colors.red.shade100)
+              side: BorderSide(color: isDark ? Colors.red.withAlpha(50) : Colors.red.shade100)
           ),
         ),
         onPressed: () async {

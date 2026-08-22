@@ -32,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
         User? user = userCredential.user;
 
         if (user != null && mounted) {
-          // 🔍 1. Pehle 'scholars' collection check karein
           DocumentSnapshot scholarDoc = await FirebaseFirestore.instance
               .collection('scholars')
               .doc(user.uid)
@@ -41,13 +40,10 @@ class _LoginScreenState extends State<LoginScreen> {
           if (scholarDoc.exists) {
             Map<String, dynamic> scholarData = scholarDoc.data() as Map<String, dynamic>;
             String status = (scholarData['status'] ?? 'pending').toString().toLowerCase().trim();
-
-            // Yeh check karein ke kya pehle popup dikhaya ja chuka hai ya nahi
             bool popupShown = scholarData['isApprovedPopupShown'] ?? false;
 
             if (status == 'approved') {
               if (popupShown) {
-                // Agar popup pehle dikh chuka hai, toh seedha Scholar Dashboard par bhej dein
                 if (mounted) {
                   Navigator.pushAndRemoveUntil(
                     context,
@@ -56,19 +52,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   );
                 }
               } else {
-                // Agar pehli baar approve hone ke baad login kiya hai, toh Congratulations Popup dikhayein
                 if (mounted) {
                   _showApprovedPopup(user.uid);
                 }
               }
               return;
             } else if (status == 'rejected') {
-              // ❌ Agar request reject ho gayi hai
               _showSnackBar("Your scholar verification request has been rejected.", isError: true);
               await FirebaseAuth.instance.signOut();
               return;
             } else {
-              // ⏳ Agar abhi 'pending' hai toh English Popup dikhayein aur login screen par hi rahein
               if (mounted) {
                 _showPendingPopup();
               }
@@ -76,14 +69,12 @@ class _LoginScreenState extends State<LoginScreen> {
             }
           }
 
-          // 🔍 2. Agar scholar nahi hai, toh 'users' collection check karein (Aam User ke liye)
           DocumentSnapshot userDoc = await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
               .get();
 
           if (userDoc.exists) {
-            // 👤 Regular User -> Seedha HomeScreen
             if (mounted) {
               Navigator.pushAndRemoveUntil(
                 context,
@@ -94,7 +85,6 @@ class _LoginScreenState extends State<LoginScreen> {
             return;
           }
 
-          // Agar kisi bhi collection mein record na mile
           _showSnackBar("User record not found in database.", isError: true);
         }
       } on FirebaseAuthException catch (e) {
@@ -111,7 +101,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // 🕒 Pending Status Popup Dialog (English Version)
   void _showPendingPopup() {
     showDialog(
       context: context,
@@ -132,12 +121,12 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00C853),
+              backgroundColor: AppTheme.primaryLight,
               foregroundColor: Colors.white,
             ),
             onPressed: () {
-              Navigator.pop(context); // Close popup
-              FirebaseAuth.instance.signOut(); // Stay on login screen securely
+              Navigator.pop(context);
+              FirebaseAuth.instance.signOut();
             },
             child: const Text("OK"),
           ),
@@ -146,7 +135,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // 🎉 Approved Status Popup Dialog (Congratulations & Go to Dashboard)
   void _showApprovedPopup(String uid) {
     showDialog(
       context: context,
@@ -155,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.check_circle, color: Color(0xFF00C853)),
+            Icon(Icons.check_circle, color: AppTheme.accentGreen),
             SizedBox(width: 8),
             Text("Congratulations! 🎉"),
           ],
@@ -167,18 +155,16 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00C853),
+              backgroundColor: AppTheme.primaryLight,
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
-              // Jaise hi user click kare, database mein update kardein ke popup dikhaya ja chuka hai
               await FirebaseFirestore.instance.collection('scholars').doc(uid).update({
                 'isApprovedPopupShown': true,
               });
 
               if (context.mounted) {
-                Navigator.pop(context); // Close popup
-                // Navigate to Scholar Dashboard
+                Navigator.pop(context);
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => const ScholarDashboard()),
@@ -210,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: const TextStyle(color: Colors.white)),
-        backgroundColor: isError ? Colors.redAccent : const Color(0xFF00C853),
+        backgroundColor: isError ? Colors.redAccent : AppTheme.primaryLight,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -221,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF001F1A) : Colors.white,
+      backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -230,8 +216,8 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: isDark
-                ? [const Color(0xFF003D33), const Color(0xFF001F1A)]
-                : [Colors.green.shade100, Colors.white],
+                ? [AppTheme.primaryLight, AppTheme.primaryDark]
+                : [const Color(0xFFE8F5E9), Colors.white],
           ),
         ),
         child: Center(
@@ -246,7 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.green.shade900
+                        color: isDark ? Colors.white : AppTheme.primaryLight
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -271,9 +257,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration: InputDecoration(
                             labelText: "Email Address",
                             labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                            prefixIcon: Icon(Icons.email_outlined, color: isDark ? Colors.white60 : Colors.black45),
+                            prefixIcon: Icon(Icons.email_outlined, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.grey)),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.green)),
+                            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight)),
                           ),
                           validator: (val) => (val == null || !val.contains("@")) ? "Enter a valid email" : null,
                         ),
@@ -285,9 +271,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration: InputDecoration(
                             labelText: "Password",
                             labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                            prefixIcon: Icon(Icons.lock_outline, color: isDark ? Colors.white60 : Colors.black45),
+                            prefixIcon: Icon(Icons.lock_outline, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: isDark ? Colors.white24 : Colors.grey)),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.green)),
+                            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight)),
                             suffixIcon: IconButton(
                               icon: Icon(_obscureText ? Icons.visibility_off : Icons.visibility, color: isDark ? Colors.white60 : Colors.black45),
                               onPressed: () => setState(() => _obscureText = !_obscureText),
@@ -309,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? const Color(0xFF81C784) : Colors.green.shade800,
+                                color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
                               ),
                             ),
                           ),
@@ -320,8 +306,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           height: 55,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF00C853),
-                              foregroundColor: Colors.white,
+                              backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
+                              foregroundColor: isDark ? AppTheme.primaryDark : Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                             ),
                             onPressed: _isLoading ? null : _handleLogin,
@@ -343,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             TextSpan(
                                 text: "Sign Up",
-                                style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF81C784) : Colors.green.shade700)
+                                style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight)
                             )
                           ]
                       ),

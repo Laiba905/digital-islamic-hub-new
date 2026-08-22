@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'cloudinary_service.dart';
 import 'package:cloudinary_public/cloudinary_public.dart';
 import 'dart:io';
+import '../theme/app_theme.dart';
 
 class UserQuestionScreen extends StatefulWidget {
   final String question;
@@ -36,7 +37,6 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
   String? _paymentProofUrl;
   bool _isUploadingImage = false;
 
-  // Pick Image from Gallery
   Future<void> _pickImage() async {
     try {
       final picker = ImagePicker();
@@ -54,7 +54,6 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
     }
   }
 
-  // Upload Image using CloudinaryService
   Future<void> _uploadToCloudinary(XFile imageFile) async {
     setState(() => _isUploadingImage = true);
     try {
@@ -118,7 +117,6 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
       final user = FirebaseAuth.instance.currentUser;
       String userName = 'User';
 
-      // 🚀 Firestore se user ka asal naam fetch kar rahe hain
       if (user != null) {
         try {
           DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
@@ -135,7 +133,6 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
 
       String enteredAmount = _amountController.text.trim();
 
-      // 1. User ka question aur payment details Firestore mein save karein
       DocumentReference questionDoc = await FirebaseFirestore.instance.collection('user_questions').add({
         'userId': user?.uid ?? 'anonymous',
         'userName': userName,
@@ -152,7 +149,6 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 2. 🔔 Admin ke liye 'notifications' collection mein entry bhejna (Real Name ke sath)
       await FirebaseFirestore.instance.collection('notifications').add({
         'targetRole': 'admin',
         'questionId': questionDoc.id,
@@ -165,11 +161,10 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Request submitted successfully!")));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Request submitted successfully!"), backgroundColor: AppTheme.primaryLight));
         Navigator.popUntil(context, (route) => route.isFirst);
       }
     } catch (e) {
-      print("CRITICAL SUBMISSION ERROR: $e");
       if (mounted) {
         showDialog(
           context: context,
@@ -192,10 +187,13 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Confirm Verification"),
-        backgroundColor: const Color(0xFF2E7D32),
+        title: const Text("Confirm Verification", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -203,7 +201,6 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Right: Payment Details Card
             Align(
               alignment: Alignment.centerRight,
               child: FutureBuilder<DocumentSnapshot>(
@@ -216,8 +213,8 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
                   if (!snapshot.hasData || !snapshot.data!.exists || snapshot.data!.data() == null) {
                     return Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
-                      child: const Text("No payment info", style: TextStyle(fontSize: 12)),
+                      decoration: BoxDecoration(color: isDark ? Colors.white10 : AppTheme.primaryLight.withAlpha(10), borderRadius: BorderRadius.circular(8)),
+                      child: Text("No payment info", style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black54)),
                     );
                   }
 
@@ -232,23 +229,23 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
                     width: 260,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50,
+                      color: isDark ? Colors.white.withAlpha(10) : AppTheme.primaryLight.withAlpha(10),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.green.shade200),
+                      border: Border.all(color: isDark ? AppTheme.accentGreen.withAlpha(50) : AppTheme.primaryLight.withAlpha(30)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Fee Amount: ${paymentData['feeAmount'] ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2E7D32))),
+                        Text("Fee Amount: ${paymentData['feeAmount'] ?? 'N/A'}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight)),
                         const Divider(height: 8),
 
                         if (epName.isNotEmpty || epNumber.isNotEmpty) ...[
-                          Text("EasyPaisa: $epName - $epNumber", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text("EasyPaisa: $epName - $epNumber", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87)),
                           const SizedBox(height: 4),
                         ],
 
                         if (jpName.isNotEmpty || jpNumber.isNotEmpty) ...[
-                          Text("JazzCash: $jpName - $jpNumber", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text("JazzCash: $jpName - $jpNumber", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black87)),
                         ],
                       ],
                     ),
@@ -258,19 +255,22 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
             ),
 
             const Divider(height: 30),
-            const Text("User Question:", style: TextStyle(fontWeight: FontWeight.bold)),
-            Text(widget.question, style: const TextStyle(fontSize: 16)),
+            Text("User Question:", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+            Text(widget.question, style: TextStyle(fontSize: 16, color: isDark ? Colors.white70 : Colors.black87)),
             const SizedBox(height: 10),
-            const Text("Answer:", style: TextStyle(fontWeight: FontWeight.bold)),
-            Text(widget.aiAnswer, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+            Text("Answer:", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+            Text(widget.aiAnswer, style: TextStyle(fontSize: 14, color: isDark ? Colors.white38 : Colors.grey)),
             const SizedBox(height: 20),
 
             TextField(
               controller: _suggestionController,
-              decoration: const InputDecoration(
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              decoration: InputDecoration(
                 labelText: "Additional Note / Question (Optional)",
+                labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
                 hintText: "Could I share an extra thought with you regarding this topic?",
-                border: OutlineInputBorder(),
+                hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey),
+                border: const OutlineInputBorder(),
               ),
               maxLines: 2,
             ),
@@ -279,21 +279,31 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              decoration: InputDecoration(
                 labelText: "Paid Amount (e.g., 300)",
-                border: OutlineInputBorder(),
+                labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                border: const OutlineInputBorder(),
                 hintText: "Enter exact amount you paid",
+                hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey),
               ),
             ),
             const SizedBox(height: 15),
 
             TextField(
               controller: _tidController,
-              decoration: const InputDecoration(labelText: "Transaction ID", border: OutlineInputBorder(), hintText: "Enter your payment TID"),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              decoration: InputDecoration(
+                labelText: "Transaction ID", 
+                labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                border: const OutlineInputBorder(), 
+                hintText: "Enter your payment TID",
+                hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey),
+              ),
             ),
             const SizedBox(height: 20),
 
-            const Text("Upload Payment Screenshot", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text("Upload Payment Screenshot", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
             const SizedBox(height: 8),
             GestureDetector(
               onTap: _pickImage,
@@ -301,12 +311,12 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
                 height: 140,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
+                  border: Border.all(color: isDark ? Colors.white24 : Colors.grey),
                   borderRadius: BorderRadius.circular(10),
-                  color: Colors.grey.shade100,
+                  color: isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
                 ),
                 child: _isUploadingImage
-                    ? const Center(child: CircularProgressIndicator())
+                    ? Center(child: CircularProgressIndicator(color: AppTheme.accentGreen))
                     : _paymentProofUrl != null
                     ? ClipRRect(
                   borderRadius: BorderRadius.circular(10),
@@ -316,10 +326,10 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
                 )
                     : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.cloud_upload_outlined, size: 40, color: Color(0xFF2E7D32)),
-                    SizedBox(height: 8),
-                    Text("Click here to upload payment screenshot", style: TextStyle(color: Colors.black54)),
+                  children: [
+                    Icon(Icons.cloud_upload_outlined, size: 40, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
+                    const SizedBox(height: 8),
+                    Text("Click here to upload payment screenshot", style: TextStyle(color: isDark ? Colors.white38 : Colors.black54)),
                   ],
                 ),
               ),
@@ -331,7 +341,11 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
               height: 50,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _submitRequest,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, 
+                  foregroundColor: isDark ? AppTheme.primaryDark : Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Submit Question", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),

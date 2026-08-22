@@ -4,6 +4,7 @@ import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/prayer_service.dart';
 import '../services/notification_service.dart';
+import '../theme/app_theme.dart';
 
 class PrayerTimesScreen extends StatefulWidget {
   const PrayerTimesScreen({super.key});
@@ -39,16 +40,16 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF001F1A) : Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Prayer Schedule", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Prayer Schedule", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         centerTitle: true,
-        backgroundColor: isDark ? const Color(0xFF001F1A) : Colors.white,
-        foregroundColor: isDark ? Colors.white : Colors.black87,
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
+        foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
-              icon: const Icon(Icons.volume_up_rounded),
+              icon: const Icon(Icons.volume_up_rounded, color: Colors.white),
               onPressed: () => NotificationService.testInstant()
           )
         ],
@@ -56,7 +57,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       body: FutureBuilder<PrayerTimes?>(
         future: PrayerService.getPrayerTimes(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+          if (snapshot.connectionState == ConnectionState.waiting) return Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
           if (!snapshot.hasData) return const Center(child: Text("Connection Error or Location Disabled"));
 
           final pt = snapshot.data!;
@@ -85,9 +86,9 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.1) : Colors.orange.shade50,
+        color: isDark ? Colors.white.withAlpha(15) : AppTheme.primaryLight.withAlpha(10),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white24 : Colors.orange.shade100),
+        border: Border.all(color: isDark ? Colors.white12 : AppTheme.primaryLight.withAlpha(30)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -116,17 +117,18 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        color: isDark ? Colors.white.withAlpha(12) : Colors.white,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: isNotify ? const Color(0xFF2E7D32) : Colors.transparent),
+        border: Border.all(color: isNotify ? AppTheme.accentGreen : (isDark ? Colors.white10 : Colors.grey.shade200)),
+        boxShadow: isDark ? [] : [BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: ListTile(
-        leading: Icon(icon, color: isNotify ? const Color(0xFF2E7D32) : Colors.grey),
+        leading: Icon(icon, color: isNotify ? AppTheme.accentGreen : (isDark ? Colors.white30 : Colors.grey)),
         title: Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
         subtitle: Text(DateFormat.jm().format(time), style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)),
         trailing: Switch(
           value: isNotify,
-          activeColor: const Color(0xFF2E7D32),
+          activeColor: AppTheme.accentGreen,
           onChanged: (v) async {
             final prefs = await SharedPreferences.getInstance();
             setState(() {
@@ -135,7 +137,6 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
             });
 
             if (v) {
-              // 🚀 FIX 3: Constructing a fresh absolute timeline object instance using modern mapping structures
               final DateTime exactTargetTime = DateTime(
                   DateTime.now().year,
                   DateTime.now().month,

@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../theme/app_theme.dart';
 
 class UserAnswerScreen extends StatelessWidget {
   const UserAnswerScreen({super.key});
 
-  // 🌟 Detail Dialog aur Read Status Update Logic
   void _showFullDetails(BuildContext context, DocumentSnapshot doc, bool isDark) async {
     var data = doc.data() as Map<String, dynamic>;
     String docId = doc.id;
 
-    // Agar user ne abhi tak nahi dekha, toh Firestore mein isViewed true kar do taake badge khatam ho jaye
     bool isViewed = data['isViewed'] ?? false;
     if (!isViewed && data['status'] == 'answered') {
       await FirebaseFirestore.instance
@@ -39,10 +38,10 @@ class UserAnswerScreen extends StatelessWidget {
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: isDark ? const Color(0xFF1A332E) : Colors.white,
+          backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
           title: Row(
             children: [
-              const Icon(Icons.verified_user_rounded, color: Color(0xFF2E7D32), size: 24),
+              Icon(Icons.verified_user_rounded, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, size: 24),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -50,7 +49,7 @@ class UserAnswerScreen extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: isDark ? Colors.white : const Color(0xFF003D33),
+                    color: isDark ? Colors.white : AppTheme.primaryLight,
                   ),
                 ),
               ),
@@ -67,13 +66,11 @@ class UserAnswerScreen extends StatelessWidget {
                     Text("Date & Time: $formattedDate", style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
                   const Divider(height: 20),
 
-                  // User Question
-                  const Text("Your Question:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E7D32), fontSize: 13)),
+                  Text("Your Question:", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, fontSize: 13)),
                   const SizedBox(height: 4),
                   Text(data['questionText'] ?? data['question'] ?? 'No text.', style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
                   const SizedBox(height: 15),
 
-                  // AI Answer
                   if (aiResponseText.isNotEmpty) ...[
                     const Text("Initial AI Answer:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey, fontSize: 13)),
                     const SizedBox(height: 4),
@@ -81,25 +78,24 @@ class UserAnswerScreen extends StatelessWidget {
                     const SizedBox(height: 15),
                   ],
 
-                  // Scholar Answer Section
                   if (status == 'answered' && scholarAnswerText.isNotEmpty) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: isDark ? AppTheme.accentGreen.withAlpha(20) : AppTheme.primaryLight.withAlpha(10),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.green.shade200),
+                        border: Border.all(color: isDark ? AppTheme.accentGreen.withAlpha(50) : AppTheme.primaryLight.withAlpha(30)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.person_pin, size: 18, color: Color(0xFF2E7D32)),
+                              Icon(Icons.person_pin, size: 18, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                               const SizedBox(width: 6),
                               Text(
                                 "Answer by $scholarName",
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E7D32), fontSize: 13),
+                                style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, fontSize: 13),
                               ),
                             ],
                           ),
@@ -120,7 +116,6 @@ class UserAnswerScreen extends StatelessWidget {
                     ),
                   ],
 
-                  // Payment Screenshot
                   if (paymentScreenshot.isNotEmpty) ...[
                     const SizedBox(height: 15),
                     const Text("Payment Screenshot:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
@@ -137,7 +132,7 @@ class UserAnswerScreen extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Close", style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
+              child: Text("Close", style: TextStyle(color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -158,10 +153,10 @@ class UserAnswerScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(" Scholar Answers", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: isDark ? const Color(0xFF003D33) : const Color(0xFF1B5E20),
+        title: const Text("Scholar Answers", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
         centerTitle: true,
         elevation: 0,
@@ -173,7 +168,7 @@ class UserAnswerScreen extends StatelessWidget {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFF1B5E20)));
+            return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
           }
 
           var historyDocs = snapshot.data?.docs ?? [];
@@ -194,7 +189,6 @@ class UserAnswerScreen extends StatelessWidget {
             );
           }
 
-          // 🕒 Newest / Recently updated questions ko sab se upar lane ke liye sorting
           historyDocs.sort((a, b) {
             var dataA = a.data() as Map<String, dynamic>;
             var dataB = b.data() as Map<String, dynamic>;
@@ -203,7 +197,7 @@ class UserAnswerScreen extends StatelessWidget {
             Timestamp? timeB = dataB['createdAt'];
 
             if (timeA == null || timeB == null) return 0;
-            return timeB.compareTo(timeA); // Latest upar aayega
+            return timeB.compareTo(timeA);
           });
 
           return ListView.builder(
@@ -218,7 +212,6 @@ class UserAnswerScreen extends StatelessWidget {
               bool isAnswered = status == 'answered';
               bool isViewed = data['isViewed'] ?? false;
 
-              // Badge sirf tab show hoga jab jawab aa chuka ho aur user ne click karke na dekha ho
               bool showAlertBadge = isAnswered && !isViewed;
 
               return Card(
@@ -226,9 +219,9 @@ class UserAnswerScreen extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: isDark ? Colors.white10 : Colors.green.shade100),
+                  side: BorderSide(color: isDark ? Colors.white10 : AppTheme.primaryLight.withAlpha(30)),
                 ),
-                color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+                color: isDark ? Colors.white.withAlpha(12) : Colors.white,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   child: Column(
@@ -238,10 +231,10 @@ class UserAnswerScreen extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              const CircleAvatar(
+                              CircleAvatar(
                                 radius: 16,
-                                backgroundColor: Color(0xFF1B5E20),
-                                child: Icon(Icons.school, size: 18, color: Colors.white),
+                                backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
+                                child: Icon(Icons.school, size: 18, color: isDark ? AppTheme.primaryDark : Colors.white),
                               ),
                               const SizedBox(width: 12),
                               Column(
@@ -292,13 +285,13 @@ class UserAnswerScreen extends StatelessWidget {
                         children: [
                           ElevatedButton.icon(
                             onPressed: () => _showFullDetails(context, doc, isDark),
-                            icon: const Icon(Icons.visibility, size: 16, color: Colors.white),
-                            label: const Text(
+                            icon: Icon(Icons.visibility, size: 16, color: isDark ? AppTheme.primaryDark : Colors.white),
+                            label: Text(
                               "View Full Details",
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              style: TextStyle(color: isDark ? AppTheme.primaryDark : Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1B5E20),
+                              backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             ),
