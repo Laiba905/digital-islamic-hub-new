@@ -8,7 +8,8 @@ import 'admin_notification_screen.dart';
 import 'package:admin/views/admin/upload_books_view.dart';
 import 'scholar_management_hub_view.dart';
 import 'user_management_hub_view.dart';
-import 'scholar_answer_view.dart'; // 🚀 ScholarAnswerView import kar liya gaya hai
+import 'scholar_answer_view.dart';
+import 'scholar_requests_view.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({super.key});
@@ -19,101 +20,6 @@ class AdminDashboardView extends StatefulWidget {
 
 class _AdminDashboardViewState extends State<AdminDashboardView> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  @override
-  void initState() {
-    super.initState();
-    _listenToIncomingUserQuestions();
-  }
-
-  // 🚀 Admin Live Notification & Payment Listener
-  void _listenToIncomingUserQuestions() {
-    FirebaseFirestore.instance
-        .collection('notifications')
-        .where('targetRole', isEqualTo: 'admin')
-        .where('isRead', isEqualTo: false)
-        .snapshots()
-        .listen((QuerySnapshot snapshot) {
-
-      for (var change in snapshot.docChanges) {
-        if (change.type == DocumentChangeType.added) {
-          var data = change.doc.data() as Map<String, dynamic>;
-          String notificationId = change.doc.id;
-
-          String title = data['title'] ?? 'New Notification';
-          String message = data['message'] ?? 'Scholar ne jawab submit kar diya hai.';
-          String userName = data['userName'] ?? 'Naye User';
-          String amount = data['amountPaid'] ?? '0';
-
-          // 1️⃣ SnackBar Alert
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text("$title: $message"),
-                backgroundColor: const Color(0xFF004D40),
-                duration: const Duration(seconds: 4),
-              ),
-            );
-          }
-
-          // 2️⃣ Detailed Popup Dialog
-          _showAdminLiveAlertDialog(userName, amount, notificationId);
-        }
-      }
-    });
-  }
-
-  void _showAdminLiveAlertDialog(String userName, String amount, String notificationId) {
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.monetization_on, color: Colors.green, size: 28),
-              SizedBox(width: 10),
-              Text("New Payment & Question!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("User Name: $userName", style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text("Amount Paid: RS $amount"),
-              const SizedBox(height: 12),
-              const Text("Naya sawal verification ke liye pending list mein add ho chuka hai.", style: TextStyle(color: Colors.grey, fontSize: 13)),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await FirebaseFirestore.instance.collection('notifications').doc(notificationId).update({
-                  'isRead': true,
-                });
-              },
-              child: const Text('OK', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await FirebaseFirestore.instance.collection('notifications').doc(notificationId).update({
-                  'isRead': true,
-                });
-              },
-              child: const Text('Check Now', style: TextStyle(color: Color(0xFF004D40), fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -348,7 +254,6 @@ class _Sidebar extends StatelessWidget {
               MaterialPageRoute(builder: (context) => const UploadBooksView()),
             );
           }),
-
           _SidebarItem(
               icon: Icons.admin_panel_settings_outlined,
               label: 'Admin Information',
@@ -368,9 +273,19 @@ class _Sidebar extends StatelessWidget {
               decoration: BoxDecoration(color: const Color(0xFF004D40), borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: [
-                  CircleAvatar(radius: 14, backgroundImage: profileVM.profileImageUrl != null ? NetworkImage(profileVM.profileImageUrl!) : null, child: profileVM.profileImageUrl == null ? const Icon(Icons.person, color: Colors.white, size: 14) : null),
+                  CircleAvatar(
+                      radius: 14,
+                      backgroundImage: profileVM.profileImageUrl != null ? NetworkImage(profileVM.profileImageUrl!) : null,
+                      child: profileVM.profileImageUrl == null ? const Icon(Icons.person, color: Colors.white, size: 14) : null
+                  ),
                   const SizedBox(width: 10),
-                  Expanded(child: Text(profileVM.adminName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11), overflow: TextOverflow.ellipsis)),
+                  Expanded(
+                    child: Text(
+                        profileVM.adminName,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                        overflow: TextOverflow.ellipsis
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -415,27 +330,37 @@ class _TopHeader extends StatelessWidget {
               onPressed: () => scaffoldKey.currentState?.openDrawer(),
             ),
 
-          // 🚀 Search bar yahan se khatam kar ke Spacer() laga diya gaya hai
           const Spacer(),
 
-          // 🔔 Notifications Bell Icon with Live Unread Badge
+          // 🔔 Dynamic Bell Icon with Red/Teal Color & Badge Count
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('notifications')
                 .where('targetRole', isEqualTo: 'admin')
-                .where('isRead', isEqualTo: false)
                 .snapshots(),
             builder: (context, snapshot) {
-              int unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+              int unreadCount = 0;
+              if (snapshot.hasData) {
+                unreadCount = snapshot.data!.docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final title = (data['title'] ?? '').toString().toLowerCase();
+                  final isRead = data['isRead'] ?? false;
+
+                  if (isRead == true) return false;
+                  if (title.contains('submitted successfully')) return false;
+                  return true;
+                }).length;
+              }
+
+              final Color bellColor = unreadCount > 0 ? Colors.red : Colors.tealAccent;
 
               return Stack(
-                alignment: Alignment.center,
                 children: [
                   IconButton(
                     icon: Icon(
-                      Icons.notifications_outlined,
+                      unreadCount > 0 ? Icons.notifications_active : Icons.notifications_outlined,
                       size: 24,
-                      color: unreadCount > 0 ? Colors.tealAccent : (themeProvider.isDarkMode ? Colors.white70 : Colors.black87),
+                      color: bellColor,
                     ),
                     tooltip: "Notifications",
                     onPressed: () {
@@ -447,8 +372,8 @@ class _TopHeader extends StatelessWidget {
                   ),
                   if (unreadCount > 0)
                     Positioned(
-                      right: 8,
-                      top: 8,
+                      right: 6,
+                      top: 6,
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: const BoxDecoration(
@@ -457,7 +382,11 @@ class _TopHeader extends StatelessWidget {
                         ),
                         child: Text(
                           '$unreadCount',
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),

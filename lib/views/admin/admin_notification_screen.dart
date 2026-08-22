@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'scholar_requests_view.dart';
+import 'queries_payments_view.dart';
 import 'scholar_answer_view.dart';
 
 class AdminNotificationScreen extends StatefulWidget {
@@ -24,7 +26,6 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('notifications')
-            .where('targetRole', isEqualTo: 'admin')
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -40,7 +41,31 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
             );
           }
 
-          final docs = snapshot.data!.docs;
+          final docs = snapshot.data!.docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final targetRole = (data['targetRole'] ?? '').toString().toLowerCase();
+            final title = (data['title'] ?? '').toString().toLowerCase();
+
+            if (targetRole == 'user' || title.contains('submitted successfully')) {
+              return false;
+            }
+
+            // 🚀 'question' hata diya hai taake yeh list mein show na ho
+            return targetRole == 'admin' ||
+                title.contains('payment') ||
+                title.contains('verification') ||
+                title.contains('scholar') ||
+                title.contains('answered');
+          }).toList();
+
+          if (docs.isEmpty) {
+            return const Center(
+              child: Text(
+                'No admin notifications found.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            );
+          }
 
           return ListView.builder(
             itemCount: docs.length,
@@ -48,18 +73,17 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
             itemBuilder: (context, index) {
               final data = docs[index].data() as Map<String, dynamic>;
               final notificationId = docs[index].id;
-
               final title = data['title'] ?? 'Notification';
-              final message = data['message'] ?? '';
-              final userName = data['userName'] ?? 'User';
-              final amount = data['amountPaid'] ?? '0';
 
-              // 🕒 Timestamp formatting
               String formattedDate = '';
               if (data['timestamp'] != null) {
-                Timestamp timestamp = data['timestamp'];
-                DateTime dateTime = timestamp.toDate();
-                formattedDate = DateFormat('MMM d, yyyy - hh:mm a').format(dateTime);
+                try {
+                  Timestamp timestamp = data['timestamp'];
+                  DateTime dateTime = timestamp.toDate();
+                  formattedDate = DateFormat('MMM d, yyyy - hh:mm a').format(dateTime);
+                } catch (e) {
+                  formattedDate = '';
+                }
               }
 
               return Card(
@@ -68,26 +92,50 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                // 🟢 Green background for notifications
                 color: isDark ? const Color(0xFF1E1E1E) : Colors.green.shade50,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () async {
-                    // 1️⃣ Click hote hi notification database aur screen se delete ho jaye gi
-                    await FirebaseFirestore.instance
-                        .collection('notifications')
-                        .doc(notificationId)
-                        .delete();
+                    final lowerTitle = title.toLowerCase();
 
-                    if (!mounted) return;
+                    if (lowerTitle.contains('answered')) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ScholarAnswerView(),
+                        ),
+                      );
+                    } else if (lowerTitle.contains('scholar') || lowerTitle.contains('verification')) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ScholarRequestsView(),
+                        ),
+                      );
+                    } else if (lowerTitle.contains('payment')) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const QueriesPaymentsView(),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Notification read kar li gayi hai."),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
 
-                    // 2️⃣ Phir ScholarAnswerView wali screen par chale jayenge
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ScholarAnswerView(),
-                      ),
-                    );
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('notifications')
+                          .doc(notificationId)
+                          .delete();
+                    } catch (e) {
+                      // ignore error
+                    }
                   },
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -107,26 +155,16 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: Color(0xFF004D40), // 🟢 Green title color
+                                  color: Color(0xFF004D40),
                                 ),
                               ),
-                              const SizedBox(height: 6),
-                              Text(message),
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'User: $userName | Paid: RS $amount',
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                  ),
-                                  if (formattedDate.isNotEmpty)
-                                    Text(
-                                      formattedDate,
-                                      style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w500),
-                                    ),
-                                ],
-                              ),
+                              if (formattedDate.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  formattedDate,
+                                  style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w500),
+                                ),
+                              ],
                             ],
                           ),
                         ),
