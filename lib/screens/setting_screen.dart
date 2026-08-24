@@ -1,17 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/dnd_service.dart';
 
 class MasjidSettingsScreen extends StatefulWidget {
-  final LatLng? initialLocation;
   final String? initialMosqueName;
 
   const MasjidSettingsScreen({
     Key? key,
-    this.initialLocation,
     this.initialMosqueName,
     required double initialLatitude,
     required double initialLongitude,
@@ -23,8 +20,6 @@ class MasjidSettingsScreen extends StatefulWidget {
 
 class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _latController = TextEditingController();
-  final TextEditingController _lngController = TextEditingController();
 
   bool _isAutoSilentEnabled = false;
   double _geofenceRadius = 100.0;
@@ -44,20 +39,11 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
 
     // Pehle SharedPreferences se fast load karein (Instant UI render)
     String? localName = prefs.getString('masjid_name');
-    double? localLat = prefs.getDouble('masjid_lat');
-    double? localLng = prefs.getDouble('masjid_lng');
     bool? localEnabled = prefs.getBool('auto_silent_enabled');
     double? localRadius = prefs.getDouble('silent_radius');
 
     setState(() {
       _nameController.text = localName ?? widget.initialMosqueName ?? '';
-      _latController.text = localLat != null
-          ? localLat.toString()
-          : (widget.initialLocation?.latitude.toString() ?? '');
-      _lngController.text = localLng != null
-          ? localLng.toString()
-          : (widget.initialLocation?.longitude.toString() ?? '');
-
       _isAutoSilentEnabled = localEnabled ?? false;
       _geofenceRadius = localRadius ?? 100.0;
     });
@@ -68,7 +54,6 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
 
   Future<void> _fetchFromFirestore() async {
     try {
-      // Document ID aap apni zaroorat ke mutabiq dynamic rakh sakte hain (e.g., userId)
       DocumentSnapshot doc = await _firestore
           .collection('masjid_settings')
           .doc('user_masjid_config')
@@ -85,8 +70,6 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         setState(() {
           if (_nameController.text.isEmpty) _nameController.text = data['name'] ?? '';
-          if (_latController.text.isEmpty) _latController.text = data['lat']?.toString() ?? '';
-          if (_lngController.text.isEmpty) _lngController.text = data['lng']?.toString() ?? '';
           _isAutoSilentEnabled = data['auto_silent'] ?? _isAutoSilentEnabled;
           _geofenceRadius = (data['radius'] as num?)?.toDouble() ?? _geofenceRadius;
         });
@@ -98,18 +81,8 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
 
   // 2. Optimized Data Save Function
   Future<void> _saveAllSettings() async {
-    if (_nameController.text.trim().isEmpty ||
-        _latController.text.trim().isEmpty ||
-        _lngController.text.trim().isEmpty) {
-      _showSnackBar("Please fill all mosque details!", Colors.red);
-      return;
-    }
-
-    double? lat = double.tryParse(_latController.text.trim());
-    double? lng = double.tryParse(_lngController.text.trim());
-
-    if (lat == null || lng == null) {
-      _showSnackBar("Please enter valid Latitude & Longitude!", Colors.red);
+    if (_nameController.text.trim().isEmpty) {
+      _showSnackBar("Please fill the mosque name!", Colors.red);
       return;
     }
 
@@ -133,8 +106,6 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
       // Step B: SharedPreferences me Instant Save (Offline-First Approach)
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('masjid_name', _nameController.text.trim());
-      await prefs.setDouble('masjid_lat', lat);
-      await prefs.setDouble('masjid_lng', lng);
       await prefs.setBool('auto_silent_enabled', _isAutoSilentEnabled);
       await prefs.setDouble('silent_radius', _geofenceRadius);
       await prefs.setBool('is_settings_saved', true);
@@ -142,8 +113,6 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
       // Step C: Firestore Unawaited Async Write (Non-blocking Fast Save)
       _firestore.collection('masjid_settings').doc('user_masjid_config').set({
         'name': _nameController.text.trim(),
-        'lat': lat,
-        'lng': lng,
         'auto_silent': _isAutoSilentEnabled,
         'radius': _geofenceRadius,
         'updated_at': FieldValue.serverTimestamp(),
@@ -177,15 +146,22 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _latController.dispose();
-    _lngController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Dark Mode Detection & Theme Colors Setup
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF8F9FA);
+    final cardColor = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+    final primaryTextColor = isDarkMode ? Colors.white : Colors.black;
+    final secondaryTextColor = isDarkMode ? Colors.grey.shade400 : Colors.grey;
+    final iconBgColor = isDarkMode ? const Color(0xFF1E3A29) : Colors.green.shade50;
+    final primaryGreen = isDarkMode ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         title: const Text(
           "Masjid Auto-Silent Settings",
@@ -203,6 +179,7 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
         child: Column(
           children: [
             Card(
+              color: cardColor,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
               elevation: 2,
@@ -216,64 +193,51 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.green.shade50,
+                            color: iconBgColor,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.mosque,
-                              size: 32, color: Color(0xFF2E7D32)),
+                          child: Icon(Icons.mosque,
+                              size: 32, color: primaryGreen),
                         ),
                         const SizedBox(width: 12),
-                        const Text(
+                        Text(
                           "Mosque Details",
                           style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: primaryTextColor),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: primaryTextColor),
+                      decoration: InputDecoration(
                         labelText: 'Masjid Name',
+                        labelStyle: TextStyle(color: secondaryTextColor),
                         hintText: 'e.g. Faisal mosque',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.location_city),
+                        hintStyle: TextStyle(color: secondaryTextColor),
+                        border: const OutlineInputBorder(),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade400,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: primaryGreen, width: 2),
+                        ),
+                        prefixIcon: Icon(Icons.location_city, color: secondaryTextColor),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _latController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Latitude',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: _lngController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Longitude',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
             Card(
+              color: cardColor,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16)),
               elevation: 2,
@@ -285,23 +249,25 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             'Enable Auto-Silent Mode',
                             style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: primaryTextColor),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
                             'Enables DND mode for your selected mosque zone',
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                            style: TextStyle(color: secondaryTextColor, fontSize: 12),
                           ),
                         ],
                       ),
                     ),
                     Switch(
                       value: _isAutoSilentEnabled,
-                      activeThumbColor: const Color(0xFF2E7D32),
+                      activeColor: primaryGreen,
                       onChanged: (val) {
                         setState(() {
                           _isAutoSilentEnabled = val;
@@ -315,6 +281,7 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
             const SizedBox(height: 16),
             if (_isAutoSilentEnabled)
               Card(
+                color: cardColor,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 elevation: 2,
@@ -323,20 +290,23 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Silent Zone Radius',
                         style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: primaryTextColor),
                       ),
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Radius:', style: TextStyle(fontSize: 14)),
+                          Text('Radius:',
+                              style: TextStyle(fontSize: 14, color: primaryTextColor)),
                           Text(
                             '${_geofenceRadius.round()} meters',
-                            style: const TextStyle(
-                                color: Color(0xFF2E7D32),
+                            style: TextStyle(
+                                color: primaryGreen,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15),
                           ),
@@ -347,8 +317,8 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
                         min: 50,
                         max: 500,
                         divisions: 9,
-                        activeColor: const Color(0xFF2E7D32),
-                        inactiveColor: Colors.green.shade100,
+                        activeColor: primaryGreen,
+                        inactiveColor: isDarkMode ? Colors.grey.shade800 : Colors.green.shade100,
                         onChanged: (val) {
                           setState(() {
                             _geofenceRadius = val;

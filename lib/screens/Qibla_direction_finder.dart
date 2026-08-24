@@ -75,7 +75,7 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
   }
 
   // 🔄 Phone ko kis taraf ghumana hai yeh calculate karne ka function
-  Map<String, dynamic> _getDirectionGuidance(double heading, double qibla) {
+  Map<String, dynamic> _getDirectionGuidance(double heading, double qibla, Color accentColor) {
     // Angle difference (-180 se +180 range mein normalize)
     double diff = (qibla - heading + 540) % 360 - 180;
 
@@ -84,21 +84,21 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
 
         "text": "Qibla Direction Found",
         "subText": "Your phone direction is pointing towards the Qibla",
-        "color": Color(0xFF2E7D32),
+        "color": accentColor,
         "isAligned": true,
       };
     } else if (diff > 0) {
       return {
-        "text": "Turn the phone to the left",
-        "subText": "Turn the phone to the left",
-        "color": Color(0xFF2E7D32),
+        "text": "Turn the phone to the right",
+        "subText": "Turn the phone to the right",
+        "color": accentColor,
         "isAligned": false,
       };
     } else {
       return {
-        "text": "Turn the phone to the right",
-        "subText": "Turn the phone to the right",
-        "color": Color(0xFF2E7D32),
+        "text": "Turn the phone to the left",
+        "subText": "Turn the phone to the left",
+        "color": accentColor,
         "isAligned": false,
       };
     }
@@ -106,14 +106,23 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Theme Colors based on your app's palette
+    final Color primaryColor = const Color(0xFF003D33);
+    final Color accentColor = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
+    final Color bgColor = isDark ? const Color(0xFF001210) : const Color(0xFFFBFBFB);
+    final Color cardColor = isDark ? const Color(0xFF00211D) : Colors.white;
+    final Color textColor = isDark ? Colors.white : Colors.black87;
+
     double heading = _heading ?? 0;
-    Map<String, dynamic> guidance = _getDirectionGuidance(heading, _qiblaDirection);
+    Map<String, dynamic> guidance = _getDirectionGuidance(heading, _qiblaDirection, accentColor);
     bool isAligned = guidance["isAligned"];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: isDark ? primaryColor : const Color(0xFF2E7D32),
         elevation: 0,
         title: const Text(
           "Qibla Compass Online",
@@ -122,10 +131,10 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
         centerTitle: true,
       ),
       body: !_hasPermission
-          ? const Center(
+          ? Center(
         child: Text(
           "Please grant location permissions",
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: textColor),
         ),
       )
           : Column(
@@ -160,7 +169,7 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
                 const SizedBox(height: 4),
                 Text(
                   guidance["subText"],
-                  style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 12),
+                  style: TextStyle(color: accentColor, fontSize: 12),
                 ),
               ],
             ),
@@ -197,13 +206,13 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
                   // Qibla Marker (Small Mosque Icon)
                   Transform.rotate(
                     angle: (_qiblaDirection * (math.pi / 180)),
-                    child: const Align(
+                    child: Align(
                       alignment: Alignment.topCenter,
                       child: Padding(
-                        padding: EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.only(top: 8),
                         child: Icon(
                           Icons.mosque_rounded,
-                          color: Color(0xFF2E7D32),
+                          color: accentColor,
                           size: 30,
                         ),
                       ),
@@ -214,8 +223,8 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
                   Container(
                     width: 16,
                     height: 16,
-                    decoration: const BoxDecoration(
-                      color: Colors.teal,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.tealAccent : Colors.teal,
                       shape: BoxShape.circle,
                     ),
                   ),

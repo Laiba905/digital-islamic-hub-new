@@ -56,7 +56,6 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  // Periodic location check every 15 seconds to evaluate Geofence and update DND
   Timer.periodic(const Duration(seconds: 15), (timer) async {
     if (service is AndroidServiceInstance) {
       if (!await service.isForegroundService()) {
@@ -66,10 +65,8 @@ void onStart(ServiceInstance service) async {
     }
 
     try {
-      // 1. Resolve current user ID dynamically
       final String uid = FirebaseAuth.instance.currentUser?.uid ?? 'guest_user';
 
-      // 2. Read user settings document from Cloud Firestore
       DocumentSnapshot doc = await FirebaseFirestore.instance
           .collection('masjid_settings')
           .doc(uid)
@@ -83,12 +80,10 @@ void onStart(ServiceInstance service) async {
         double radius = (data['geofence_radius'] as num).toDouble();
 
         if (isEnabled) {
-          // 3. Get current device location
           Position currentPos = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
           );
 
-          // 4. Measure physical distance to saved Masjid
           double distanceInMeters = Geolocator.distanceBetween(
             currentPos.latitude,
             currentPos.longitude,
@@ -96,7 +91,6 @@ void onStart(ServiceInstance service) async {
             targetLng,
           );
 
-          // 5. Automatically toggle DND status based on Geofence boundaries
           if (distanceInMeters <= radius) {
             await DndService.enableDnd();
             debugPrint("Inside Geofence Zone: DND Enabled automatically");
@@ -124,6 +118,7 @@ class _MasjidMapScreenState extends State<MasjidMapScreen> {
   late GoogleMapController _mapController;
   LatLng? _selectedUserLocation;
   final Set<Marker> _markers = {};
+  bool _isLoadingCurrentLocation = false;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -133,14 +128,133 @@ class _MasjidMapScreenState extends State<MasjidMapScreen> {
     _mapController = controller;
   }
 
-  /// Request required permissions (Location & DND)
-  Future<void> _checkAndRequestPermissions() async {
+  /// Permission Request Handler
+  Future<bool> _checkAndRequestPermissions() async {
     if (!await Permission.accessNotificationPolicy.isGranted) {
       await Permission.accessNotificationPolicy.request();
     }
-    LocationPermission locationPermission = await Geolocator.checkPermission();
-    if (locationPermission == LocationPermission.denied) {
-      await Geolocator.requestPermission();
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      await Geolocator.openAppSettings();
+      return false;
+    }
+    return true;
+  }
+
+  /// Robust Current Location Retrieval
+  Future<void> _getCurrentLocation() async {
+    bool hasPermission = await _checkAndRequestPermissions();
+    if (!hasPermission) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Location permission is required.")),
+      );
+      return;
+    }
+
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please turn on GPS/Location services.")),
+      );
+      await Geolocator.openLocationSettings();
+      return;
+    }
+
+    setState(() {
+      _isLoadingCurrentLocation = true;
+    });
+
+    try {
+      // 1. Force position fetch with explicit Android & iOS Location Settings
+      LocationSettings locationSettings;
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        locationSettings = AndroidSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 0,
+          forceLocationManager: true, // Forces Hardware GPS directly
+          timeLimit: const Duration(seconds: 10),
+        );
+      } else if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS) {
+        locationSettings = AppleSettings(
+          accuracy: LocationAccuracy.high,
+          activityType: ActivityType.fitness,
+          distanceFilter: 0,
+        );
+      } else {
+        locationSettings = const LocationSettings(accuracy: LocationAccuracy.high);
+      }
+
+      // 2. Fetch Position
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: locationSettings,
+      ).catchError((_) async {
+        // Fallback to Last Known Location if direct GPS fails
+        Position? lastPos = await Geolocator.getLastKnownPosition();
+        if (lastPos != null) return lastPos;
+        throw Exception("Unable to fix GPS location.");
+      });
+
+      LatLng currentLatLng = LatLng(position.latitude, position.longitude);
+
+      // 3. Reverse Geocode for Address
+      String placeName = "Current Location";
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          String name = place.name ?? '';
+          String locality = place.locality ?? place.subLocality ?? '';
+          placeName = "$name, $locality".trim();
+          if (placeName.startsWith(',')) placeName = placeName.substring(1).trim();
+        }
+      } catch (e) {
+        placeName = "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedUserLocation = currentLatLng;
+        _searchController.text = placeName.isEmpty ? "Current Location" : placeName;
+        _markers.clear();
+        _markers.add(
+          Marker(
+            markerId: const MarkerId('current_location'),
+            position: currentLatLng,
+            infoWindow: InfoWindow(title: placeName),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          ),
+        );
+      });
+
+      _mapController.animateCamera(
+        CameraUpdate.newLatLngZoom(currentLatLng, 16.5),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Location Error: ${e.toString()}")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingCurrentLocation = false;
+        });
+      }
     }
   }
 
@@ -196,12 +310,14 @@ class _MasjidMapScreenState extends State<MasjidMapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Search Masjid"),
+        title: const Text(
+          "Search Masjid",
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
         backgroundColor: const Color(0xFF2E7D32),
       ),
       body: Stack(
         children: [
-          // Google Map View
           GoogleMap(
             onMapCreated: _onMapCreated,
             initialCameraPosition: const CameraPosition(
@@ -209,6 +325,8 @@ class _MasjidMapScreenState extends State<MasjidMapScreen> {
               zoom: 14.0,
             ),
             markers: _markers,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
             onTap: (LatLng tappedPoint) async {
               await _checkAndRequestPermissions();
               if (!mounted) return;
@@ -244,7 +362,6 @@ class _MasjidMapScreenState extends State<MasjidMapScreen> {
               }
             },
           ),
-          // Search Bar Overlay
           Positioned(
             top: 15,
             left: 15,
@@ -275,15 +392,34 @@ class _MasjidMapScreenState extends State<MasjidMapScreen> {
               ),
             ),
           ),
-          // Confirm & Save Navigation Button
+          Positioned(
+            bottom: 110,
+            right: 80,
+            child: FloatingActionButton.extended(
+              heroTag: 'current_location_btn',
+              onPressed: _isLoadingCurrentLocation ? null : _getCurrentLocation,
+              backgroundColor: const Color(0xFF2E7D32),
+              icon: _isLoadingCurrentLocation
+                  ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+                  : const Icon(Icons.my_location, color: Colors.white),
+              label: const Text(
+                "Use Current Location",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
           Positioned(
             bottom: 35,
-            left: 35,
-            right: 35,
+            left: 55,
+            right: 55,
             child: ElevatedButton(
               onPressed: () async {
                 await _checkAndRequestPermissions();
-                
+
                 if (!mounted) return;
 
                 if (_selectedUserLocation != null) {
@@ -294,7 +430,7 @@ class _MasjidMapScreenState extends State<MasjidMapScreen> {
                         initialLatitude: _selectedUserLocation!.latitude,
                         initialLongitude: _selectedUserLocation!.longitude,
                         initialMosqueName: _searchController.text.trim().isEmpty
-                            ? "Selected Masjid"
+                            ? "Selected Location"
                             : _searchController.text.trim(),
                       ),
                     ),

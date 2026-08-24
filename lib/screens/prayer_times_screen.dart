@@ -28,40 +28,24 @@ class PrayerTimesScreen extends StatefulWidget {
 }
 
 class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
-  Map<String, bool> notificationsActive = {};
-  late List<PrayerTime> _prayers;
+  Map<String, bool> notificationsActive = {
+    "Fajr": false,
+    "Dhuhr": false,
+    "Asr": false,
+    "Maghrib": false,
+    "Isha": false,
+  };
 
   @override
   void initState() {
     super.initState();
-    final today = DateTime.now();
-    _prayers = [
-      PrayerTime(name: 'Fajr', time: DateTime(today.year, today.month, today.day, 4, 3), icon: Icons.wb_twilight),
-      PrayerTime(name: 'Dhuhr', time: DateTime(today.year, today.month, today.day, 12, 13), icon: Icons.wb_sunny),
-      PrayerTime(name: 'Asr', time: DateTime(today.year, today.month, today.day, 16, 55), icon: Icons.cloud),
-      PrayerTime(name: 'Maghrib', time: DateTime(today.year, today.month, today.day, 18, 50), icon: Icons.nightlight_round),
-      PrayerTime(name: 'Isha', time: DateTime(today.year, today.month, today.day, 20, 19), icon: Icons.nightlight_round),
-    ];
-    _scheduleAllNotifications();
+    _loadSettings(); // 🚀 FIX: App/Screen open hone par SharedPreferences se saved status sync hoga
   }
 
-  Future<void> _scheduleAllNotifications() async {
-    for (int i = 0; i < _prayers.length; i++) {
-      final p = _prayers[i];
-      if (p.notificationOn) {
-        await NotificationService.schedulePrayerNotification(
-          i,
-          p.name,
-          p.time,
-        );
-      } else {
-        await NotificationService.cancelNotification(i);
-      }
-    }
-  }
-
-  _loadSettings() async {
+  // SharedPreferences se Persistent Notification States Load karna
+  Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       notificationsActive = {
         "Fajr": prefs.getBool("Fajr") ?? false,
@@ -87,16 +71,20 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
         elevation: 0,
         actions: [
           IconButton(
-              icon: const Icon(Icons.volume_up_rounded),
-              onPressed: () => NotificationService.testInstant()
+            icon: const Icon(Icons.volume_up_rounded),
+            onPressed: () => NotificationService.testInstant(),
           )
         ],
       ),
       body: FutureBuilder<PrayerTimes?>(
         future: PrayerService.getPrayerTimes(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
-          if (!snapshot.hasData) return const Center(child: Text("Connection Error or Location Disabled"));
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
+          }
+          if (!snapshot.hasData) {
+            return const Center(child: Text("Connection Error or Location Disabled"));
+          }
 
           final pt = snapshot.data!;
           final zawal = pt.dhuhr.subtract(const Duration(minutes: 10));
@@ -116,7 +104,6 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
             ),
           );
         },
-
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -193,19 +180,23 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           activeColor: const Color(0xFF2E7D32),
           onChanged: (v) async {
             final prefs = await SharedPreferences.getInstance();
+
+            // Local state update aur SharedPreferences save
             setState(() {
               notificationsActive[name] = v;
-              prefs.setBool(name, v);
             });
+            await prefs.setBool(name, v);
 
+            // Notification Schedule / Cancel Logic
             if (v) {
+              final DateTime now = DateTime.now();
               final DateTime exactTargetTime = DateTime(
-                  DateTime.now().year,
-                  DateTime.now().month,
-                  DateTime.now().day,
-                  time.hour,
-                  time.minute,
-                  0
+                now.year,
+                now.month,
+                now.day,
+                time.hour,
+                time.minute,
+                0,
               );
               await NotificationService.schedulePrayerNotification(name.hashCode, name, exactTargetTime);
             } else {

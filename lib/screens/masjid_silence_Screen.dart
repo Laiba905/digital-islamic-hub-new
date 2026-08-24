@@ -293,33 +293,6 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _latController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Latitude',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: _lngController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'Longitude',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -347,7 +320,7 @@ class _MasjidSettingsScreenState extends State<MasjidSettingsScreen> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'Toggles background geofence monitoring & DND',
+                            'Controls Do Not Disturb based on your location.',
                             style: TextStyle(color: Colors.grey, fontSize: 12),
                           ),
                         ],
