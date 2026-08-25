@@ -303,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
-                                decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                decoration: TextDecoration.none, // 👈 Line khatam kar di gayi hai
                                 color: isDark ? Colors.white : Colors.black87,
                               ),
                             ),
@@ -418,7 +418,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader(bool isDark) {
-    // 🚀 Current logged-in user ki ID nikalna
     final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return SliverToBoxAdapter(
@@ -459,7 +458,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   children: [
                     StreamBuilder<QuerySnapshot>(
-                      // 🚀 Sirf current user ki unread notifications count hongi
                       stream: FirebaseFirestore.instance
                           .collection('notifications')
                           .where('userId', isEqualTo: currentUserId)

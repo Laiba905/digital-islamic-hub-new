@@ -223,7 +223,7 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
                   String epName = paymentData['easyPaisaName'] ?? '';
                   String epNumber = paymentData['easyPaisaNumber'] ?? '';
                   String jpName = paymentData['jazzCashName'] ?? '';
-                  String jpNumber = paymentData['jazzCashNumber'] ?? '';
+                  String jpNumber = paymentData['jazzCashName'] ?? '';
 
                   return Container(
                     width: 260,
@@ -294,9 +294,9 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
               controller: _tidController,
               style: TextStyle(color: isDark ? Colors.white : Colors.black87),
               decoration: InputDecoration(
-                labelText: "Transaction ID", 
+                labelText: "Transaction ID",
                 labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                border: const OutlineInputBorder(), 
+                border: const OutlineInputBorder(),
                 hintText: "Enter your payment TID",
                 hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey),
               ),
@@ -305,36 +305,49 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
 
             Text("Upload Payment Screenshot", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
             const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                height: 140,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  border: Border.all(color: isDark ? Colors.white24 : Colors.grey),
-                  borderRadius: BorderRadius.circular(10),
-                  color: isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
-                ),
-                child: _isUploadingImage
-                    ? Center(child: CircularProgressIndicator(color: AppTheme.accentGreen))
-                    : _paymentProofUrl != null
-                    ? ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: kIsWeb
-                      ? Image.network(_paymentProofUrl!, fit: BoxFit.cover)
-                      : Image.file(File(_selectedImage!.path), fit: BoxFit.cover),
-                )
-                    : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.cloud_upload_outlined, size: 40, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
-                    const SizedBox(height: 8),
-                    Text("Click here to upload payment screenshot", style: TextStyle(color: isDark ? Colors.white38 : Colors.black54)),
-                  ],
+
+            // Box ko mazeed bara aur chora karne ke liye width aur height barha di hai
+            Center(
+              child: SizedBox(
+                width: 500, // Yahan width 350 se barha kar 500 kar di hai
+                height: 200, // Yahan height 130 se barha kar 200 kar di hai
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: isDark ? Colors.white24 : Colors.grey),
+                      borderRadius: BorderRadius.circular(10),
+                      color: isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
+                    ),
+                    child: _isUploadingImage
+                        ? Center(child: CircularProgressIndicator(color: AppTheme.accentGreen))
+                        : _paymentProofUrl != null
+                        ? ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: kIsWeb
+                          ? Image.network(_paymentProofUrl!, fit: BoxFit.cover)
+                          : Image.file(File(_selectedImage!.path), fit: BoxFit.cover),
+                    )
+                        : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.cloud_upload_outlined, size: 40, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Text(
+                            "Click here to upload screenshot",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.black54),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 25),
+            const SizedBox(height: 20),
 
             SizedBox(
               width: double.infinity,
@@ -342,7 +355,7 @@ class _UserQuestionScreenState extends State<UserQuestionScreen> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _submitRequest,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, 
+                  backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
                   foregroundColor: isDark ? AppTheme.primaryDark : Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),

@@ -1,12 +1,7 @@
-import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'pdf_viewer_screen.dart';
 import '../theme/app_theme.dart';
 
 class UserBookListView extends StatefulWidget {
@@ -17,132 +12,34 @@ class UserBookListView extends StatefulWidget {
 }
 
 class _UserBookListViewState extends State<UserBookListView> {
-  final Map<String, double> _downloadProgress = {};
-  final Map<String, bool> _downloadedStatus = {}; // 🚀 Yeh track karega ke kaunsi book download ho chuki hai
 
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  Future<bool> _checkLocalFile(String path) async {
-    if (kIsWeb) {
-      return false;
-    } else {
-      return await io.File(path).exists();
-    }
-  }
-
-  // 🚀 Har book ka local path check karne ka function
-  Future<void> _checkIfDownloaded(String title, String pdfUrl) async {
-    if (kIsWeb) return;
+  // 🚀 Updated function to safely launch URL on both mobile and web
+  Future<void> _openBookUrl(BuildContext context, String fileUrl, String title) async {
+    final Uri url = Uri.parse(fileUrl.trim());
     try {
-      var directory = await getApplicationDocumentsDirectory();
-      String safeTitle = title.replaceAll(RegExp(r'[^\w\s]+'), '').replaceAll(' ', '_');
-      String savePath = '${directory.path}/$safeTitle.pdf';
-      bool exists = await io.File(savePath).exists();
-      if (mounted) {
-        setState(() {
-          _downloadedStatus[pdfUrl] = exists;
-        });
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  Future<void> _downloadAndOpenPDF(BuildContext context, String fileUrl, String title) async {
-    if (kIsWeb) {
-      final Uri url = Uri.parse(fileUrl);
-      try {
-        if (await canLaunchUrl(url)) {
-          await launchUrl(url, webOnlyWindowName: '_blank');
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Could not open the book URL.')),
-            );
-          }
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      }
-      return;
-    }
-
-    try {
-      var directory = await getApplicationDocumentsDirectory();
-      String safeTitle = title.replaceAll(RegExp(r'[^\w\s]+'), '').replaceAll(' ', '_');
-      String savePath = '${directory.path}/$safeTitle.pdf';
-
-      bool fileExists = await _checkLocalFile(savePath);
-
-      if (fileExists) {
-        if (mounted) {
-          setState(() {
-            _downloadedStatus[fileUrl] = true;
-          });
-        }
-        if (context.mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PdfViewerScreen(localPath: savePath, title: title),
-            ),
-          );
-        }
-        return;
-      }
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Downloading "$title" for offline use...')),
-        );
-      }
-
-      Dio dio = Dio();
-      await dio.download(
-        fileUrl,
-        savePath,
-        onReceiveProgress: (received, total) {
-          if (total != -1) {
-            double progress = received / total;
-            if ((_downloadProgress[fileUrl] ?? 0) + 0.05 <= progress || progress == 1.0) {
-              if (mounted) {
-                setState(() {
-                  _downloadProgress[fileUrl] = progress;
-                });
-              }
-            }
-          }
-        },
+      // Direct launch ki koshish karein taake canLaunchUrl ki restriction avoid ho jaye
+      bool launched = await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+        webOnlyWindowName: '_blank',
       );
 
-      if (mounted) {
-        setState(() {
-          _downloadProgress.remove(fileUrl);
-          _downloadedStatus[fileUrl] = true; // 🚀 Download complete hote hi status true kar diya
-        });
-      }
-
-      if (context.mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PdfViewerScreen(localPath: savePath, title: title),
-          ),
+      // Agar external application mein na khule toh platform default try karein
+      if (!launched) {
+        launched = await launchUrl(
+          url,
+          mode: LaunchMode.platformDefault,
         );
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _downloadProgress.remove(fileUrl);
-        });
+
+      if (!launched) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open the book URL.')),
+          );
+        }
       }
+    } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
@@ -183,15 +80,6 @@ class _UserBookListViewState extends State<UserBookListView> {
               final String author = book['author'] ?? 'Unknown Author';
               final String pdfUrl = book['pdfUrl'] ?? '';
 
-              // Check if file is already downloaded locally
-              if (_downloadedStatus[pdfUrl] == null && !kIsWeb) {
-                _checkIfDownloaded(title, pdfUrl);
-              }
-
-              double? progress = _downloadProgress[pdfUrl];
-              bool isDownloading = progress != null;
-              bool isDownloaded = _downloadedStatus[pdfUrl] ?? false;
-
               return Card(
                 elevation: isDark ? 0 : 3,
                 margin: const EdgeInsets.only(bottom: 12),
@@ -214,30 +102,22 @@ class _UserBookListViewState extends State<UserBookListView> {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text('Author: $author', style: TextStyle(color: isDark ? Colors.white60 : Colors.grey)),
                   ),
-                  trailing: isDownloading
-                      ? SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 3,
-                      color: AppTheme.accentGreen,
-                    ),
-                  )
-                      : IconButton(
+                  trailing: IconButton(
                     icon: Icon(
-                      kIsWeb
-                          ? Icons.visibility
-                          : (isDownloaded ? Icons.check_circle : Icons.download_rounded), // 🚀 Downloaded hone par tick/check_circle icon show hoga
-                      color: isDownloaded ? Colors.green : (isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
+                      Icons.visibility,
+                      color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
                       size: 26,
                     ),
-                    onPressed: () => _downloadAndOpenPDF(context, pdfUrl, title),
-                    tooltip: kIsWeb ? 'View Book' : (isDownloaded ? 'Read Book' : 'Download & Read'),
+                    onPressed: () {
+                      if (pdfUrl.isNotEmpty) {
+                        _openBookUrl(context, pdfUrl, title);
+                      }
+                    },
+                    tooltip: 'View Book Online',
                   ),
                   onTap: () {
-                    if (pdfUrl.isNotEmpty && !isDownloading) {
-                      _downloadAndOpenPDF(context, pdfUrl, title);
+                    if (pdfUrl.isNotEmpty) {
+                      _openBookUrl(context, pdfUrl, title);
                     }
                   },
                 ),

@@ -32,6 +32,7 @@ dependencies:
   image_cropper: ^12.2.1
   cloud_firestore: ^6.4.1
   cloudinary_public: 0.23.1
+  intl_phone_field: ^3.2.0
   hijri: ^3.0.0
   url_launcher: ^6.3.2
   flutter_cached_pdfview: ^0.4.4

@@ -14,7 +14,7 @@ class ScholarPaymentsScreen extends StatefulWidget {
 
 class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
 
-  void _processItemWithdrawal(BuildContext context, double amount) {
+  void _processItemWithdrawal(BuildContext context, String docId, double amount, String scholarName) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
@@ -29,15 +29,41 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Your funds will be transferred to your account shortly!"),
-                  backgroundColor: Colors.green,
-                  duration: Duration(seconds: 4),
-                ),
-              );
+
+              try {
+                // 1. Status ko 'processing' update karein
+                await FirebaseFirestore.instance
+                    .collection('user_questions')
+                    .doc(docId)
+                    .update({'status': 'processing'});
+
+                // 2. Admin ke liye notification bhejein
+                await FirebaseFirestore.instance.collection('notifications').add({
+                  'targetRole': 'admin',
+                  'title': 'Payment Withdrawal Request',
+                  'message': 'Scholar $scholarName has requested a withdrawal of Rs. ${amount.toStringAsFixed(0)}. 7 days have been completed.',
+                  'createdAt': FieldValue.serverTimestamp(),
+                  'isRead': false,
+                });
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Withdrawal request sent to Admin successfully!"),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+                  );
+                }
+              }
             },
             child: Text("Confirm", style: TextStyle(color: isDark ? AppTheme.primaryDark : Colors.white)),
           ),
@@ -132,7 +158,6 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
         stream: FirebaseFirestore.instance
             .collection('user_questions')
             .where('scholarId', isEqualTo: widget.scholarId)
-            .where('status', isEqualTo: 'answered')
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -148,7 +173,21 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
             );
           }
 
-          var docs = snapshot.data!.docs;
+          var docs = snapshot.data!.docs.where((doc) {
+            var data = doc.data() as Map<String, dynamic>;
+            String status = (data['status'] ?? 'answered').toString().toLowerCase();
+            return status == 'answered' || status == 'processing' || status == 'paid';
+          }).toList();
+
+          if (docs.isEmpty) {
+            return Center(
+              child: Text(
+                "No payment history or earnings found.",
+                style: TextStyle(fontSize: 15, color: isDark ? Colors.white60 : Colors.grey),
+              ),
+            );
+          }
+
           double totalEarnings = 0;
           double paidAmountTotal = 0;
           List<Map<String, dynamic>> paidQuestionsList = [];
@@ -246,8 +285,10 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
                     var data = docs[index].data() as Map<String, dynamic>;
+                    String docId = docs[index].id;
                     double amount = double.tryParse(data['scholarShare']?.toString() ?? '50') ?? 50.0;
                     String userId = data['userId'] ?? 'unknown_user';
+                    String itemStatus = (data['status'] ?? 'answered').toString().toLowerCase();
 
                     Timestamp? answeredTimestamp = data['answeredAt'] as Timestamp?;
                     DateTime answerDate = answeredTimestamp != null ? answeredTimestamp.toDate() : DateTime.now();
@@ -261,8 +302,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                     return FutureBuilder<DocumentSnapshot>(
                       future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
                       builder: (context, userSnapshot) {
-                        String displayName = "User";
-
+                        String displayName = "Scholar";
                         if (userSnapshot.hasData && userSnapshot.data!.exists) {
                           var userData = userSnapshot.data!.data() as Map<String, dynamic>?;
                           String? fetchedName = userData?['displayName'] ?? userData?['name'] ?? userData?['fullName'] ?? userData?['userName'];
@@ -384,6 +424,19 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                     ],
                                   ),
                                 )
+                                    : itemStatus == 'processing'
+                                    ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.orange),
+                                  ),
+                                  child: const Text(
+                                    "Payment Processing",
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange),
+                                  ),
+                                )
                                     : ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: isUnlocked ? AppTheme.accentGreen : Colors.grey.shade400,
@@ -391,7 +444,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
-                                  onPressed: isUnlocked ? () => _processItemWithdrawal(context, amount) : null,
+                                  onPressed: isUnlocked ? () => _processItemWithdrawal(context, docId, amount, displayName) : null,
                                   icon: Icon(isUnlocked ? Icons.account_balance_wallet : Icons.lock, size: 14),
                                   label: Text(
                                     isUnlocked ? "Withdraw" : "Locked",

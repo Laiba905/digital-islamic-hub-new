@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloudinary_public/cloudinary_public.dart';
 import 'cloudinary_service.dart';
 import '../theme/app_theme.dart';
+import 'login_screen.dart';
 
 class ScholarDetailsScreen extends StatefulWidget {
   const ScholarDetailsScreen({super.key});
@@ -18,9 +19,21 @@ class ScholarDetailsScreen extends StatefulWidget {
 
 class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
+
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _degreeController = TextEditingController();
+
+  String _selectedCountryCode = '+92';
+
+  final List<Map<String, String>> _countryCodes = [
+    {'name': 'Pakistan', 'code': '+92'},
+    {'name': 'Saudi Arabia', 'code': '+966'},
+    {'name': 'UAE', 'code': '+971'},
+    {'name': 'UK', 'code': '+44'},
+    {'name': 'USA', 'code': '+1'},
+    {'name': 'India', 'code': '+91'},
+  ];
 
   String? _selectedGender;
   String? _selectedPaymentMethod;
@@ -34,13 +47,19 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
 
   Future<void> _pickSanadImage() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+
     if (image != null) {
       if (kIsWeb) {
         var bytes = await image.readAsBytes();
-        setState(() { _webImageBytes = bytes; _pickedImageFile = image; });
+        setState(() {
+          _webImageBytes = bytes;
+          _pickedImageFile = image;
+        });
       } else {
-        setState(() { _pickedImageFile = image; });
+        setState(() {
+          _pickedImageFile = image;
+        });
       }
     }
   }
@@ -85,20 +104,24 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
       final user = FirebaseAuth.instance.currentUser!;
       String? imageUrl = await _uploadToCloudinary(user.uid);
 
+      String formattedPhone = '$_selectedCountryCode${_phoneController.text.trim()}';
+
       await FirebaseFirestore.instance.collection('scholars').doc(user.uid).set({
-        'phone': _phoneController.text.trim(),
+        'phone': formattedPhone,
         'address': _addressController.text.trim(),
         'degree': _degreeController.text.trim(),
         'gender': _selectedGender,
         'payment_method': _selectedPaymentMethod,
         'image': imageUrl,
+        'profileCompleted': true,
+        'status': 'pending',
         'timestamp': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       final notificationData = {
         'targetRole': 'admin',
         'title': 'Scholar Verification Request',
-        'message': 'New scholar (${user.email ?? 'Scholar'}) has requested verification.',
+        'message': 'New scholar (${user.email ?? 'Scholar'}) has requested verification. Please review their application.',
         'userName': user.email ?? 'Scholar',
         'amountPaid': '0',
         'isRead': false,
@@ -109,8 +132,29 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
       await FirebaseFirestore.instance.collection('admin_notifications').add(notificationData);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Request Sent Successfully!"), backgroundColor: AppTheme.primaryLight),
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text("Request Submitted"),
+          content: const Text("Aap ki application submit ho gayi hai. Admin approval के baad hi aap dashboard mein ja sakenge, please wait."),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        (route) => false,
+                  );
+                }
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -142,6 +186,19 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
         title: const Text("Scholar Verification", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () async {
+            await FirebaseAuth.instance.signOut();
+            if (context.mounted) {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    (route) => false,
+              );
+            }
+          },
+        ),
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: AppTheme.accentGreen))
@@ -155,15 +212,63 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextFormField(
-                    controller: _phoneController,
-                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                    decoration: InputDecoration(
-                      labelText: 'Phone Number', 
-                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                      border: const OutlineInputBorder()
-                    ),
-                    validator: (v) => v!.isEmpty ? "Enter phone number" : null,
+                  Row(
+                    children: [
+                      Container(
+                        width: 135,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: isDark ? Colors.white60 : Colors.grey.shade600),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedCountryCode,
+                            isExpanded: true,
+                            dropdownColor: isDark ? AppTheme.primaryDark : Colors.white,
+                            style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold),
+                            items: _countryCodes.map((country) {
+                              return DropdownMenuItem<String>(
+                                value: country['code'],
+                                child: Text(
+                                  '${country['name']} (${country['code']})',
+                                  style: TextStyle(fontSize: 11, color: isDark ? Colors.white : Colors.black87),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedCountryCode = val!;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                          decoration: InputDecoration(
+                            labelText: 'Phone Number',
+                            hintText: '3001234567',
+                            labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                            border: const OutlineInputBorder(),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return "Enter number";
+                            }
+                            if (v.trim().length < 9) {
+                              return "Invalid number";
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
 
@@ -172,9 +277,9 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                     dropdownColor: isDark ? AppTheme.primaryDark : Colors.white,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                     decoration: InputDecoration(
-                      labelText: 'Accept Payments via', 
-                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                      border: const OutlineInputBorder()
+                        labelText: 'Accept Payments via',
+                        labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                        border: const OutlineInputBorder()
                     ),
                     items: _paymentOptions.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
                     onChanged: (val) => setState(() => _selectedPaymentMethod = val),
@@ -185,9 +290,9 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                     controller: _addressController,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                     decoration: InputDecoration(
-                      labelText: 'Address', 
-                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                      border: const OutlineInputBorder()
+                        labelText: 'Address',
+                        labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                        border: const OutlineInputBorder()
                     ),
                     validator: (v) => v!.isEmpty ? "Enter address" : null,
                   ),
@@ -198,9 +303,9 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                     dropdownColor: isDark ? AppTheme.primaryDark : Colors.white,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                     decoration: InputDecoration(
-                      labelText: 'Gender', 
-                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                      border: const OutlineInputBorder()
+                        labelText: 'Gender',
+                        labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                        border: const OutlineInputBorder()
                     ),
                     items: _genderOptions.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
                     onChanged: (val) => setState(() => _selectedGender = val),
@@ -211,9 +316,9 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                     controller: _degreeController,
                     style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                     decoration: InputDecoration(
-                      labelText: 'Degree / Qualification', 
-                      labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
-                      border: const OutlineInputBorder()
+                        labelText: 'Degree / Qualification',
+                        labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
+                        border: const OutlineInputBorder()
                     ),
                     validator: (v) => v!.isEmpty ? "Enter degree" : null,
                   ),

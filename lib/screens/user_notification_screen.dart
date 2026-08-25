@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 🚀 Logged-in user ke liye import kiya hai
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'user_answer_screen.dart';
@@ -11,8 +11,6 @@ class UserNotificationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // 🚀 Current logged-in user ki unique ID nikalna
     final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return Scaffold(
@@ -23,10 +21,8 @@ class UserNotificationScreen extends StatelessWidget {
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // 🚀 Sirf wahi notifications fetch hongi jo is user ki ID se match karti hain
         stream: FirebaseFirestore.instance
             .collection('notifications')
-            .where('userId', isEqualTo: currentUserId)
             .orderBy('timestamp', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
@@ -40,9 +36,14 @@ class UserNotificationScreen extends StatelessWidget {
 
           var docs = snapshot.data!.docs.where((doc) {
             var data = doc.data() as Map<String, dynamic>;
+
+            String notifUserId = data['userId'] ?? data['uid'] ?? data['recipientId'] ?? '';
             String targetRole = data['targetRole'] ?? '';
             String title = (data['title'] ?? '').toString().toLowerCase();
 
+            if (notifUserId.isNotEmpty && notifUserId != currentUserId) {
+              return false;
+            }
             if (targetRole == 'admin' || title.contains('new payment & question')) {
               return false;
             }
@@ -61,10 +62,10 @@ class UserNotificationScreen extends StatelessWidget {
               String docId = docs[index].id;
               bool isRead = data['isRead'] ?? false;
 
-              String rawTitle = data['title'] ?? data['heading'] ?? 'Answer Received! ✅';
+              String rawTitle = data['title'] ?? data['heading'] ?? 'Answer Received!';
               String title = rawTitle;
               if (rawTitle.toLowerCase().contains('answer received') || rawTitle.toLowerCase().contains('new answer')) {
-                title = 'Answer Received! ✅';
+                title = 'Answer Received!';
               }
 
               String rawBody = data['body'] ?? data['message'] ?? data['description'] ?? 'Your question has been answered.';
@@ -85,29 +86,45 @@ class UserNotificationScreen extends StatelessWidget {
               }
 
               return Card(
-                color: isRead
-                    ? (isDark ? Colors.white.withAlpha(12) : Colors.white)
-                    : (isDark ? AppTheme.accentGreen.withAlpha(20) : AppTheme.primaryLight.withAlpha(10)),
+                // 🚀 Agar read nahi hua toh Green color, agar read ho gaya toh normal white/dark background
+                color: !isRead
+                    ? AppTheme.accentGreen.withAlpha(isDark ? 50 : 30)
+                    : (isDark ? Colors.white.withAlpha(12) : Colors.white),
                 margin: const EdgeInsets.only(bottom: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
                   side: BorderSide(
-                      color: isRead
-                          ? (isDark ? Colors.white10 : Colors.grey.shade200)
-                          : (isDark ? AppTheme.accentGreen.withAlpha(50) : AppTheme.primaryLight.withAlpha(30))
+                    color: !isRead
+                        ? AppTheme.accentGreen.withAlpha(100)
+                        : (isDark ? Colors.white10 : Colors.grey.shade200),
                   ),
                 ),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: isRead ? Colors.grey.shade400 : AppTheme.accentGreen,
-                    child: Icon(Icons.notifications_active, color: isRead ? Colors.white : AppTheme.primaryDark, size: 20),
-                  ),
-                  title: Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87,
+                    backgroundColor: !isRead ? AppTheme.accentGreen : Colors.grey.shade400,
+                    child: Icon(
+                      Icons.notifications_active,
+                      color: !isRead ? AppTheme.primaryDark : Colors.white,
+                      size: 20,
                     ),
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontWeight: !isRead ? FontWeight.bold : FontWeight.normal,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                      // 🚀 Agar read ho chuka hai (click kar liya hai) toh sirf aagay tick show ho ga
+                      if (isRead) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                      ],
+                    ],
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

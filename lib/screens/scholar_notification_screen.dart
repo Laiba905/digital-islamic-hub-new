@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
 import 'scholar_questions_screen.dart';
 import 'scholar_payments_screen.dart';
@@ -21,11 +22,11 @@ class ScholarNotificationsScreen extends StatelessWidget {
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
+        // 🚀 yahan se 'isRead' filter hata diya hai taake read hone ke baad notifications gayab na hon
         stream: FirebaseFirestore.instance
             .collection('notifications')
             .where('scholarId', isEqualTo: currentScholarId)
             .where('targetRole', isEqualTo: 'scholar')
-            .where('isRead', isEqualTo: false)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -60,22 +61,48 @@ class ScholarNotificationsScreen extends StatelessWidget {
               String docId = docs[index].id;
               String title = data['title'] ?? "Notification";
               String message = data['message'] ?? data['body'] ?? "";
+              bool isRead = data['isRead'] ?? false; // 👈 Read status check karne ke liye
+
+              // Date aur Time formatting
+              String formattedDate = '';
+              var timestampField = data['createdAt'] ?? data['timestamp'];
+              if (timestampField != null) {
+                try {
+                  Timestamp timestamp = timestampField;
+                  DateTime dateTime = timestamp.toDate();
+                  formattedDate = DateFormat('EEE, MMM d, yyyy - hh:mm a').format(dateTime);
+                } catch (e) {
+                  formattedDate = '';
+                }
+              }
 
               Future<void> handleTapOrRead() async {
+                // 1. Database mein isRead ko true kar dein taake color change ho jaye aur tick lag jaye
                 await FirebaseFirestore.instance
                     .collection('notifications')
                     .doc(docId)
-                    .update({'status': 'read', 'isRead': true});
+                    .update({'isRead': true});
 
+                // 2. Corresponding screen par navigate karein
                 if (context.mounted) {
-                  if (title.contains("Question") || message.contains("question")) {
+                  final lowerTitle = title.toLowerCase();
+                  final lowerMessage = message.toLowerCase();
+
+                  if (lowerTitle.contains("payment") || lowerMessage.contains("payment") || lowerMessage.contains("sent")) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ScholarPaymentsScreen(scholarId: currentScholarId),
+                      ),
+                    );
+                  } else if (lowerTitle.contains("question") || lowerMessage.contains("question") || lowerMessage.contains("verified question")) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => ScholarQuestionsScreen(scholarId: currentScholarId),
                       ),
                     );
-                  } else if (title.contains("Earning") || message.contains("earnings") || message.contains("ledger")) {
+                  } else if (lowerTitle.contains("earning") || lowerMessage.contains("earnings") || lowerMessage.contains("ledger")) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -87,31 +114,73 @@ class ScholarNotificationsScreen extends StatelessWidget {
               }
 
               return Card(
-                color: isDark ? Colors.white.withAlpha(12) : Colors.white,
+                // 🚀 Agar read nahi hua toh Green, agar read ho gaya toh normal background
+                color: !isRead
+                    ? AppTheme.accentGreen.withAlpha(isDark ? 50 : 30)
+                    : (isDark ? Colors.white.withAlpha(12) : Colors.white),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
-                  side: BorderSide(color: isDark ? Colors.white10 : AppTheme.primaryLight.withAlpha(30))
+                  side: BorderSide(
+                    color: !isRead
+                        ? AppTheme.accentGreen.withAlpha(100)
+                        : (isDark ? Colors.white10 : AppTheme.primaryLight.withAlpha(30)),
+                  ),
                 ),
                 margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: AppTheme.accentGreen,
-                    child: Icon(Icons.notifications, color: AppTheme.primaryDark, size: 20),
-                  ),
-                  title: Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87,
+                    backgroundColor: !isRead ? AppTheme.accentGreen : Colors.grey.shade400,
+                    child: Icon(
+                      Icons.notifications,
+                      color: !isRead ? AppTheme.primaryDark : Colors.white,
+                      size: 20,
                     ),
                   ),
-                  subtitle: Text(
-                    message,
-                    style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontWeight: !isRead ? FontWeight.bold : FontWeight.normal,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                      // 🚀 Jab read ho jaye toh aagay green tick show ho ga
+                      if (isRead) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                      ],
+                    ],
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(
+                        message,
+                        style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                      ),
+                      if (formattedDate.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          formattedDate,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? Colors.tealAccent : Colors.teal.shade700,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   trailing: IconButton(
-                    icon: Icon(Icons.mark_email_read, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
-                    tooltip: "Mark as read & Open",
+                    icon: Icon(
+                      isRead ? Icons.done : Icons.notifications_active,
+                      color: isRead ? Colors.green : (isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
+                    ),
+                    tooltip: "Open",
                     onPressed: handleTapOrRead,
                   ),
                   onTap: handleTapOrRead,

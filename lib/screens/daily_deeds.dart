@@ -215,8 +215,32 @@ class _DailyDeedsState extends State<DailyDeeds> {
                           return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
                         }
                         var deedsDocs = fallbackSnap.hasData ? fallbackSnap.data!.docs : [];
+
                         if (deedsDocs.isEmpty) {
-                          return const Center(child: Text("No deeds available for today.", style: TextStyle(color: Colors.grey, fontSize: 16)));
+                          return StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance.collection('daily_deeds').orderBy('dateStr', descending: true).limit(5).snapshots(),
+                            builder: (context, lastDeedsSnap) {
+                              if (lastDeedsSnap.connectionState == ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
+                              }
+                              var lastDocs = lastDeedsSnap.hasData ? lastDeedsSnap.data!.docs : [];
+                              if (lastDocs.isEmpty) {
+                                return const Center(child: Text("No deeds available.", style: TextStyle(color: Colors.grey, fontSize: 16)));
+                              }
+
+                              List<Map<String, dynamic>> mappedDeeds = lastDocs.map((doc) {
+                                var d = doc.data() as Map<String, dynamic>;
+                                return {
+                                  'id': doc.id,
+                                  'title': d['title'] ?? '',
+                                  'description': '',
+                                  'points': d['points'] ?? 5,
+                                };
+                              }).toList();
+
+                              return _buildDeedsContent(context, mappedDeeds, displayStreak, alreadyDone, savedProgress, todayStr, isDark, horizontalPadding);
+                            },
+                          );
                         }
 
                         List<Map<String, dynamic>> mappedDeeds = deedsDocs.map((doc) {
@@ -246,43 +270,49 @@ class _DailyDeedsState extends State<DailyDeeds> {
 
   Widget _buildDeedsContent(BuildContext context, List<Map<String, dynamic>> deeds, int displayStreak, bool alreadyDone, Map<String, dynamic> savedProgress, String todayStr, bool isDark, double horizontalPadding) {
     int totalCalculatedPoints = 0;
+    int checkedCount = 0;
+
     for (var deed in deeds) {
       String id = deed['id'];
       bool isChecked = alreadyDone || (savedProgress[id] == true) || _localTicks.contains(id);
       if (isChecked) {
+        checkedCount++;
         totalCalculatedPoints += (deed['points'] as num).toInt();
       }
     }
 
-    return Center(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 800),
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-            Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              elevation: 1,
-              color: isDark ? Colors.white.withAlpha(10) : Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 32),
-                    const SizedBox(width: 10),
-                    Text(
-                      "$displayStreak Days Streak",
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.orange),
-                    ),
-                  ],
+    bool allDeedsCompleted = (deeds.isNotEmpty && checkedCount == deeds.length);
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            children: [
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                elevation: 1,
+                color: isDark ? Colors.white.withAlpha(10) : Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 32),
+                      const SizedBox(width: 10),
+                      Text(
+                        "$displayStreak Days Streak",
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.orange),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.builder(
+              const SizedBox(height: 16),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
                 itemCount: deeds.length,
                 itemBuilder: (context, index) {
                   var deed = deeds[index];
@@ -298,77 +328,98 @@ class _DailyDeedsState extends State<DailyDeeds> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0.5,
                     color: isDark ? Colors.white.withAlpha(15) : Colors.white,
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      title: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: ticked ? Colors.grey : (isDark ? Colors.white : Colors.black87),
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      child: Row(
                         children: [
-                          if (description.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(description, style: TextStyle(color: ticked ? Colors.grey : (isDark ? Colors.white60 : Colors.black54), fontSize: 13)),
-                          ],
-                          const SizedBox(height: 6),
-                          Text(
-                            "+$pts Points",
-                            style: TextStyle(color: ticked ? Colors.grey : AppTheme.accentGreen, fontWeight: FontWeight.w600, fontSize: 13),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentGreen.withAlpha(30),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              "+$pts",
+                              style: const TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                          const SizedBox(width: 15),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    decoration: TextDecoration.none,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                                if (description.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    description,
+                                    style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 13),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: alreadyDone ? null : () {
+                              bool currentStatus = (savedProgress[id] == true) || _localTicks.contains(id);
+                              _toggleDeed(id, currentStatus, todayStr);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: ticked ? AppTheme.accentGreen : Colors.transparent,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: ticked ? AppTheme.accentGreen : Colors.grey, width: 2),
+                              ),
+                              child: ticked ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
+                            ),
                           ),
                         ],
-                      ),
-                      trailing: GestureDetector(
-                        onTap: alreadyDone ? null : () {
-                          bool currentStatus = (savedProgress[id] == true) || _localTicks.contains(id);
-                          _toggleDeed(id, currentStatus, todayStr);
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: ticked ? AppTheme.accentGreen : Colors.transparent,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: ticked ? AppTheme.accentGreen : Colors.grey, width: 2),
-                          ),
-                          child: ticked ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
-                        ),
                       ),
                     ),
                   );
                 },
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: SizedBox(
+              const SizedBox(height: 20),
+              SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: alreadyDone ? Colors.grey : AppTheme.primaryLight,
+                    backgroundColor: (alreadyDone || !allDeedsCompleted) ? Colors.grey : AppTheme.primaryLight,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
                     elevation: 2,
                   ),
-                  onPressed: (alreadyDone || _isSubmitting)
+                  onPressed: (alreadyDone || !allDeedsCompleted || _isSubmitting)
                       ? null
                       : () => _submitStreak(totalCalculatedPoints, todayStr),
                   child: _isSubmitting
                       ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
                       : Text(
-                    alreadyDone ? "Streak Updated ✔" : "Update My Streak (Earn +$totalCalculatedPoints Pts)",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    alreadyDone
+                        ? "Streak Updated ✔"
+                        : (!allDeedsCompleted
+                        ? "Complete all deeds ($checkedCount/${deeds.length})"
+                        : "Update My Streak (Earn +$totalCalculatedPoints Pts)"),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
