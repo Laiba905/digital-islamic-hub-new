@@ -27,14 +27,10 @@ class PrayerService {
       return Future.error('Location permissions are permanently denied.');
     }
 
-    // 3. Current Location lein (Fast check with last known position first)
-    Position? position = await Geolocator.getLastKnownPosition();
-    
-    if (position == null) {
-      position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.low,
-          timeLimit: const Duration(seconds: 5));
-    }
+    // 3. Current Location lein
+    // DesiredAccuracy low rakha hai taake battery kam consume ho aur jaldi result aaye
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.low);
 
     // 4. Adhan logic (Pakistan/Hanafi settings)
     final coordinates = Coordinates(position.latitude, position.longitude);

@@ -1,22 +1,30 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math'; // 🚀 Added for Daily Deeds Shuffling Logic
+import 'package:digital_islamic_hub_new/screens/Qibla_direction_finder.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:adhan/adhan.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hijri/hijri_calendar.dart';
-import '../core/database/db_helper.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart' as p;
 import '../services/prayer_service.dart';
+import 'masjid_map_screen.dart';
 import '../theme/app_theme.dart';
+import 'masjid_silence_Screen.dart';
 import 'prayer_times_screen.dart';
 import 'surah_list_screen.dart';
-import 'ai_chat_screen.dart';
+//import 'ai_chat_screen.dart';
 import 'tasbeeh_list_screen.dart';
 import 'profile_screen.dart';
 import 'safar_dua_screen.dart';
 import 'hadith_books_screen.dart';
 import 'bookmarks_screen.dart';
+import 'dnd_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -125,9 +133,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchDailyAyah() async {
     try {
-      final db = await DBHelper.db;
-      if (db == null) return;
-      
+      var databasesPath = await getDatabasesPath();
+      var path = p.join(databasesPath, "quran_final_authentic_v2.db");
+      var exists = await databaseExists(path);
+
+      if (!exists) {
+        ByteData data = await rootBundle.load(p.join("assets/database", "quran_final_authentic_v2.db"));
+        List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        await File(path).writeAsBytes(bytes, flush: true);
+      }
+
+      Database db = await openDatabase(path, readOnly: true);
       int dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
       int ayahId = (dayOfYear % 6236) + 1;
 
@@ -145,6 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         }
       }
+      await db.close();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -158,7 +175,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    String userName = user?.displayName ?? "User";
 
     // 🚀 Declared inside the build shell to prevent premature InheritedWidget context crash
     final List<Widget> tabs = [
@@ -170,48 +186,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
-      appBar: _selectedIndex == 0 ? AppBar(
-        toolbarHeight: 85, // Increased height to accommodate more info
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Row(
-          children: [
-            Image.asset('assets/images/islamic_logo.png', height: 40),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "Digital Islamic Hub",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF1B5E20),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    "Assalamu Alaikum, $userName",
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 15),
-            child: _buildAvatar(isDark),
-          ),
-        ],
-        centerTitle: false,
-      ) : null,
       body: IndexedStack(
         index: _selectedIndex,
         children: tabs,
@@ -223,6 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // --- SPLIT INTERACTIVE HOME BODY VIEW ---
   Widget _buildHomeDashboardView() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    String userName = user?.displayName ?? "User";
 
     return Container(
       decoration: BoxDecoration(
@@ -234,31 +209,28 @@ class _HomeScreenState extends State<HomeScreen> {
               : [const Color(0xFFF1F8E9), Colors.white],
         ),
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    GestureDetector(
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrayerTimesScreen())),
-                      child: _buildPrayerCard(isDark),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildGridMenu(isDark),
-                    const SizedBox(height: 20),
-                    _buildAyahModule(isDark),
-                    const SizedBox(height: 12),
-                    _buildDeedsModule(isDark),
-                    const SizedBox(height: 30),
-                  ],
-                ),
+      child: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            _buildHeader(userName, isDark),
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrayerTimesScreen())),
+                    child: _buildPrayerCard(isDark),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildGridMenu(isDark),
+                  const SizedBox(height: 20),
+                  _buildAyahModule(isDark),
+                  const SizedBox(height: 12),
+                  _buildDeedsModule(isDark),
+                  const SizedBox(height: 30),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -402,6 +374,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildHeader(String name, bool isDark) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text("Assalamu Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13)),
+                Text(name, style: TextStyle(color: isDark ? Colors.white : const Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 24)),
+              ]),
+            ),
+            _buildAvatar(isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAvatar(bool isDark) {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('users').doc(user?.uid).snapshots(),
@@ -410,13 +402,29 @@ class _HomeScreenState extends State<HomeScreen> {
         if (snapshot.hasData && snapshot.data!.exists) {
           img = (snapshot.data!.data() as Map<String, dynamic>?)?['profileImage'];
         }
+
+        ImageProvider? avatarImage;
+        if (img != null && img.isNotEmpty) {
+          if (img.startsWith('http')) {
+            // Cloudinary/Network URL handle karein
+            avatarImage = NetworkImage(img);
+          } else {
+            // Base64 String handle karein
+            try {
+              avatarImage = MemoryImage(base64Decode(img));
+            } catch (_) {
+              avatarImage = null;
+            }
+          }
+        }
+
         return GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
           child: CircleAvatar(
             radius: 22,
             backgroundColor: isDark ? Colors.white10 : Colors.green.shade50,
-            backgroundImage: (img != null && img.isNotEmpty) ? MemoryImage(base64Decode(img)) : null,
-            child: (img == null || img.isEmpty) ? Icon(Icons.person, color: isDark ? Colors.white : Colors.green.shade700) : null,
+            backgroundImage: avatarImage,
+            child: (avatarImage == null) ? Icon(Icons.person, color: isDark ? Colors.white : Colors.green.shade700) : null,
           ),
         );
       },
@@ -470,29 +478,23 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildGridMenu(bool isDark) {
     Color bg = isDark ? Colors.white.withAlpha(13) : Colors.white;
     Color border = isDark ? Colors.white10 : Colors.green.shade50;
-    
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Dynamic crossAxisCount based on screen width
-        int crossAxisCount = constraints.maxWidth > 600 ? 4 : 3;
-        
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15),
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.1,
-            children: [
-              _actionBtn("Islamic AI", Icons.smart_toy_rounded, Colors.cyan, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AIChatScreen()))),
-              _actionBtn("Tasbeeh", Icons.track_changes, Colors.blueAccent, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TasbeehListScreen()))),
-              _actionBtn("Safar Dua", Icons.travel_explore_rounded, Colors.teal, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SafarDuaScreen()))),
-            ],
-          ),
-        );
-      }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      child: GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 3,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.1,
+        children: [
+          // _actionBtn("Islamic AI", Icons.smart_toy_rounded, Colors.cyan, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const IslamicAIChatScreen()))),
+          _actionBtn("Tasbeeh", Icons.track_changes, Colors.blueAccent, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TasbeehListScreen()))),
+          _actionBtn("Safar Dua", Icons.travel_explore_rounded, Colors.teal, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SafarDuaScreen()))),
+          _actionBtn("Masjid Silence", Icons.mosque_rounded, Colors.lightBlue, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MasjidMapScreen()))),
+          _actionBtn("Qibla Direction Finder", Icons.assistant_direction_outlined, Colors.teal, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const QiblaCompassScreen()))),
+        ],
+      ),
     );
   }
 

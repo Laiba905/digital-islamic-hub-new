@@ -87,8 +87,6 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
   @override
   Widget build(BuildContext context) {
     bool isGoalReached = _counter >= widget.zikar['goal'];
-    final screenSize = MediaQuery.of(context).size;
-    final circleSize = screenSize.width * 0.7 > 300 ? 300.0 : screenSize.width * 0.7;
 
     return Scaffold(
       appBar: AppBar(
@@ -112,54 +110,48 @@ class _TasbeehCounterScreenState extends State<TasbeehCounterScreen> {
           ),
           IgnorePointer(
             child: Center(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        isGoalReached ? "Goal Reached! Click Reset to start again." : "Target: ${widget.zikar['goal']}",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 18, color: isGoalReached ? Colors.green : Colors.grey, fontWeight: FontWeight.bold),
-                      ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    isGoalReached ? "Goal Reached! Click Reset to start again." : "Target: ${widget.zikar['goal']}",
+                    style: TextStyle(fontSize: 18, color: isGoalReached ? Colors.green : Colors.grey, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 30),
+                  Container(
+                    width: 280,
+                    height: 280,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isGoalReached ? Colors.green.withOpacity(0.1) : Theme.of(context).primaryColor.withOpacity(0.05),
+                      border: Border.all(color: isGoalReached ? Colors.green : Theme.of(context).primaryColor, width: 8),
+                      boxShadow: [
+                        BoxShadow(
+                            color: (isGoalReached ? Colors.green : Theme.of(context).primaryColor).withOpacity(0.1),
+                            blurRadius: 20,
+                            spreadRadius: 5
+                        )
+                      ],
                     ),
-                    const SizedBox(height: 30),
-                    Container(
-                      width: circleSize,
-                      height: circleSize,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isGoalReached ? Colors.green.withOpacity(0.1) : Theme.of(context).primaryColor.withOpacity(0.05),
-                        border: Border.all(color: isGoalReached ? Colors.green : Theme.of(context).primaryColor, width: 8),
-                        boxShadow: [
-                          BoxShadow(
-                              color: (isGoalReached ? Colors.green : Theme.of(context).primaryColor).withOpacity(0.1),
-                              blurRadius: 20,
-                              spreadRadius: 5
-                          )
-                        ],
-                      ),
-                      child: Center(
-                        child: Text("$_counter",
-                            style: TextStyle(
-                                fontSize: circleSize * 0.28,
-                                fontWeight: FontWeight.bold,
-                                color: isGoalReached ? Colors.green : Theme.of(context).primaryColor
-                            )),
-                      ),
+                    child: Center(
+                      child: Text("$_counter",
+                          style: TextStyle(
+                              fontSize: 80,
+                              fontWeight: FontWeight.bold,
+                              color: isGoalReached ? Colors.green : Theme.of(context).primaryColor
+                          )),
                     ),
-                    const SizedBox(height: 40),
-                    Text(
-                      isGoalReached ? "COMPLETED" : "TAP ANYWHERE TO COUNT",
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                          color: isGoalReached ? Colors.green : Colors.grey
-                      ),
+                  ),
+                  const SizedBox(height: 40),
+                  Text(
+                    isGoalReached ? "COMPLETED" : "TAP ANYWHERE TO COUNT",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                        color: isGoalReached ? Colors.green : Colors.grey
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

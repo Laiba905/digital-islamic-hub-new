@@ -4,6 +4,21 @@ import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/prayer_service.dart';
 import '../services/notification_service.dart';
+import 'qaza_namaz_tracker.dart';
+
+class PrayerTime {
+  final String name;
+  final DateTime time;
+  final IconData icon;
+  bool notificationOn;
+
+  PrayerTime({
+    required this.name,
+    required this.time,
+    required this.icon,
+    this.notificationOn = true,
+  });
+}
 
 class PrayerTimesScreen extends StatefulWidget {
   const PrayerTimesScreen({super.key});
@@ -13,18 +28,24 @@ class PrayerTimesScreen extends StatefulWidget {
 }
 
 class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
-  Map<String, bool> notificationsActive = {};
-  Future<PrayerTimes?>? _prayerTimesFuture;
+  Map<String, bool> notificationsActive = {
+    "Fajr": false,
+    "Dhuhr": false,
+    "Asr": false,
+    "Maghrib": false,
+    "Isha": false,
+  };
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
-    _prayerTimesFuture = PrayerService.getPrayerTimes();
+    _loadSettings(); // 🚀 FIX: App/Screen open hone par SharedPreferences se saved status sync hoga
   }
 
-  _loadSettings() async {
+  // SharedPreferences se Persistent Notification States Load karna
+  Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       notificationsActive = {
         "Fajr": prefs.getBool("Fajr") ?? false,
@@ -41,56 +62,72 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFFF8FAF8),
+      backgroundColor: isDark ? const Color(0xFF001F1A) : Colors.white,
       appBar: AppBar(
-        title: const Text("Prayer Schedule", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+        title: const Text("Prayer Schedule", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: isDark ? const Color(0xFF001F1A) : Colors.white,
         foregroundColor: isDark ? Colors.white : Colors.black87,
         elevation: 0,
         actions: [
           IconButton(
-              icon: const Icon(Icons.volume_up_rounded),
-              tooltip: "Test Azan Sound",
-              onPressed: () => NotificationService.testInstant()
+            icon: const Icon(Icons.volume_up_rounded),
+            onPressed: () => NotificationService.testInstant(),
           )
         ],
       ),
       body: FutureBuilder<PrayerTimes?>(
-        future: _prayerTimesFuture,
+        future: PrayerService.getPrayerTimes(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
           }
           if (!snapshot.hasData) {
-            return const Center(child: Text("Connection Error or Location Disabled", style: TextStyle(color: Colors.grey)));
+            return const Center(child: Text("Connection Error or Location Disabled"));
           }
 
           final pt = snapshot.data!;
           final zawal = pt.dhuhr.subtract(const Duration(minutes: 10));
 
-          return Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: SingleChildScrollView(
-                // Removed large top padding to fix the "too much space" issue
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                child: Column(
-                  children: [
-                    _buildExtraTimesCard(pt.sunrise, zawal, pt.maghrib, isDark),
-                    const SizedBox(height: 24),
-                    _prayerTile("Fajr", pt.fajr, Icons.wb_twilight_rounded, isDark),
-                    _prayerTile("Dhuhr", pt.dhuhr, Icons.wb_sunny_rounded, isDark),
-                    _prayerTile("Asr", pt.asr, Icons.cloud_queue_rounded, isDark),
-                    _prayerTile("Maghrib", pt.maghrib, Icons.nightlight_round_rounded, isDark),
-                    _prayerTile("Isha", pt.isha, Icons.dark_mode_rounded, isDark),
-                  ],
-                ),
-              ),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildExtraTimesCard(pt.sunrise, zawal, pt.maghrib, isDark),
+                const SizedBox(height: 20),
+                _prayerTile("Fajr", pt.fajr, Icons.wb_twilight, isDark),
+                _prayerTile("Dhuhr", pt.dhuhr, Icons.wb_sunny, isDark),
+                _prayerTile("Asr", pt.asr, Icons.cloud_queue, isDark),
+                _prayerTile("Maghrib", pt.maghrib, Icons.nightlight_round, isDark),
+                _prayerTile("Isha", pt.isha, Icons.dark_mode, isDark),
+              ],
             ),
           );
         },
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.fact_check_outlined),
+              label: const Text('Qaza Namaz Record'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const QazaRecordScreen()),
+                );
+              },
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -99,22 +136,9 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark 
-            ? [Colors.white.withAlpha(20), Colors.white.withAlpha(10)] 
-            : [const Color(0xFFFFF3E0), Colors.orange.shade50],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.orange.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(isDark ? 0 : 5),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
+        color: isDark ? Colors.white.withOpacity(0.1) : Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white24 : Colors.orange.shade100),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -127,121 +151,58 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     );
   }
 
-  Widget _extraItem(String label, DateTime time, IconData icon, Color color, bool isDark) {
+  Widget _extraItem(String l, DateTime t, IconData i, Color c, bool isDark) {
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withAlpha(30),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black54)),
-        Text(DateFormat.jm().format(time), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+        Icon(i, color: c, size: 20),
+        const SizedBox(height: 6),
+        Text(l, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+        Text(DateFormat.jm().format(t), style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black54)),
       ],
     );
   }
 
   Widget _prayerTile(String name, DateTime time, IconData icon, bool isDark) {
     bool isNotify = notificationsActive[name] ?? false;
-    final primaryColor = const Color(0xFF2E7D32);
-    
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withAlpha(10) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(isDark ? 0 : 8),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          )
-        ],
-        border: Border.all(
-          color: isNotify ? primaryColor.withAlpha(100) : Colors.transparent,
-          width: 1.5,
-        ),
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: isNotify ? const Color(0xFF2E7D32) : Colors.transparent),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: (isNotify ? primaryColor : Colors.grey).withAlpha(30),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: isNotify ? primaryColor : Colors.grey, size: 24),
-        ),
-        title: Text(name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: isDark ? Colors.white : Colors.black87)),
-        subtitle: Text(
-          DateFormat.jm().format(time), 
-          style: TextStyle(
-            color: isDark ? Colors.white60 : Colors.black45,
-            fontWeight: FontWeight.w500,
-            fontSize: 14
-          )
-        ),
-        trailing: Transform.scale(
-          scale: 0.9,
-          child: Switch(
-            value: isNotify,
-            activeColor: Colors.white,
-            activeTrackColor: primaryColor,
-            inactiveThumbColor: Colors.grey.shade400,
-            inactiveTrackColor: Colors.grey.shade200,
-            onChanged: (v) async {
-              if (v) {
-                await NotificationService.requestPermissions();
-              }
+        leading: Icon(icon, color: isNotify ? const Color(0xFF2E7D32) : Colors.grey),
+        title: Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+        subtitle: Text(DateFormat.jm().format(time), style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)),
+        trailing: Switch(
+          value: isNotify,
+          activeColor: const Color(0xFF2E7D32),
+          onChanged: (v) async {
+            final prefs = await SharedPreferences.getInstance();
 
-              final prefs = await SharedPreferences.getInstance();
-              setState(() {
-                notificationsActive[name] = v;
-                prefs.setBool(name, v);
-              });
+            // Local state update aur SharedPreferences save
+            setState(() {
+              notificationsActive[name] = v;
+            });
+            await prefs.setBool(name, v);
 
-              if (v) {
-                final DateTime exactTargetTime = DateTime(
-                    DateTime.now().year,
-                    DateTime.now().month,
-                    DateTime.now().day,
-                    time.hour,
-                    time.minute,
-                    0
-                );
-                await NotificationService.schedulePrayerNotification(name.hashCode, name, exactTargetTime);
-                
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("Azan alert enabled for $name"),
-                      backgroundColor: primaryColor,
-                      duration: const Duration(seconds: 2),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  );
-                }
-              } else {
-                await NotificationService.cancelNotification(name.hashCode);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("Azan alert disabled for $name"),
-                      backgroundColor: Colors.redAccent,
-                      duration: const Duration(seconds: 2),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  );
-                }
-              }
-            },
-          ),
+            // Notification Schedule / Cancel Logic
+            if (v) {
+              final DateTime now = DateTime.now();
+              final DateTime exactTargetTime = DateTime(
+                now.year,
+                now.month,
+                now.day,
+                time.hour,
+                time.minute,
+                0,
+              );
+              await NotificationService.schedulePrayerNotification(name.hashCode, name, exactTargetTime);
+            } else {
+              await NotificationService.cancelNotification(name.hashCode);
+            }
+          },
         ),
       ),
     );
