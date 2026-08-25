@@ -18,7 +18,7 @@ import '../theme/app_theme.dart';
 import 'masjid_silence_Screen.dart';
 import 'prayer_times_screen.dart';
 import 'surah_list_screen.dart';
-import 'ai_chat_screen.dart';
+//import 'ai_chat_screen.dart';
 import 'tasbeeh_list_screen.dart';
 import 'profile_screen.dart';
 import 'safar_dua_screen.dart';
@@ -381,10 +381,12 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text("Assalamu Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13)),
-              Text(name, style: TextStyle(color: isDark ? Colors.white : const Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 24)),
-            ]),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text("Assalamu Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 13)),
+                Text(name, style: TextStyle(color: isDark ? Colors.white : const Color(0xFF1B5E20), fontWeight: FontWeight.bold, fontSize: 24)),
+              ]),
+            ),
             _buildAvatar(isDark),
           ],
         ),
@@ -400,13 +402,29 @@ class _HomeScreenState extends State<HomeScreen> {
         if (snapshot.hasData && snapshot.data!.exists) {
           img = (snapshot.data!.data() as Map<String, dynamic>?)?['profileImage'];
         }
+
+        ImageProvider? avatarImage;
+        if (img != null && img.isNotEmpty) {
+          if (img.startsWith('http')) {
+            // Cloudinary/Network URL handle karein
+            avatarImage = NetworkImage(img);
+          } else {
+            // Base64 String handle karein
+            try {
+              avatarImage = MemoryImage(base64Decode(img));
+            } catch (_) {
+              avatarImage = null;
+            }
+          }
+        }
+
         return GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
           child: CircleAvatar(
             radius: 22,
             backgroundColor: isDark ? Colors.white10 : Colors.green.shade50,
-            backgroundImage: (img != null && img.isNotEmpty) ? MemoryImage(base64Decode(img)) : null,
-            child: (img == null || img.isEmpty) ? Icon(Icons.person, color: isDark ? Colors.white : Colors.green.shade700) : null,
+            backgroundImage: avatarImage,
+            child: (avatarImage == null) ? Icon(Icons.person, color: isDark ? Colors.white : Colors.green.shade700) : null,
           ),
         );
       },
@@ -470,7 +488,7 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisSpacing: 12,
         childAspectRatio: 1.1,
         children: [
-          _actionBtn("Islamic AI", Icons.smart_toy_rounded, Colors.cyan, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const IslamicAIChatScreen()))),
+          // _actionBtn("Islamic AI", Icons.smart_toy_rounded, Colors.cyan, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const IslamicAIChatScreen()))),
           _actionBtn("Tasbeeh", Icons.track_changes, Colors.blueAccent, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TasbeehListScreen()))),
           _actionBtn("Safar Dua", Icons.travel_explore_rounded, Colors.teal, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SafarDuaScreen()))),
           _actionBtn("Masjid Silence", Icons.mosque_rounded, Colors.lightBlue, isDark, bg, border, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MasjidMapScreen()))),
