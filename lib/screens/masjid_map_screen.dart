@@ -175,13 +175,12 @@ class _MasjidMapScreenState extends State<MasjidMapScreen> {
     });
 
     try {
-      // 1. Force position fetch with explicit Android & iOS Location Settings
       LocationSettings locationSettings;
       if (defaultTargetPlatform == TargetPlatform.android) {
         locationSettings = AndroidSettings(
           accuracy: LocationAccuracy.high,
           distanceFilter: 0,
-          forceLocationManager: true, // Forces Hardware GPS directly
+          forceLocationManager: true,
           timeLimit: const Duration(seconds: 10),
         );
       } else if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS) {
@@ -194,11 +193,9 @@ class _MasjidMapScreenState extends State<MasjidMapScreen> {
         locationSettings = const LocationSettings(accuracy: LocationAccuracy.high);
       }
 
-      // 2. Fetch Position
       Position position = await Geolocator.getCurrentPosition(
         locationSettings: locationSettings,
       ).catchError((_) async {
-        // Fallback to Last Known Location if direct GPS fails
         Position? lastPos = await Geolocator.getLastKnownPosition();
         if (lastPos != null) return lastPos;
         throw Exception("Unable to fix GPS location.");
@@ -206,7 +203,6 @@ class _MasjidMapScreenState extends State<MasjidMapScreen> {
 
       LatLng currentLatLng = LatLng(position.latitude, position.longitude);
 
-      // 3. Reverse Geocode for Address
       String placeName = "Current Location";
       try {
         List<Placemark> placemarks = await placemarkFromCoordinates(
