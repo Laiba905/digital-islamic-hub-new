@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/database/db_helper.dart';
 import '../services/bookmark_service.dart';
+import '../theme/app_theme.dart';
 
 class BookmarksScreen extends StatefulWidget {
   const BookmarksScreen({super.key});
@@ -15,7 +16,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   bool _isLoadingHadiths = false;
   List<Map<String, dynamic>> _bookmarkedHadithsList = [];
 
-  // 🚀 Function to load detailed text from SQLite for all bookmarked IDs
   void _loadBookmarkedHadithsDetails(List<dynamic> bookmarkIds) async {
     if (bookmarkIds.isEmpty) {
       if (_bookmarkedHadithsList.isNotEmpty) {
@@ -24,7 +24,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       return;
     }
 
-    // Prevent rebuilding loop if lengths are identical
     if (_bookmarkedHadithsList.length == bookmarkIds.length && !_isLoadingHadiths) {
       return;
     }
@@ -71,10 +70,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFFF4F7F4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Hadith Bookmarks", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFF006400),
+        backgroundColor: isDark ? AppTheme.primaryLight : AppTheme.primaryLight,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -82,7 +81,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         stream: _bookmarkService.getBookmarksStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting && _bookmarkedHadithsList.isEmpty) {
-            return const Center(child: CircularProgressIndicator(color: Colors.green));
+            return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
           }
 
           List bookmarkIds = [];
@@ -95,7 +94,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.bookmark_border_rounded, size: 60, color: isDark ? Colors.white30 : Colors.grey.shade400),
+                  Icon(Icons.bookmark_border_rounded, size: 60, color: isDark ? Colors.white24 : Colors.grey.shade400),
                   const SizedBox(height: 12),
                   Text(
                     "No bookmarked Hadiths yet.",
@@ -109,7 +108,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           _loadBookmarkedHadithsDetails(bookmarkIds);
 
           if (_isLoadingHadiths && _bookmarkedHadithsList.isEmpty) {
-            return const Center(child: CircularProgressIndicator(color: Colors.green));
+            return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
           }
 
           return ListView.builder(
@@ -139,7 +138,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                           children: [
                             Text(
                               h['display_collection'] ?? 'Hadith Book',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -148,7 +147,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                             ),
                           ],
                         ),
-                        // ❌ Remove from bookmarks button (Crash Fixed)
                         IconButton(
                           icon: const Icon(Icons.bookmark_remove, color: Colors.redAccent),
                           tooltip: "Remove Bookmark",
@@ -168,7 +166,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: Divider(color: isDark ? Colors.white12 : Colors.grey.withAlpha(40)),
                     ),
-                    // 🕌 Arabic Text (Contrast & Readability Fixed)
                     Text(
                       h['text_ar'] ?? '',
                       textAlign: TextAlign.right,
@@ -176,12 +173,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
+                          color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
                           height: 1.8
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // 📝 Urdu Translation Text
                     Text(
                       h['text_ur'] ?? '',
                       textAlign: TextAlign.right,

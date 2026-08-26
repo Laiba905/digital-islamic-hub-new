@@ -3,6 +3,7 @@ import 'package:animate_do/animate_do.dart';
 import '../core/database/db_helper.dart';
 import '../models/surah_model.dart';
 import 'ayah_detail_screen.dart';
+import '../theme/app_theme.dart';
 
 class SurahListScreen extends StatefulWidget {
   const SurahListScreen({super.key});
@@ -53,12 +54,13 @@ class _SurahListScreenState extends State<SurahListScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF002921) : const Color(0xFFF1F8E9),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Al-Quran", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Al-Quran", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: isDark ? const Color(0xFF002921) : Colors.white,
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
@@ -70,19 +72,19 @@ class _SurahListScreenState extends State<SurahListScreen> {
               decoration: InputDecoration(
                 hintText: 'Search Surah Name or Number',
                 hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey),
-                prefixIcon: const Icon(Icons.search, color: Colors.green),
+                prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: isDark ? Colors.white.withAlpha(15) : Colors.white,
+                fillColor: isDark ? Colors.white.withAlpha(15) : Colors.grey.shade200,
               ),
             ),
           ),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.green))
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen))
                 : ListView.builder(
               padding: const EdgeInsets.only(bottom: 20),
               itemCount: _foundSurahs.length,
@@ -100,6 +102,13 @@ class _SurahListScreenState extends State<SurahListScreen> {
                       border: Border.all(
                         color: isDark ? Colors.white10 : Colors.green.shade50,
                       ),
+                      boxShadow: isDark ? [] : [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(5),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4)
+                        )
+                      ],
                     ),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
@@ -107,18 +116,25 @@ class _SurahListScreenState extends State<SurahListScreen> {
                         height: 45, width: 45,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: Colors.green.withAlpha(30),
+                          color: isDark ? AppTheme.accentGreen.withAlpha(30) : AppTheme.primaryLight.withAlpha(15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(surahNo.toString(),
-                            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                            style: TextStyle(
+                              color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, 
+                              fontWeight: FontWeight.bold
+                            )),
                       ),
                       title: Text(s.nameEn,
                           style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
                       subtitle: Text("${s.type} • ${s.totalAyahs} Ayahs",
                           style: TextStyle(color: isDark ? Colors.white60 : Colors.grey)),
                       trailing: Text(s.nameAr,
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
+                          style: TextStyle(
+                            fontSize: 20, 
+                            fontWeight: FontWeight.bold, 
+                            color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight
+                          )),
                       onTap: () {
                         Navigator.push(
                           context,

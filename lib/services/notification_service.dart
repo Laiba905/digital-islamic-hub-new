@@ -1,14 +1,14 @@
+import 'package:flutter/foundation.dart'; // kIsWeb ke liye
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
-  static const String _prefPrefix = 'prayer_notif_enabled_';
 
   static Future<void> init() async {
+    if (kIsWeb) return; // Web par notifications skip karein
+
     tz_data.initializeTimeZones();
 
     const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -28,18 +28,18 @@ class NotificationService {
   }
 
   static Future<void> requestPermissions() async {
-    if (Platform.isAndroid) {
-      final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-      await android?.requestNotificationsPermission();
-      await android?.requestExactAlarmsPermission();
-    } else if (Platform.isIOS) {
-      await _plugin
-          .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(alert: true, badge: true, sound: true);
+    if (kIsWeb) return;
+    
+    // Platform.isAndroid ki jagah Implementation check use karein
+    final androidImplementation = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImplementation != null) {
+      await androidImplementation.requestNotificationsPermission();
+      await androidImplementation.requestExactAlarmsPermission();
     }
   }
 
   static Future<void> testInstant() async {
+    if (kIsWeb) return;
     await _plugin.show(
       99,
       "حي على الصلاة",
@@ -56,30 +56,8 @@ class NotificationService {
     );
   }
 
-  /// Toggle notification: Schedule baseline set karta hai aur preference save karta hai
-  static Future<void> togglePrayerNotification({
-    required int id,
-    required String name,
-    required DateTime time,
-    required bool enable,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('$_prefPrefix$id', enable);
-
-    if (enable) {
-      await schedulePrayerNotification(id, name, time);
-    } else {
-      await cancelNotification(id);
-    }
-  }
-
-  /// Stored setting status get karne ke liye
-  static Future<bool> isPrayerNotificationSaved(int id) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('$_prefPrefix$id') ?? false;
-  }
-
   static Future<void> schedulePrayerNotification(int id, String name, DateTime time) async {
+    if (kIsWeb) return;
     final String timeZoneName = tz.local.name;
     final location = tz.getLocation(timeZoneName);
 
@@ -114,22 +92,7 @@ class NotificationService {
   }
 
   static Future<void> cancelNotification(int id) async {
+    if (kIsWeb) return;
     await _plugin.cancel(id);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('$_prefPrefix$id', false);
-  }
-
-  static Future<bool> isNotificationScheduled(int id) async {
-    final List<PendingNotificationRequest> pending = await _plugin.pendingNotificationRequests();
-    return pending.any((element) => element.id == id);
-  }
-
-  static Future<void> cancelAllNotifications() async {
-    await _plugin.cancelAll();
-    final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys().where((key) => key.startsWith(_prefPrefix));
-    for (var key in keys) {
-      await prefs.remove(key);
-    }
   }
 }

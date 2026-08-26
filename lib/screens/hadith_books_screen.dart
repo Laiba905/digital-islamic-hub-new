@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'hadith_chapters_screen.dart';
+import '../theme/app_theme.dart';
 
 class HadithBooksScreen extends StatelessWidget {
   const HadithBooksScreen({super.key});
@@ -14,10 +15,10 @@ class HadithBooksScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFFF4F7F4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Hadith Books", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: isDark ? const Color(0xFF001F1A) : const Color(0xFF006400),
+        title: const Text("Hadith Books", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
       ),
       body: ListView.builder(
@@ -31,16 +32,16 @@ class HadithBooksScreen extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              leading: const CircleAvatar(
-                backgroundColor: Colors.green,
-                child: Icon(Icons.menu_book, color: Colors.white),
+              leading: CircleAvatar(
+                backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
+                child: Icon(Icons.menu_book, color: isDark ? AppTheme.primaryDark : Colors.white),
               ),
               title: Text(
                 book['display_name']!,
                 style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
               ),
-              subtitle: const Text("View Chapters"),
-              trailing: const Icon(Icons.arrow_forward_ios, color: Colors.green, size: 16),
+              subtitle: Text("View Chapters", style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)),
+              trailing: Icon(Icons.arrow_forward_ios, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, size: 16),
               onTap: () {
                 Navigator.push(
                   context,

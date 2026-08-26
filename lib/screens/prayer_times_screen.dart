@@ -4,21 +4,7 @@ import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/prayer_service.dart';
 import '../services/notification_service.dart';
-import 'qaza_namaz_tracker.dart';
-
-class PrayerTime {
-  final String name;
-  final DateTime time;
-  final IconData icon;
-  bool notificationOn;
-
-  PrayerTime({
-    required this.name,
-    required this.time,
-    required this.icon,
-    this.notificationOn = true,
-  });
-}
+import '../theme/app_theme.dart';
 
 class PrayerTimesScreen extends StatefulWidget {
   const PrayerTimesScreen({super.key});
@@ -28,24 +14,16 @@ class PrayerTimesScreen extends StatefulWidget {
 }
 
 class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
-  Map<String, bool> notificationsActive = {
-    "Fajr": false,
-    "Dhuhr": false,
-    "Asr": false,
-    "Maghrib": false,
-    "Isha": false,
-  };
+  Map<String, bool> notificationsActive = {};
 
   @override
   void initState() {
     super.initState();
-    _loadSettings(); // 🚀 FIX: App/Screen open hone par SharedPreferences se saved status sync hoga
+    _loadSettings();
   }
 
-  // SharedPreferences se Persistent Notification States Load karna
-  Future<void> _loadSettings() async {
+  _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
     setState(() {
       notificationsActive = {
         "Fajr": prefs.getBool("Fajr") ?? false,
@@ -62,29 +40,25 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF001F1A) : Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Prayer Schedule", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Prayer Schedule", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         centerTitle: true,
-        backgroundColor: isDark ? const Color(0xFF001F1A) : Colors.white,
-        foregroundColor: isDark ? Colors.white : Colors.black87,
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
+        foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.volume_up_rounded),
-            onPressed: () => NotificationService.testInstant(),
+              icon: const Icon(Icons.volume_up_rounded, color: Colors.white),
+              onPressed: () => NotificationService.testInstant()
           )
         ],
       ),
       body: FutureBuilder<PrayerTimes?>(
         future: PrayerService.getPrayerTimes(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: Text("Connection Error or Location Disabled"));
-          }
+          if (snapshot.connectionState == ConnectionState.waiting) return Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
+          if (!snapshot.hasData) return const Center(child: Text("Connection Error or Location Disabled"));
 
           final pt = snapshot.data!;
           final zawal = pt.dhuhr.subtract(const Duration(minutes: 10));
@@ -105,30 +79,6 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
           );
         },
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.fact_check_outlined),
-              label: const Text('Qaza Namaz Record'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const QazaRecordScreen()),
-                );
-              },
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -136,9 +86,9 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.1) : Colors.orange.shade50,
+        color: isDark ? Colors.white.withAlpha(15) : AppTheme.primaryLight.withAlpha(10),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? Colors.white24 : Colors.orange.shade100),
+        border: Border.all(color: isDark ? Colors.white12 : AppTheme.primaryLight.withAlpha(30)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -167,36 +117,33 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
+        color: isDark ? Colors.white.withAlpha(12) : Colors.white,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: isNotify ? const Color(0xFF2E7D32) : Colors.transparent),
+        border: Border.all(color: isNotify ? AppTheme.accentGreen : (isDark ? Colors.white10 : Colors.grey.shade200)),
+        boxShadow: isDark ? [] : [BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: ListTile(
-        leading: Icon(icon, color: isNotify ? const Color(0xFF2E7D32) : Colors.grey),
+        leading: Icon(icon, color: isNotify ? AppTheme.accentGreen : (isDark ? Colors.white30 : Colors.grey)),
         title: Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
         subtitle: Text(DateFormat.jm().format(time), style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)),
         trailing: Switch(
           value: isNotify,
-          activeColor: const Color(0xFF2E7D32),
+          activeColor: AppTheme.accentGreen,
           onChanged: (v) async {
             final prefs = await SharedPreferences.getInstance();
-
-            // Local state update aur SharedPreferences save
             setState(() {
               notificationsActive[name] = v;
+              prefs.setBool(name, v);
             });
-            await prefs.setBool(name, v);
 
-            // Notification Schedule / Cancel Logic
             if (v) {
-              final DateTime now = DateTime.now();
               final DateTime exactTargetTime = DateTime(
-                now.year,
-                now.month,
-                now.day,
-                time.hour,
-                time.minute,
-                0,
+                  DateTime.now().year,
+                  DateTime.now().month,
+                  DateTime.now().day,
+                  time.hour,
+                  time.minute,
+                  0
               );
               await NotificationService.schedulePrayerNotification(name.hashCode, name, exactTargetTime);
             } else {

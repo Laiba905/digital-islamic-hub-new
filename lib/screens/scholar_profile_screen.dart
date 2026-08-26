@@ -10,14 +10,14 @@ import '../theme/app_theme.dart';
 import '../main.dart';
 import 'login_screen.dart';
 
-class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+class ScholarProfileScreen extends StatefulWidget {
+  const ScholarProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<ScholarProfileScreen> createState() => _ScholarProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
   final User? user = FirebaseAuth.instance.currentUser;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -33,22 +33,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadScholarData();
   }
 
-  Future<void> _loadUserData() async {
+  Future<void> _loadScholarData() async {
     if (user != null) {
       try {
-        DocumentSnapshot doc = await _firestore.collection('users').doc(user!.uid).get();
+        DocumentSnapshot doc = await _firestore.collection('scholars').doc(user!.uid).get();
         if (doc.exists) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
           if (mounted) {
             setState(() {
-              var img = data['profileImage'];
-              _profileImageUrl = (img is String && img.isNotEmpty) ? img : null;
-
+              _profileImageUrl = data['profileImage'];
               _isNotificationEnabled = data['notifications'] ?? true;
-              _nameController.text = data['displayName'] ?? user?.displayName ?? "";
+              _nameController.text = data['displayName'] ?? user?.displayName ?? "Scholar";
 
               if (data['darkMode'] != null) {
                 _isDarkMode = data['darkMode'];
@@ -60,9 +58,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
             });
           }
+        } else {
+          if (mounted) {
+            setState(() {
+              _nameController.text = user?.displayName ?? "Scholar";
+            });
+          }
         }
       } catch (e) {
-        debugPrint("Error loading user data: $e");
+        debugPrint("Error loading scholar data: $e");
       }
     }
   }
@@ -117,9 +121,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _uploadToCloudinary(Uint8List imageBytes, String fileName) async {
-    setState(() {
-      _isUploading = true;
-    });
+    if (mounted) setState(() => _isUploading = true);
 
     try {
       var uri = Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
@@ -128,8 +130,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ..files.add(http.MultipartFile.fromBytes('file', imageBytes, filename: fileName));
 
       var response = await request.send();
+      var responseData = await response.stream.bytesToString();
+
       if (response.statusCode == 200) {
-        var responseData = await response.stream.bytesToString();
         var jsonData = json.decode(responseData);
         String secureUrl = jsonData['secure_url'];
 
@@ -143,7 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(" upload failed. Please try again.")),
+            const SnackBar(content: Text("Upload failed. Please try again.")),
           );
         }
       }
@@ -152,16 +155,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isUploading = false;
-        });
-      }
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
   Future<void> _saveProfileImageUrl(String imageUrl) async {
-    await _firestore.collection('users').doc(user!.uid).set({
+    await _firestore.collection('scholars').doc(user!.uid).set({
       'profileImage': imageUrl,
     }, SetOptions(merge: true));
 
@@ -179,11 +178,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("My Profile", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: isDark ? AppTheme.primaryLight : AppTheme.primaryLight,
+        title: const Text("Scholar Profile", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context, true),
+        ),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -207,12 +210,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildSettingsTile(
                       icon: Icons.email_outlined,
                       title: "Email Address",
-                      subtitle: user?.email ?? "N/A",
+                      subtitle: user?.email ?? "scholar@hub.com",
                       isDark: isDark,
                     ),
                   ]),
                   const SizedBox(height: 25),
-                  _buildSectionTitle("Settings & Theme", isDark),
+                  _buildSectionTitle("Settings & Analytics", isDark),
                   _buildSettingsCard(isDark, [
                     _buildSwitchTile(
                       icon: Icons.dark_mode_outlined,
@@ -222,19 +225,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       isDark: isDark,
                       onChanged: (val) {
                         setState(() => _isDarkMode = val);
-                        _firestore.collection('users').doc(user!.uid).update({'darkMode': val});
+                        _firestore.collection('scholars').doc(user!.uid).set({'darkMode': val}, SetOptions(merge: true));
                         themeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
                       },
                     ),
                     _buildSwitchTile(
                       icon: Icons.notifications_none_outlined,
-                      title: "Prayer Notifications",
+                      title: "Notifications",
                       value: _isNotificationEnabled,
                       color: Colors.orangeAccent,
                       isDark: isDark,
                       onChanged: (val) {
                         setState(() => _isNotificationEnabled = val);
-                        _firestore.collection('users').doc(user!.uid).update({'notifications': val});
+                        _firestore.collection('scholars').doc(user!.uid).set({'notifications': val}, SetOptions(merge: true));
                       },
                     ),
                   ]),
@@ -253,12 +256,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildHeader(bool isDark) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(bottom: 40, top: 20),
+      padding: const EdgeInsets.only(bottom: 35, top: 20),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.primaryLight : AppTheme.primaryLight,
+        color: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(40),
-          bottomRight: Radius.circular(40),
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
       child: Column(
@@ -271,21 +274,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: CircleAvatar(
                   radius: 55,
                   backgroundColor: Colors.white,
+                  backgroundImage: (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
+                      ? NetworkImage(_profileImageUrl!) as ImageProvider
+                      : null,
                   child: _isUploading
                       ? const CircularProgressIndicator(color: AppTheme.primaryLight)
-                      : (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
-                      ? ClipOval(
-                    child: Image.network(
-                      _profileImageUrl!,
-                      width: 110,
-                      height: 110,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.person, size: 50, color: AppTheme.primaryLight);
-                      },
-                    ),
-                  )
-                      : const Icon(Icons.person, size: 50, color: AppTheme.primaryLight),
+                      : (_profileImageUrl == null || _profileImageUrl!.isEmpty)
+                      ? const Icon(Icons.person, size: 55, color: AppTheme.primaryLight)
+                      : null,
                 ),
               ),
               Positioned(
@@ -304,12 +300,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 15),
           Text(
-            _nameController.text.isEmpty ? "Islamic Hub Member" : _nameController.text,
+            _nameController.text,
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
           ),
+          const SizedBox(height: 4),
           const Text(
-            "Islamic Hub Member",
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            "Verified Scholar",
+            style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: 0.5),
           ),
         ],
       ),
@@ -336,6 +333,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          if (!isDark) BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))
+        ],
         border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50),
       ),
       child: Column(children: children),
@@ -355,7 +355,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87)),
       subtitle: Text(subtitle, style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black54)),
-      trailing: onTap != null ? const Icon(Icons.chevron_right, color: Colors.grey) : null,
+      trailing: onTap != null ? const Icon(Icons.edit, color: Colors.grey, size: 18) : null,
     );
   }
 
@@ -397,35 +397,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
           }
         },
-        child: const Text("Logout Account", style: TextStyle(fontWeight: FontWeight.bold)),
+        child: const Text("Logout Account", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
       ),
     );
   }
 
   void _showEditNameDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Edit Name"),
+        backgroundColor: isDark ? AppTheme.primaryDark : Colors.white,
+        title: Text("Edit Name", style: TextStyle(color: isDark ? Colors.white : AppTheme.primaryLight)),
         content: TextField(
           controller: _nameController,
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
           decoration: InputDecoration(
             hintText: "Enter your name",
+            hintStyle: TextStyle(color: isDark ? Colors.white30 : Colors.grey),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel", style: TextStyle(color: isDark ? Colors.white60 : Colors.grey))),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
+            ),
             onPressed: () async {
-              await _firestore.collection('users').doc(user!.uid).update({'displayName': _nameController.text});
+              await _firestore.collection('scholars').doc(user!.uid).set({
+                'displayName': _nameController.text.trim()
+              }, SetOptions(merge: true));
               if (mounted) {
                 setState(() {});
                 Navigator.pop(context);
               }
             },
-            child: const Text("Save"),
+            child: Text("Save", style: TextStyle(color: isDark ? AppTheme.primaryDark : Colors.white)),
           ),
         ],
       ),
