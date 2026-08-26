@@ -40,7 +40,7 @@ dependencies:
   dio: ^5.7.0
   universal_html: ^2.2.4  # <--- Yeh web support ke liye add kar diya gaya hai
   flutter_compass: ^0.8.1
-  permission_handler: ^13.0.1
+  permission_handler: 11.3.1
   google_maps_flutter: ^2.18.0
   flutter_background_service: ^5.1.0
   geocoding: 3.0.0
