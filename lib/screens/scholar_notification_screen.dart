@@ -22,7 +22,6 @@ class ScholarNotificationsScreen extends StatelessWidget {
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // 🚀 yahan se 'isRead' filter hata diya hai taake read hone ke baad notifications gayab na hon
         stream: FirebaseFirestore.instance
             .collection('notifications')
             .where('scholarId', isEqualTo: currentScholarId)
@@ -61,7 +60,7 @@ class ScholarNotificationsScreen extends StatelessWidget {
               String docId = docs[index].id;
               String title = data['title'] ?? "Notification";
               String message = data['message'] ?? data['body'] ?? "";
-              bool isRead = data['isRead'] ?? false; // 👈 Read status check karne ke liye
+              bool isRead = data['isRead'] ?? false;
 
               // Date aur Time formatting
               String formattedDate = '';
@@ -77,13 +76,11 @@ class ScholarNotificationsScreen extends StatelessWidget {
               }
 
               Future<void> handleTapOrRead() async {
-                // 1. Database mein isRead ko true kar dein taake color change ho jaye aur tick lag jaye
                 await FirebaseFirestore.instance
                     .collection('notifications')
                     .doc(docId)
                     .update({'isRead': true});
 
-                // 2. Corresponding screen par navigate karein
                 if (context.mounted) {
                   final lowerTitle = title.toLowerCase();
                   final lowerMessage = message.toLowerCase();
@@ -114,7 +111,6 @@ class ScholarNotificationsScreen extends StatelessWidget {
               }
 
               return Card(
-                // 🚀 Agar read nahi hua toh Green, agar read ho gaya toh normal background
                 color: !isRead
                     ? AppTheme.accentGreen.withAlpha(isDark ? 50 : 30)
                     : (isDark ? Colors.white.withAlpha(12) : Colors.white),
@@ -147,7 +143,6 @@ class ScholarNotificationsScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // 🚀 Jab read ho jaye toh aagay green tick show ho ga
                       if (isRead) ...[
                         const SizedBox(width: 8),
                         const Icon(Icons.check_circle, color: Colors.green, size: 18),
@@ -175,13 +170,29 @@ class ScholarNotificationsScreen extends StatelessWidget {
                       ],
                     ],
                   ),
+                  // 🚀 Delete Button Added Here
                   trailing: IconButton(
-                    icon: Icon(
-                      isRead ? Icons.done : Icons.notifications_active,
-                      color: isRead ? Colors.green : (isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
-                    ),
-                    tooltip: "Open",
-                    onPressed: handleTapOrRead,
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    tooltip: "Delete Notification",
+                    onPressed: () async {
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('notifications')
+                            .doc(docId)
+                            .delete();
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Notification deleted successfully"),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint("Error deleting notification: $e");
+                      }
+                    },
                   ),
                   onTap: handleTapOrRead,
                 ),

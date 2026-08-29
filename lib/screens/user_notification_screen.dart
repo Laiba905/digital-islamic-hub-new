@@ -86,7 +86,6 @@ class UserNotificationScreen extends StatelessWidget {
               }
 
               return Card(
-                // 🚀 Agar read nahi hua toh Green color, agar read ho gaya toh normal white/dark background
                 color: !isRead
                     ? AppTheme.accentGreen.withAlpha(isDark ? 50 : 30)
                     : (isDark ? Colors.white.withAlpha(12) : Colors.white),
@@ -119,7 +118,6 @@ class UserNotificationScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // 🚀 Agar read ho chuka hai (click kar liya hai) toh sirf aagay tick show ho ga
                       if (isRead) ...[
                         const SizedBox(width: 8),
                         const Icon(Icons.check_circle, color: Colors.green, size: 18),
@@ -143,6 +141,30 @@ class UserNotificationScreen extends StatelessWidget {
                         ),
                       ],
                     ],
+                  ),
+                  // 🚀 Delete Button Added Here
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    tooltip: "Delete Notification",
+                    onPressed: () async {
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('notifications')
+                            .doc(docId)
+                            .delete();
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Notification deleted successfully"),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        debugPrint("Error deleting notification: $e");
+                      }
+                    },
                   ),
                   onTap: () async {
                     await FirebaseFirestore.instance
