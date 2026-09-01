@@ -5,7 +5,6 @@ import 'package:admin/view_models/theme_provider.dart';
 import 'package:admin/view_models/profile_view_model.dart';
 import 'admin_information_screen.dart';
 import 'admin_notification_screen.dart';
-import 'package:admin/views/admin/upload_books_view.dart';
 import 'scholar_management_hub_view.dart';
 import 'user_management_hub_view.dart';
 import 'scholar_answer_view.dart';
@@ -91,12 +90,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 backgroundColor: module.backgroundColor,
                                 spacingAfter: module.spacingAfter,
                                 onTap: () {
-                                  if (module.route == '/upload_books' || module.route == '/upload_book_screen') {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => const UploadBooksView()),
-                                    );
-                                  } else if (module.route == '/scholar_hub') {
+                                  if (module.route == '/scholar_hub') {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(builder: (context) => const ScholarManagementHubView()),
@@ -247,13 +241,12 @@ class _Sidebar extends StatelessWidget {
         children: [
           Text('Admin Panel', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: isDark ? Colors.tealAccent : const Color(0xFF004D40))),
           const SizedBox(height: 40),
-          _SidebarItem(icon: Icons.dashboard_outlined, label: 'Dashboard', isActive: true, onTap: () => Navigator.pushReplacementNamed(context, '/dashboard')),
-          _SidebarItem(icon: Icons.library_books_outlined, label: 'Manage Library', isActive: false, onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const UploadBooksView()),
-            );
-          }),
+          _SidebarItem(
+            icon: Icons.dashboard_outlined,
+            label: 'Dashboard',
+            isActive: true,
+            onTap: () => Navigator.pushReplacementNamed(context, '/dashboard'),
+          ),
           _SidebarItem(
               icon: Icons.admin_panel_settings_outlined,
               label: 'Admin Information',

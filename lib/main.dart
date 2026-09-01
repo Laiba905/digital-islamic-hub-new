@@ -13,11 +13,11 @@ import 'package:admin/views/admin/scholar_analytics_view.dart';
 import 'package:admin/views/admin/scholar_requests_view.dart';
 import 'package:admin/views/admin/queries_payments_view.dart';
 import 'package:admin/views/admin/sunnah_deeds_view.dart';
-import 'package:admin/views/admin/upload_books_view.dart';
 import 'package:admin/view_models/theme_provider.dart';
 import 'package:admin/view_models/profile_view_model.dart';
 import 'firebase_options.dart';
 import 'package:admin/views/admin/scholar_answer_view.dart';
+import 'package:admin/views/admin/sunnah_deeds_view.dart';
 
 // Global Theme Colors
 const Color primaryLight = Color(0xFF2E7D32); // Colors.green.shade800
@@ -123,8 +123,7 @@ class MyApp extends StatelessWidget {
             '/scholar_requests': (context) => const ScholarRequestsView(),
             '/scholar_answer': (context) => const ScholarAnswerView(),
             '/queries_payments': (context) => const QueriesPaymentsView(),
-            '/sunnah_deeds': (context) => const SunnahDeedsView(),
-            '/upload_books': (context) => const UploadBooksView(),
+            '/sunnah_deeds': (context) => SunnahDeedsView(), // Const hata diya gaya hai
           },
         );
       },

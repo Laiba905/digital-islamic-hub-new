@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'sunnah_history_view.dart';
 
 class SunnahDeedsView extends StatefulWidget {
   const SunnahDeedsView({super.key});
@@ -222,7 +221,10 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                 ),
                 const SizedBox(height: 16),
                 StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance.collection('daily_deeds').where('dateStr', isEqualTo: todayDateStr).snapshots(),
+                  stream: FirebaseFirestore.instance
+                      .collection('daily_deeds')
+                      .where('dateStr', isEqualTo: todayDateStr)
+                      .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: CircularProgressIndicator(color: Color(0xFF004D40))));
@@ -236,12 +238,24 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                       );
                     }
 
+                    // Filter out the config document if it accidentally appears in the list view
+                    var validDocs = snapshot.data!.docs.where((doc) => doc.id != 'program_config').toList();
+
+                    if (validDocs.isEmpty) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
+                        child: const Center(child: Text("No deeds active for today.", style: TextStyle(color: Colors.grey, fontSize: 15, fontStyle: FontStyle.italic))),
+                      );
+                    }
+
                     return ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: snapshot.data!.docs.length,
+                      itemCount: validDocs.length,
                       itemBuilder: (context, index) {
-                        var doc = snapshot.data!.docs[index];
+                        var doc = validDocs[index];
                         var data = doc.data() as Map<String, dynamic>;
 
                         return Card(
@@ -292,114 +306,174 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
   }
 }
 
-class UserDeedsView extends StatelessWidget {
-  const UserDeedsView({super.key});
+// 📜 SUNNAH HISTORY VIEW
+class SunnahHistoryView extends StatelessWidget {
+  final String appBarTitle;
+  final String emptyMessage;
 
-  // 🔄 Automatic 30-Day Loop Calculation Logic for Users
-  int _calculateCurrentActiveDay(Timestamp? startDateTimestamp) {
-    if (startDateTimestamp == null) return 1;
-    DateTime startDate = startDateTimestamp.toDate();
-    DateTime now = DateTime.now();
+  const SunnahHistoryView({
+    super.key,
+    this.appBarTitle = 'All Published Deeds History',
+    this.emptyMessage = 'History mein koi data nahi mila.',
+  });
 
-    // Difference in days (har 24 hours ke baad +1 day barh jayega)
-    int differenceInDays = now.difference(startDate).inDays;
+  String _parseFirebaseTimestamp(dynamic firestoreTimestamp) {
+    if (firestoreTimestamp == null) return 'N/A';
+    DateTime dateTime = (firestoreTimestamp as Timestamp).toDate();
+    String year = dateTime.year.toString();
+    String month = _getMonthName(dateTime.month);
+    String day = dateTime.day.toString().padLeft(2, '0');
+    int hour = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
+    if (hour == 0) hour = 12;
+    String minute = dateTime.minute.toString().padLeft(2, '0');
+    String amPm = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return "$day $month $year, $hour:$minute $amPm";
+  }
 
-    // Modulo 30 lagane se jese hi 30 din khatam honge, yeh automatically wapas 0 ho kar +1 yaani Day 1 se shuru ho jayega (Infinite Loop)
-    return (differenceInDays % 30) + 1;
+  String _getMonthName(int monthNum) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[monthNum - 1];
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double horizontalPadding = screenWidth > 800 ? 40.0 : 16.0;
+    final double verticalPadding = screenWidth > 800 ? 32.0 : 16.0;
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('30-Day Sunnah Program'),
+        title: Text(appBarTitle),
         backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('app_content').doc('ramadan_or_deeds_30_days').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFF004D40)));
-          }
+      body: SafeArea(
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 800),
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('daily_deeds')
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF004D40)),
+                  );
+                }
 
-          if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text("No 30-day program available yet.", style: TextStyle(color: Colors.grey, fontSize: 16)));
-          }
-
-          var data = snapshot.data!.data() as Map<String, dynamic>;
-          Timestamp? startDate = data['program_start_date'];
-          List deedsList = data['deeds_list'] ?? [];
-
-          if (deedsList.isEmpty) {
-            return const Center(child: Text("Program list is empty.", style: TextStyle(color: Colors.grey, fontSize: 16)));
-          }
-
-          // 🚀 Calculate current day index based on 24-hour / day-by-day loop rotation (1 to 30)
-          int activeDayNumber = _calculateCurrentActiveDay(startDate);
-
-          // Find the deed corresponding to the active day (Day index is 1-based, list is 0-based index)
-          var currentDayDeed = deedsList.firstWhere(
-                (element) => element['day'] == activeDayNumber,
-            orElse: () => deedsList[0],
-          );
-
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF004D40),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Streak / Program: Day $activeDayNumber of 30",
-                        style: const TextStyle(color: Colors.tealAccent, fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        currentDayDeed['title'] ?? 'Sunnah Task',
-                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text("Today's Details & Description:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade300),
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      emptyMessage,
+                      style: const TextStyle(color: Colors.grey, fontSize: 16, fontStyle: FontStyle.italic),
                     ),
-                    child: SingleChildScrollView(
-                      child: Text(
-                        currentDayDeed['description'] ?? 'No description provided for today.',
-                        style: const TextStyle(fontSize: 16, color: Colors.black87, height: 1.5),
-                      ),
+                  );
+                }
+
+                // Filter out the config document from history
+                var validDocs = snapshot.data!.docs.where((doc) => doc.id != 'program_config').toList();
+
+                if (validDocs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      emptyMessage,
+                      style: const TextStyle(color: Colors.grey, fontSize: 16, fontStyle: FontStyle.italic),
                     ),
-                  ),
-                ),
-              ],
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: validDocs.length,
+                  itemBuilder: (context, index) {
+                    var doc = validDocs[index];
+                    var data = doc.data() as Map<String, dynamic>;
+
+                    String formattedDateTime = _parseFirebaseTimestamp(data['createdAt']);
+                    int points = data['points'] ?? 10;
+                    String title = data['title'] ?? 'No Title';
+                    int deedIndex = data['deedIndex'] ?? (index % 3) + 1;
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 1,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: const Color(0xFF004D40),
+                              radius: 18,
+                              child: Text(
+                                "$deedIndex",
+                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.access_time_filled, size: 13, color: Colors.grey),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          "Published on: $formattedDateTime",
+                                          style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE0F2F1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.teal.shade200),
+                              ),
+                              child: Text(
+                                "+$points pts",
+                                style: const TextStyle(
+                                  color: Color(0xFF004D40),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
 }
 
+// 🗓️ 30 DAYS PROGRAM MANAGEMENT SCREEN (Saves inside daily_deeds -> program_config)
 class Manage30DaysDeedsView extends StatefulWidget {
   const Manage30DaysDeedsView({super.key});
 
@@ -408,9 +482,15 @@ class Manage30DaysDeedsView extends StatefulWidget {
 }
 
 class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
-  final List<TextEditingController> _titleControllers = List.generate(30, (_) => TextEditingController());
-  final List<TextEditingController> _descControllers = List.generate(30, (_) => TextEditingController());
-  final List<TextEditingController> _pointsControllers = List.generate(30, (_) => TextEditingController(text: '10'));
+  final List<List<TextEditingController>> _titleControllers = List.generate(
+    30,
+        (_) => List.generate(3, (_) => TextEditingController()),
+  );
+
+  final List<List<TextEditingController>> _pointsControllers = List.generate(
+    30,
+        (_) => List.generate(3, (_) => TextEditingController(text: '10')),
+  );
 
   bool _isLoading = false;
   bool _isFetching = true;
@@ -423,53 +503,104 @@ class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
 
   Future<void> _fetchExisting30DaysData() async {
     try {
-      var doc = await FirebaseFirestore.instance.collection('app_content').doc('ramadan_or_deeds_30_days').get();
+      // Fetching from 'daily_deeds' collection using 'program_config' document ID
+      var doc = await FirebaseFirestore.instance.collection('daily_deeds').doc('program_config').get();
       if (doc.exists && doc.data() != null) {
         List list = doc.data()!['deeds_list'] ?? [];
         for (int i = 0; i < list.length && i < 30; i++) {
-          _titleControllers[i].text = list[i]['title'] ?? '';
-          _descControllers[i].text = list[i]['description'] ?? '';
-          _pointsControllers[i].text = (list[i]['points'] ?? 10).toString();
+          var dayData = list[i];
+          if (dayData['deeds'] != null && dayData['deeds'] is List) {
+            List dayDeeds = dayData['deeds'];
+            for (int j = 0; j < dayDeeds.length && j < 3; j++) {
+              _titleControllers[i][j].text = dayDeeds[j]['title'] ?? '';
+              _pointsControllers[i][j].text = (dayDeeds[j]['points'] ?? 10).toString();
+            }
+          }
         }
       }
     } catch (e) {
-      print("Error loading 30 days data: $e");
+      debugPrint("Error loading 30 days data: $e");
     } finally {
       if (mounted) setState(() => _isFetching = false);
     }
   }
 
-  Future<void> _saveAll30Days() async {
+  Future<void> _saveAndAutoPublishAll30Days() async {
     setState(() => _isLoading = true);
     try {
       List<Map<String, dynamic>> thirtyDaysList = [];
 
       for (int i = 0; i < 30; i++) {
+        List<Map<String, dynamic>> dayDeedsList = [];
+        for (int j = 0; j < 3; j++) {
+          dayDeedsList.add({
+            'deed_index': j + 1,
+            'title': _titleControllers[i][j].text.trim(),
+            'points': int.tryParse(_pointsControllers[i][j].text.trim()) ?? 10,
+          });
+        }
+
         thirtyDaysList.add({
           'day': i + 1,
-          'title': _titleControllers[i].text.trim(),
-          'description': _descControllers[i].text.trim(),
-          'points': int.tryParse(_pointsControllers[i].text.trim()) ?? 10,
+          'deeds': dayDeedsList,
         });
       }
 
-      // 🚀 Save with program start date so the 24-hour cycle loop starts fresh from today
-      await FirebaseFirestore.instance.collection('app_content').doc('ramadan_or_deeds_30_days').set({
+      // 1. Save 30-Day Program Blueprint & StartDate inside 'daily_deeds/program_config'
+      await FirebaseFirestore.instance.collection('daily_deeds').doc('program_config').set({
         'total_days': 30,
         'deeds_list': thirtyDaysList,
-        'program_start_date': FieldValue.serverTimestamp(), // 👈 Yeh track karega ke 24 hours kab se shuru huwe hain
+        'startDate': Timestamp.now(),
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      });
+
+      // 2. Automatically publish all 30 days date-wise to `daily_deeds` collection
+      DateTime today = DateTime.now();
+      String todayDateStr = today.toIso8601String().split('T')[0];
+
+      var futureDeeds = await FirebaseFirestore.instance
+          .collection('daily_deeds')
+          .where('dateStr', isGreaterThanOrEqualTo: todayDateStr)
+          .get();
+
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+      for (var doc in futureDeeds.docs) {
+        if (doc.id != 'program_config') {
+          batch.delete(doc.reference);
+        }
+      }
+
+      for (int i = 0; i < 30; i++) {
+        String futureDateStr = today.add(Duration(days: i)).toIso8601String().split('T')[0];
+
+        for (int j = 0; j < 3; j++) {
+          DocumentReference newDeedRef = FirebaseFirestore.instance.collection('daily_deeds').doc();
+          batch.set(newDeedRef, {
+            'title': _titleControllers[i][j].text.trim(),
+            'points': int.tryParse(_pointsControllers[i][j].text.trim()) ?? 10,
+            'createdAt': Timestamp.now(),
+            'dateStr': futureDateStr,
+            'deedIndex': j + 1,
+            'dayNumber': i + 1,
+          });
+        }
+      }
+
+      await batch.commit();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('30 Days Program & Loop Saved Successfully! 🎉'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('All 30 Days Saved & Auto-Published Successfully! 🎉'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error saving data!'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error saving data: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -479,9 +610,12 @@ class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
 
   @override
   void dispose() {
-    for (var c in _titleControllers) c.dispose();
-    for (var c in _descControllers) c.dispose();
-    for (var c in _pointsControllers) c.dispose();
+    for (int i = 0; i < 30; i++) {
+      for (int j = 0; j < 3; j++) {
+        _titleControllers[i][j].dispose();
+        _pointsControllers[i][j].dispose();
+      }
+    }
     super.dispose();
   }
 
@@ -490,18 +624,18 @@ class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('Manage 30-Day Program'),
+        title: const Text('Manage 30-Day Program (3 Deeds/Day)'),
         backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
             child: ElevatedButton.icon(
-              onPressed: _isLoading ? null : _saveAll30Days,
-              icon: const Icon(Icons.save, size: 18),
+              onPressed: _isLoading ? null : _saveAndAutoPublishAll30Days,
+              icon: const Icon(Icons.cloud_upload, size: 18),
               label: _isLoading
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Save All 30 Days', style: TextStyle(fontWeight: FontWeight.bold)),
+                  : const Text('Save & Publish All 30 Days', style: TextStyle(fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
             ),
           ),
@@ -527,41 +661,36 @@ class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF004D40)),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: TextField(
-                          controller: _titleControllers[index],
-                          decoration: InputDecoration(
-                            labelText: 'Day ${index + 1} Title',
-                            border: const OutlineInputBorder(),
+                  for (int j = 0; j < 3; j++) ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            controller: _titleControllers[index][j],
+                            decoration: InputDecoration(
+                              labelText: 'Day ${index + 1} - Deed ${j + 1} Title',
+                              border: const OutlineInputBorder(),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 1,
-                        child: TextField(
-                          controller: _pointsControllers[index],
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Points',
-                            border: const OutlineInputBorder(),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 1,
+                          child: TextField(
+                            controller: _pointsControllers[index][j],
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Points',
+                              border: OutlineInputBorder(),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _descControllers[index],
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: 'Description / Details for Day ${index + 1}',
-                      border: const OutlineInputBorder(),
+                      ],
                     ),
-                  ),
+                    if (j < 2) const SizedBox(height: 12),
+                  ],
                 ],
               ),
             ),

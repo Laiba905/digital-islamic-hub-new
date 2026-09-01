@@ -4,10 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:admin/view_models/theme_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cloudinary_public/cloudinary_public.dart';
 import 'cloudinary_service.dart';
-import 'package:flutter/foundation.dart';
-import 'dart:typed_data';
 
 class ScholarAnswerView extends StatelessWidget {
   const ScholarAnswerView({super.key});
@@ -29,25 +26,49 @@ class ScholarAnswerView extends StatelessWidget {
           fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.people_alt, color: Colors.teal),
+            tooltip: "All Scholars Biodata",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AllScholarsBiodataScreen(isDark: isDark),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('user_questions')
-            .where('status', isEqualTo: 'answered')
-            .snapshots(),
+        stream: FirebaseFirestore.instance.collection('user_questions').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
-              child: Text("No answered questions are available"),
+              child: Text("No questions are available"),
             );
           }
 
           var docs = snapshot.data!.docs;
 
-          docs.sort((a, b) {
+          var answeredDocs = docs.where((doc) {
+            var data = doc.data() as Map<String, dynamic>;
+            String scholarResp = data['scholarResponse']?.toString() ?? '';
+            String answer = data['answer']?.toString() ?? '';
+            return scholarResp.trim().isNotEmpty || answer.trim().isNotEmpty;
+          }).toList();
+
+          if (answeredDocs.isEmpty) {
+            return const Center(
+              child: Text("No answered questions found from scholars."),
+            );
+          }
+
+          answeredDocs.sort((a, b) {
             Timestamp? timeA = (a.data() as Map<String, dynamic>)['answeredAt'] ?? (a.data() as Map<String, dynamic>)['createdAt'];
             Timestamp? timeB = (b.data() as Map<String, dynamic>)['answeredAt'] ?? (b.data() as Map<String, dynamic>)['createdAt'];
             if (timeA == null || timeB == null) return 0;
@@ -55,70 +76,274 @@ class ScholarAnswerView extends StatelessWidget {
           });
 
           Map<String, List<Map<String, dynamic>>> scholarGroups = {};
-          Map<String, String> scholarPhones = {};
+          Map<String, String> scholarNamesMap = {};
+          Map<String, String> scholarIdsMap = {};
 
-          for (var doc in docs) {
+          for (var doc in answeredDocs) {
             var data = doc.data() as Map<String, dynamic>;
             data['docId'] = doc.id;
 
-            String scholarName = data['scholarName'] ?? 'Unknown Scholar';
-            String scholarPhone = data['scholarPhone'] ?? 'Number number not available';
+            String scholarName = data['scholarName'] ?? data['name'] ?? data['userName'] ?? 'Unknown Scholar';
+            String scholarId = data['scholarId'] ?? data['uid'] ?? '';
 
-            if (!scholarGroups.containsKey(scholarName)) {
-              scholarGroups[scholarName] = [];
+            String groupKey = scholarId.isNotEmpty ? scholarId : scholarName.trim().toLowerCase();
+
+            if (!scholarGroups.containsKey(groupKey)) {
+              scholarGroups[groupKey] = [];
             }
-            scholarGroups[scholarName]!.add(data);
-            scholarPhones[scholarName] = scholarPhone;
-          }
-
-          if (scholarGroups.isEmpty) {
-            return const Center(
-              child: Text(
-                "No data available for any scholars.",
-                style: TextStyle(color: Colors.grey, fontSize: 14),
-              ),
-            );
+            scholarGroups[groupKey]!.add(data);
+            scholarNamesMap[groupKey] = scholarName;
+            scholarIdsMap[groupKey] = scholarId;
           }
 
           var scholarKeys = scholarGroups.keys.toList();
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: scholarKeys.length,
-            itemBuilder: (context, index) {
-              String scholarName = scholarKeys[index];
-              var questionsList = scholarGroups[scholarName]!;
-              String scholarPhone = scholarPhones[scholarName] ?? '';
+          return FutureBuilder<QuerySnapshot>(
+            future: FirebaseFirestore.instance.collection('scholars').where('status', isEqualTo: 'approved').get(),
+            builder: (context, appSnapshot) {
+              Map<String, Map<String, dynamic>> scholarDataMapByUid = {};
+              Map<String, Map<String, dynamic>> scholarDataMapByName = {};
 
-              double totalWeeklyAmount = 0;
-              for (var q in questionsList) {
-                bool isPaid = q['isPaidToScholar'] ?? false;
-                if (!isPaid) {
-                  double share = double.tryParse(q['scholarShare']?.toString() ?? q['amount']?.toString() ?? '0') ?? 0;
-                  totalWeeklyAmount += share;
-                }
-              }
+              if (appSnapshot.hasData) {
+                for (var appDoc in appSnapshot.data!.docs) {
+                  var appData = appDoc.data() as Map<String, dynamic>;
+                  scholarDataMapByUid[appDoc.id] = appData;
 
-              bool isWeekCompleted = false;
-              for (var q in questionsList) {
-                bool isPaid = q['isPaidToScholar'] ?? false;
-                if (!isPaid) {
-                  Timestamp? t = q['answeredAt'] ?? q['createdAt'];
-                  if (t != null) {
-                    DateTime date = t.toDate();
-                    if (DateTime.now().difference(date).inDays >= 7) {
-                      isWeekCompleted = true;
-                      break;
-                    }
+                  String uidField = appData['uid']?.toString() ?? '';
+                  if (uidField.isNotEmpty) {
+                    scholarDataMapByUid[uidField] = appData;
+                  }
+
+                  String name = (appData['name'] ?? appData['displayName'] ?? appData['fullName'] ?? appData['scholarName'] ?? '').toString().trim().toLowerCase();
+                  if (name.isNotEmpty) {
+                    scholarDataMapByName[name] = appData;
                   }
                 }
               }
 
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: scholarKeys.length,
+                itemBuilder: (context, index) {
+                  String groupKey = scholarKeys[index];
+                  var questionsList = scholarGroups[groupKey]!;
+                  String scholarName = scholarNamesMap[groupKey] ?? 'Unknown Scholar';
+                  String scholarId = scholarIdsMap[groupKey] ?? '';
+
+                  double totalWeeklyAmount = 0;
+                  for (var q in questionsList) {
+                    bool isPaid = q['isPaidToScholar'] ?? false;
+                    if (!isPaid) {
+                      double share = double.tryParse(q['scholarShare']?.toString() ?? q['amount']?.toString() ?? '0') ?? 0;
+                      totalWeeklyAmount += share;
+                    }
+                  }
+
+                  bool isWeekCompleted = false;
+                  for (var q in questionsList) {
+                    bool isPaid = q['isPaidToScholar'] ?? false;
+                    if (!isPaid) {
+                      Timestamp? t = q['answeredAt'] ?? q['createdAt'];
+                      if (t != null) {
+                        DateTime date = t.toDate();
+                        if (DateTime.now().difference(date).inDays >= 7) {
+                          isWeekCompleted = true;
+                          break;
+                        }
+                      }
+                    }
+                  }
+
+                  Map<String, dynamic>? matchedAppData;
+                  if (scholarId.isNotEmpty && scholarDataMapByUid.containsKey(scholarId)) {
+                    matchedAppData = scholarDataMapByUid[scholarId];
+                  } else if (scholarDataMapByName.containsKey(scholarName.trim().toLowerCase())) {
+                    matchedAppData = scholarDataMapByName[scholarName.trim().toLowerCase()];
+                  }
+
+                  if (matchedAppData != null) {
+                    scholarName = matchedAppData['name'] ??
+                        matchedAppData['displayName'] ??
+                        matchedAppData['scholarName'] ??
+                        scholarName;
+                  }
+
+                  String scholarPhone = "Number not available";
+                  if (matchedAppData != null) {
+                    scholarPhone = matchedAppData['phone'] ??
+                        matchedAppData['accountNumber'] ??
+                        matchedAppData['jazzcash'] ??
+                        matchedAppData['easypaisa'] ??
+                        matchedAppData['bankAccount'] ??
+                        "Number not available";
+                  } else {
+                    for (var q in questionsList) {
+                      scholarPhone = q['scholarPhone'] ??
+                          q['phoneNumber'] ??
+                          q['accountNumber'] ??
+                          q['jazzcash'] ??
+                          q['easypaisa'] ??
+                          q['phone'] ??
+                          "Number not available";
+                      if (scholarPhone != "Number not available") break;
+                    }
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    elevation: 2,
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    scholarName,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.tealAccent : const Color(0xFF004D40),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Account / Phone: $scholarPhone",
+                                    style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: totalWeeklyAmount > 0 ? Colors.red.withOpacity(0.15) : Colors.green.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: totalWeeklyAmount > 0 ? Colors.red : Colors.green, width: 1.5),
+                                ),
+                                child: Text(
+                                  "RS ${totalWeeklyAmount.toStringAsFixed(0)}",
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: totalWeeklyAmount > 0 ? Colors.red : Colors.green,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "Total Answer Record: ${questionsList.length}",
+                                style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black87),
+                              ),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: totalWeeklyAmount == 0 ? Colors.grey : (isWeekCompleted ? Colors.red : Colors.green),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ScholarWithdrawalFullScreen(
+                                        scholarName: scholarName,
+                                        scholarId: scholarId,
+                                        scholarPhone: scholarPhone,
+                                        questionsList: questionsList,
+                                        isDark: isDark,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.visibility, size: 16),
+                                label: const Text("View Full Details", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class AllScholarsBiodataScreen extends StatelessWidget {
+  final bool isDark;
+
+  const AllScholarsBiodataScreen({super.key, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
+      appBar: AppBar(
+        title: const Text("Approved Scholars Biodata"),
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        elevation: 0,
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
+        titleTextStyle: TextStyle(
+          color: isDark ? Colors.white : Colors.black87,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('scholars')
+            .where('status', isEqualTo: 'approved')
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text("No approved scholars found."));
+          }
+
+          var docs = snapshot.data!.docs;
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              var data = docs[index].data() as Map<String, dynamic>;
+
+              String email = data['email'] ?? 'N/A';
+              String derivedNameFromEmail = email != 'N/A' && email.contains('@') ? email.split('@')[0] : 'Unknown Name';
+
+              String name = data['name'] ??
+                  data['displayName'] ??
+                  data['fullName'] ??
+                  derivedNameFromEmail;
+
+              String phone = data['phone'] ?? data['accountNumber'] ?? data['jazzcash'] ?? data['easypaisa'] ?? 'N/A';
+              String paymentMethod = data['payment_method'] ?? data['paymentMethod'] ?? data['accountType'] ?? 'N/A';
+              String status = data['status'] ?? 'approved';
+
               return Card(
                 margin: const EdgeInsets.only(bottom: 16),
-                elevation: 2,
                 color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 2,
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -127,74 +352,33 @@ class ScholarAnswerView extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                scholarName,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.tealAccent : const Color(0xFF004D40),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "Account / Number: $scholarPhone",
-                                style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                              ),
-                            ],
+                          Text(
+                            name,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.tealAccent : const Color(0xFF004D40),
+                            ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: totalWeeklyAmount > 0 ? Colors.red.withOpacity(0.15) : Colors.green.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: totalWeeklyAmount > 0 ? Colors.red : Colors.green, width: 1.5),
+                              color: Colors.green.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              "RS ${totalWeeklyAmount.toStringAsFixed(0)}",
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: totalWeeklyAmount > 0 ? Colors.red : Colors.green,
-                              ),
+                              status.toUpperCase(),
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
                             ),
                           ),
                         ],
                       ),
-                      const Divider(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Total Answer Record: ${questionsList.length}",
-                            style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black87),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: totalWeeklyAmount == 0 ? Colors.grey : (isWeekCompleted ? Colors.red : Colors.green),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ScholarWithdrawalFullScreen(
-                                    scholarName: scholarName,
-                                    questionsList: questionsList,
-                                    isDark: isDark,
-                                  ),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.visibility, size: 16),
-                            label: const Text("View Full Details", style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ],
-                      ),
+                      const Divider(height: 16),
+                      Text("Email: $email", style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
+                      const SizedBox(height: 4),
+                      Text("Account / Phone Number: $phone", style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
+                      const SizedBox(height: 4),
+                      Text("Payment Method: $paymentMethod", style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
                     ],
                   ),
                 ),
@@ -207,15 +391,18 @@ class ScholarAnswerView extends StatelessWidget {
   }
 }
 
-// 📱 FULL SCREEN DETAILS PAGE
 class ScholarWithdrawalFullScreen extends StatefulWidget {
   final String scholarName;
+  final String scholarId;
+  final String scholarPhone;
   final List<Map<String, dynamic>> questionsList;
   final bool isDark;
 
   const ScholarWithdrawalFullScreen({
     super.key,
     required this.scholarName,
+    required this.scholarId,
+    required this.scholarPhone,
     required this.questionsList,
     required this.isDark,
   });
@@ -225,11 +412,134 @@ class ScholarWithdrawalFullScreen extends StatefulWidget {
 }
 
 class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScreen> {
+  void _openPaymentDialog(BuildContext context, Map<String, dynamic> questionData) {
+    final TextEditingController amountController = TextEditingController(
+      text: questionData['scholarShare']?.toString() ?? questionData['amount']?.toString() ?? '0',
+    );
+    final TextEditingController trxController = TextEditingController();
+    String? screenshotUrl;
+    bool isUploading = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              backgroundColor: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              title: Text("Pay Scholar: ${widget.scholarName}", style: TextStyle(color: widget.isDark ? Colors.white : Colors.black87)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Account / Phone: ${widget.scholarPhone}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: amountController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Enter Amount (RS)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: trxController,
+                      decoration: const InputDecoration(
+                        labelText: 'Transaction ID / Reference No',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: isUploading
+                          ? null
+                          : () async {
+                        final picker = ImagePicker();
+                        final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                        if (pickedFile != null) {
+                          setStateDialog(() => isUploading = true);
+                          try {
+                            dynamic uploadResult = await CloudinaryService.uploadImage(pickedFile);
+                            String? url = uploadResult?.toString();
+
+                            setStateDialog(() {
+                              screenshotUrl = url;
+                              isUploading = false;
+                            });
+                          } catch (e) {
+                            setStateDialog(() => isUploading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Upload failed: $e')),
+                            );
+                          }
+                        }
+                      },
+                      icon: isUploading
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.upload_file),
+                      label: Text(screenshotUrl == null ? "Upload Payment Screenshot" : "Screenshot Uploaded ✅"),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                  onPressed: isUploading
+                      ? null
+                      : () async {
+                    String docId = questionData['docId'];
+                    String amountVal = amountController.text;
+                    String trxVal = trxController.text;
+
+                    // 1. Update question payment status
+                    await FirebaseFirestore.instance.collection('user_questions').doc(docId).update({
+                      'isPaidToScholar': true,
+                      'paidAmount': amountVal,
+                      'transactionId': trxVal,
+                      'paymentScreenshot': screenshotUrl ?? '',
+                      'paidAt': FieldValue.serverTimestamp(),
+                    });
+
+                    // 2. Add notification with the exact title/message format that matches previous working notifications
+                    await FirebaseFirestore.instance.collection('notifications').add({
+                      'scholarId': widget.scholarId,
+                      'scholarName': widget.scholarName,
+                      'targetRole': 'scholar',
+                      'title': 'New Earning Added! 💰',
+                      'message': 'RS $amountVal added to your pending earnings ledger. TrxID: $trxVal',
+                      'isRead': false,
+                      'createdAt': FieldValue.serverTimestamp(),
+                    });
+
+                    Navigator.pop(context);
+                    setState(() {
+                      questionData['isPaidToScholar'] = true;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Payment marked as PAID & notification sent!')),
+                    );
+                  },
+                  child: const Text("Submit Payment"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     double completedWeekAmount = 0;
     double runningWeekAmount = 0;
-    List<Map<String, dynamic>> completedQuestions = [];
 
     for (var q in widget.questionsList) {
       bool isPaid = q['isPaidToScholar'] ?? false;
@@ -244,7 +554,6 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
 
         if (differenceDays >= 7) {
           completedWeekAmount += share;
-          completedQuestions.add(q);
         } else {
           runningWeekAmount += share;
         }
@@ -255,7 +564,6 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
 
     bool isWeekCompleted = completedWeekAmount > 0;
     double displayAmount = isWeekCompleted ? completedWeekAmount : runningWeekAmount;
-    List<Map<String, dynamic>> targetQuestions = isWeekCompleted ? completedQuestions : widget.questionsList;
 
     return Scaffold(
       backgroundColor: widget.isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
@@ -269,24 +577,6 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
           fontSize: 18,
           fontWeight: FontWeight.bold,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.receipt_long, color: Colors.teal),
-            tooltip: "Payment Screenshots & History",
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ScholarPaymentHistoryScreen(
-                    scholarName: widget.scholarName,
-                    questionsList: widget.questionsList,
-                    isDark: widget.isDark,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -329,40 +619,8 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
                           color: displayAmount == 0 ? Colors.grey : (isWeekCompleted ? Colors.red : Colors.green),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        displayAmount == 0 ? "No Pending Amount." : (isWeekCompleted ? "7 days completed. Ready to pay!" : "Running week balance (Manual Payout)"),
-                        style: TextStyle(fontSize: 11, color: widget.isDark ? Colors.grey[400] : Colors.grey[600]),
-                      ),
                     ],
                   ),
-                  if (displayAmount > 0)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isWeekCompleted ? Colors.red : Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PaymentSubmitFullScreen(
-                              scholarName: widget.scholarName,
-                              totalAmount: displayAmount,
-                              questionsList: targetQuestions.isNotEmpty ? targetQuestions : widget.questionsList,
-                              isDark: widget.isDark,
-                            ),
-                          ),
-                        );
-                      },
-                      icon: Icon(isWeekCompleted ? Icons.payment : Icons.lock_open, size: 18),
-                      label: Text(
-                        isWeekCompleted ? "Withdraw / Pay" : "Process Payout",
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -385,25 +643,24 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
 
                 Timestamp? answeredAt = q['answeredAt'] as Timestamp?;
                 String formattedDate = "N/A";
-                String timeStatusText = "";
-                Color timeStatusColor = Colors.grey;
+                String countdownText = "";
+                Color countdownColor = Colors.grey;
 
                 if (answeredAt != null) {
                   DateTime dateTime = answeredAt.toDate();
                   formattedDate = DateFormat('EEEE, dd MMM yyyy, hh:mm a').format(dateTime);
 
-                  int daysPassed = DateTime.now().difference(dateTime).inDays;
-                  int daysLeft = 7 - daysPassed;
-
+                  int diffDays = DateTime.now().difference(dateTime).inDays;
                   if (isPaid) {
-                    timeStatusText = "Paid";
-                    timeStatusColor = Colors.green;
-                  } else if (daysPassed >= 7) {
-                    timeStatusText = "7 days completed. Ready to pay!";
-                    timeStatusColor = Colors.red;
+                    countdownText = "PAID";
+                    countdownColor = Colors.green;
+                  } else if (diffDays < 7) {
+                    int daysLeft = 7 - diffDays;
+                    countdownText = "$daysLeft day${daysLeft > 1 ? 's' : ''} left";
+                    countdownColor = Colors.orange;
                   } else {
-                    timeStatusText = daysLeft == 1 ? "1 day left" : "$daysLeft days left";
-                    timeStatusColor = Colors.orange;
+                    countdownText = "Ready to Pay ✅";
+                    countdownColor = Colors.green;
                   }
                 }
 
@@ -420,499 +677,67 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                                const SizedBox(width: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      formattedDate,
+                                      style: TextStyle(fontSize: 12, color: widget.isDark ? Colors.grey[400] : Colors.grey[600], fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
                                 Text(
-                                  formattedDate,
-                                  style: TextStyle(fontSize: 12, color: widget.isDark ? Colors.grey[400] : Colors.grey[600], fontWeight: FontWeight.bold),
+                                  countdownText,
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: countdownColor),
                                 ),
                               ],
                             ),
                             Row(
                               children: [
-                                Container(
-                                  margin: const EdgeInsets.only(right: 8),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: timeStatusColor.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: timeStatusColor, width: 1),
-                                  ),
-                                  child: Text(
-                                    timeStatusText,
-                                    style: TextStyle(color: timeStatusColor, fontSize: 11, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
                                 Text("RS $amount", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 15)),
+                                const SizedBox(width: 10),
+                                isPaid
+                                    ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.green),
+                                  ),
+                                  child: const Text("PAID", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                                )
+                                    : ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.teal,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  onPressed: () => _openPaymentDialog(context, q),
+                                  child: const Text("Pay Now", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                ),
                               ],
                             ),
                           ],
                         ),
-                        const Divider(height: 16),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: widget.isDark ? Colors.blue.withAlpha(20) : Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.blue.withAlpha(70)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text("User Question", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue)),
-                              const SizedBox(height: 4),
-                              Text(questionText, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: widget.isDark ? Colors.white : Colors.black87)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
+                        const Divider(height: 20),
+                        Text("Question: $questionText", style: TextStyle(fontWeight: FontWeight.bold, color: widget.isDark ? Colors.white : Colors.black87)),
                         if (additionalNote.isNotEmpty) ...[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: widget.isDark ? Colors.purple.withAlpha(20) : Colors.purple.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.purple.withAlpha(70)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text("Additional Note / Message", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple)),
-                                const SizedBox(height: 4),
-                                Text(additionalNote, style: TextStyle(fontSize: 13, color: widget.isDark ? Colors.white70 : Colors.black87)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 4),
+                          Text("Note: $additionalNote", style: TextStyle(fontSize: 12, color: widget.isDark ? Colors.amber[300] : Colors.amber[800])),
                         ],
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: widget.isDark ? Colors.orange.withAlpha(20) : Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.orange.withAlpha(70)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text("AI Answer", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.orange)),
-                              const SizedBox(height: 4),
-                              Text(aiAnswerText, style: TextStyle(fontSize: 13, color: widget.isDark ? Colors.white70 : Colors.black87)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: widget.isDark ? Colors.green.withAlpha(20) : Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green.withAlpha(70)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text("Scholar Answer", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green)),
-                                    const SizedBox(height: 4),
-                                    Text(scholarAnswerText, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: widget.isDark ? Colors.greenAccent : const Color(0xFF2E7D32))),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              if (!isPaid)
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF2E7D32),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => PaymentSubmitFullScreen(
-                                          scholarName: widget.scholarName,
-                                          totalAmount: double.tryParse(amount) ?? 50.0,
-                                          questionsList: [q],
-                                          isDark: widget.isDark,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.send, size: 14),
-                                  label: const Text("Pay", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                ),
-                            ],
-                          ),
-                        ),
+                        const SizedBox(height: 8),
+                        Text("Scholar Answer: $scholarAnswerText", style: TextStyle(color: widget.isDark ? Colors.tealAccent : Colors.teal[800])),
                       ],
                     ),
                   ),
                 );
               },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// 📂 SCREEN: SCHOLAR PAYMENT HISTORY & SCREENSHOTS
-class ScholarPaymentHistoryScreen extends StatelessWidget {
-  final String scholarName;
-  final List<Map<String, dynamic>> questionsList;
-  final bool isDark;
-
-  const ScholarPaymentHistoryScreen({
-    super.key,
-    required this.scholarName,
-    required this.questionsList,
-    required this.isDark,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    var paidQuestions = questionsList.where((q) {
-      bool isPaid = q['isPaidToScholar'] ?? false;
-      String screenshot = q['paymentScreenshot'] ?? '';
-      return isPaid && screenshot.isNotEmpty;
-    }).toList();
-
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
-      appBar: AppBar(
-        title: Text("Payment History: $scholarName"),
-        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
-        titleTextStyle: TextStyle(
-          color: isDark ? Colors.white : Colors.black87,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      body: paidQuestions.isEmpty
-          ? const Center(
-        child: Text(
-          "Abhi tak is scholar ko koi payment nahi ki gayi ya screenshot mojood nahi hai.",
-          style: TextStyle(color: Colors.grey, fontSize: 14),
-          textAlign: TextAlign.center,
-        ),
-      )
-          : ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: paidQuestions.length,
-        itemBuilder: (context, index) {
-          var q = paidQuestions[index];
-          String transactionId = q['transactionId'] ?? 'N/A';
-          String paidAmount = q['paidAmount']?.toString() ?? '0';
-          String screenshotUrl = q['paymentScreenshot'] ?? '';
-          Timestamp? paidAt = q['paidAt'] as Timestamp?;
-
-          String formattedDateTime = "N/A";
-          if (paidAt != null) {
-            DateTime dt = paidAt.toDate();
-            formattedDateTime = DateFormat('EEEE, dd MMM yyyy, hh:mm a').format(dt);
-          }
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Paid Amount: RS $paidAmount",
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text("Success", style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Transaction ID: $transactionId",
-                    style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[700]),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today, size: 14, color: Colors.teal),
-                      const SizedBox(width: 6),
-                      Text(
-                        "Paid On: $formattedDateTime",
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.tealAccent : Colors.teal[800]),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 20),
-                  const Text("Payment Screenshot:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      screenshotUrl,
-                      height: 200,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 200,
-                        color: Colors.grey[300],
-                        child: const Center(child: Text("Could not load image")),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// 💳 PAYMENT SUBMIT SCREEN
-class PaymentSubmitFullScreen extends StatefulWidget {
-  final String scholarName;
-  final double totalAmount;
-  final List<Map<String, dynamic>> questionsList;
-  final bool isDark;
-
-  const PaymentSubmitFullScreen({
-    super.key,
-    required this.scholarName,
-    required this.totalAmount,
-    required this.questionsList,
-    required this.isDark,
-  });
-
-  @override
-  State<PaymentSubmitFullScreen> createState() => _PaymentSubmitFullScreenState();
-}
-
-class _PaymentSubmitFullScreenState extends State<PaymentSubmitFullScreen> {
-  final TextEditingController _amountController = TextEditingController();
-  final TextEditingController _transactionIdController = TextEditingController();
-
-  bool _isSubmitting = false;
-  String? _uploadedImageUrl;
-  String _liveTimeText = "";
-
-  @override
-  void initState() {
-    super.initState();
-    _amountController.text = widget.totalAmount.toStringAsFixed(0);
-    _liveTimeText = DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now());
-  }
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    _transactionIdController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickAndUploadImage() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
-
-      setState(() {
-        _isSubmitting = true;
-      });
-
-      final cloudinary = CloudinaryPublic('lxuuhill', 'AppPresent', cache: false);
-      CloudinaryResponse response = await cloudinary.uploadFile(
-        CloudinaryFile.fromFile(
-          image.path,
-          folder: 'scholar_payouts',
-          resourceType: CloudinaryResourceType.Image,
-        ),
-      );
-
-      setState(() {
-        _uploadedImageUrl = response.secureUrl;
-        _isSubmitting = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isSubmitting = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error uploading image: $e")),
-      );
-    }
-  }
-
-  Future<void> _submitPaymentRecord() async {
-    if (_transactionIdController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter Transaction ID")),
-      );
-      return;
-    }
-    if (_uploadedImageUrl == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please upload payment screenshot")),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    try {
-      WriteBatch batch = FirebaseFirestore.instance.batch();
-
-      for (var q in widget.questionsList) {
-        String docId = q['docId'];
-        DocumentReference documentRef = FirebaseFirestore.instance.collection('user_questions').doc(docId);
-
-        batch.update(documentRef, {
-          'isPaidToScholar': true,
-          'paidAmount': double.tryParse(_amountController.text) ?? widget.totalAmount,
-          'transactionId': _transactionIdController.text.trim(),
-          'paymentScreenshot': _uploadedImageUrl,
-          'paidAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      await batch.commit();
-
-      Navigator.pop(context);
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Payment successfully recorded!")),
-      );
-    } catch (e) {
-      setState(() {
-        _isSubmitting = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to submit payment: $e")),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: widget.isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
-      appBar: AppBar(
-        title: Text("Submit Payment: ${widget.scholarName}"),
-        backgroundColor: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: widget.isDark ? Colors.white : Colors.black87),
-        titleTextStyle: TextStyle(
-          color: widget.isDark ? Colors.white : Colors.black87,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Amount to Pay", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              style: TextStyle(color: widget.isDark ? Colors.white : Colors.black87),
-              decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                prefixText: "RS ",
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text("Transaction ID / Reference Number", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _transactionIdController,
-              style: TextStyle(color: widget.isDark ? Colors.white : Colors.black87),
-              decoration: InputDecoration(
-                hintText: "Enter transaction id",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text("Payment Screenshot", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pickAndUploadImage,
-              child: Container(
-                height: 180,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: widget.isDark ? const Color(0xFF1E1E1E) : Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: Center(
-                  child: _isSubmitting && _uploadedImageUrl == null
-                      ? const CircularProgressIndicator()
-                      : _uploadedImageUrl != null
-                      ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(_uploadedImageUrl!, fit: BoxFit.cover, width: double.infinity, height: double.infinity),
-                  )
-                      : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.cloud_upload, size: 40, color: Colors.teal),
-                      SizedBox(height: 8),
-                      Text("Click to upload payment screenshot", style: TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text("Time: $_liveTimeText", style: const TextStyle(fontSize: 11, color: Colors.grey)),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: _isSubmitting ? null : _submitPaymentRecord,
-                child: _isSubmitting
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Confirm & Submit Payment", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              ),
             ),
           ],
         ),
