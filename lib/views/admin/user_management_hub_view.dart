@@ -7,12 +7,15 @@ class UserManagementHubView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    Color cardBgColor = isDark ? const Color(0xFF004D40) : const Color(0xFFE8F5E9);
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('User & Analytics Hub'),
-        backgroundColor: Theme.of(context).cardColor,
-        foregroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: isDark ? const Color(0xFF004D40) : Colors.green.shade800,
+        foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: Center(
@@ -25,6 +28,7 @@ class UserManagementHubView extends StatelessWidget {
                 title: 'Manage Users',
                 subtitle: 'Control user access, block or unblock accounts.',
                 icon: Icons.manage_accounts_outlined,
+                cardBgColor: cardBgColor,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -37,6 +41,7 @@ class UserManagementHubView extends StatelessWidget {
                 title: 'User Analytics',
                 subtitle: 'View detailed charts and registration statistics.',
                 icon: Icons.analytics_outlined,
+                cardBgColor: cardBgColor,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -55,23 +60,27 @@ class UserManagementHubView extends StatelessWidget {
 class _HubCard extends StatelessWidget {
   final String title, subtitle;
   final IconData icon;
+  final Color cardBgColor;
   final VoidCallback onTap;
 
   const _HubCard({
     required this.title,
     required this.subtitle,
     required this.icon,
+    required this.cardBgColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SizedBox(
       width: 420,
       height: 260,
       child: Card(
         elevation: 2,
-        color: Theme.of(context).cardColor,
+        color: cardBgColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: InkWell(
           onTap: onTap,
@@ -81,17 +90,29 @@ class _HubCard extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 50, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  icon,
+                  size: 50,
+                  color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
+                ),
                 const SizedBox(height: 20),
                 Text(
                   title,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   subtitle,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 13, height: 1.4),
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : Colors.black54,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -141,12 +162,15 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    Color cardBgColor = isDark ? const Color(0xFF004D40) : const Color(0xFFE8F5E9);
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Manage Users Account Control"),
-        backgroundColor: Theme.of(context).cardColor,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        backgroundColor: isDark ? const Color(0xFF004D40) : Colors.green.shade800,
+        foregroundColor: Colors.white,
       ),
       body: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -156,7 +180,14 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Registered Users List", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                Text(
+                  "Registered Users List",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
                 SizedBox(
                   width: 300,
                   height: 45,
@@ -182,7 +213,12 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                     return Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary));
                   }
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(child: Text("Database mein koi user nahi mila.", style: TextStyle(color: Theme.of(context).colorScheme.onSurface)));
+                    return Center(
+                      child: Text(
+                        "Database mein koi user nahi mila.",
+                        style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                      ),
+                    );
                   }
 
                   var docs = snapshot.data!.docs.where((doc) {
@@ -192,11 +228,14 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                   }).toList();
 
                   return Card(
-                    color: Theme.of(context).cardColor,
+                    color: cardBgColor,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: ListView.separated(
                       itemCount: docs.length,
-                      separatorBuilder: (context, index) => Divider(height: 1, color: Theme.of(context).dividerColor),
+                      separatorBuilder: (context, index) => Divider(
+                        height: 1,
+                        color: isDark ? Colors.white12 : Colors.grey.shade300,
+                      ),
                       itemBuilder: (context, index) {
                         var doc = docs[index];
                         var data = doc.data() as Map<String, dynamic>;
@@ -209,10 +248,12 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                           leading: CircleAvatar(
-                            backgroundColor: isBlocked ? Colors.red.shade900.withOpacity(0.3) : Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                            backgroundColor: isBlocked
+                                ? Colors.red.shade900.withOpacity(0.3)
+                                : (isDark ? Colors.white10 : Colors.green.shade100),
                             child: Icon(
                               isBlocked ? Icons.block : Icons.person_outline,
-                              color: isBlocked ? Colors.redAccent : Theme.of(context).colorScheme.primary,
+                              color: isBlocked ? Colors.redAccent : (isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)),
                             ),
                           ),
                           title: Row(
@@ -222,7 +263,7 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: isBlocked ? Colors.grey : Theme.of(context).colorScheme.onSurface,
+                                  color: isBlocked ? Colors.grey : (isDark ? Colors.white : Colors.black87),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -293,12 +334,15 @@ class UserAnalyticsDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    Color cardBgColor = isDark ? const Color(0xFF004D40) : const Color(0xFFE8F5E9);
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("User Analytics & Statistics Charts"),
-        backgroundColor: Theme.of(context).cardColor,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        backgroundColor: isDark ? const Color(0xFF004D40) : Colors.green.shade800,
+        foregroundColor: Colors.white,
       ),
       body: StreamBuilder<Map<String, int>>(
         stream: getAnalyticsData(),
@@ -317,28 +361,42 @@ class UserAnalyticsDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("User Analytics Overview", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                Text(
+                  "User Analytics Overview",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
                 const SizedBox(height: 20),
 
                 Row(
                   children: [
-                    _buildStaticCard(context, "Total Users", data['total'].toString(), Colors.blue, Icons.people_outline),
+                    _buildStaticCard(context, "Total Users", data['total'].toString(), Colors.blue, Icons.people_outline, cardBgColor, isDark),
                     const SizedBox(width: 16),
-                    _buildStaticCard(context, "Active Users", data['active'].toString(), Colors.green, Icons.check_circle_outline),
+                    _buildStaticCard(context, "Active Users", data['active'].toString(), Colors.green, Icons.check_circle_outline, cardBgColor, isDark),
                     const SizedBox(width: 16),
-                    _buildStaticCard(context, "Blocked Users", data['blocked'].toString(), Colors.red, Icons.block_outlined),
+                    _buildStaticCard(context, "Blocked Users", data['blocked'].toString(), Colors.red, Icons.block_outlined, cardBgColor, isDark),
                   ],
                 ),
 
                 const SizedBox(height: 40),
-                Text("Visual Statistics (Bar Chart)", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                Text(
+                  "Visual Statistics (Bar Chart)",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
                 const SizedBox(height: 20),
 
                 Container(
                   height: 350,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
+                    color: cardBgColor,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
                   ),
@@ -357,7 +415,11 @@ class UserAnalyticsDetailScreen extends StatelessWidget {
                           sideTitles: SideTitles(
                             showTitles: true,
                             getTitlesWidget: (value, meta) {
-                              TextStyle labelStyle = TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface);
+                              TextStyle labelStyle = TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : Colors.black87,
+                              );
                               switch (value.toInt()) {
                                 case 0: return Padding(padding: const EdgeInsets.only(top: 6.0), child: Text('Total', style: labelStyle));
                                 case 1: return Padding(padding: const EdgeInsets.only(top: 6.0), child: Text('Active', style: labelStyle));
@@ -367,7 +429,16 @@ class UserAnalyticsDetailScreen extends StatelessWidget {
                             },
                           ),
                         ),
-                        leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 35, getTitlesWidget: (val, meta) => Text(val.toInt().toString(), style: TextStyle(color: Theme.of(context).colorScheme.onSurface)))),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 35,
+                            getTitlesWidget: (val, meta) => Text(
+                              val.toInt().toString(),
+                              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                            ),
+                          ),
+                        ),
                         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                         rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                       ),
@@ -384,12 +455,12 @@ class UserAnalyticsDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStaticCard(BuildContext context, String title, String value, Color color, IconData icon) {
+  Widget _buildStaticCard(BuildContext context, String title, String value, Color color, IconData icon, Color cardBgColor, bool isDark) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: cardBgColor,
           borderRadius: BorderRadius.circular(15),
           border: Border(left: BorderSide(color: color, width: 5)),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5)],
@@ -401,9 +472,23 @@ class UserAnalyticsDetailScreen extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : Colors.black54,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
               ],
             )
           ],

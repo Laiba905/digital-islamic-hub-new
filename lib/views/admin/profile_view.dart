@@ -129,6 +129,104 @@ class _ProfileViewState extends State<ProfileView> {
     }
   }
 
+  void _showResetPasswordDialog(BuildContext context) {
+    final TextEditingController oldPasswordController = TextEditingController();
+    final TextEditingController newPasswordController = TextEditingController();
+    final TextEditingController confirmPasswordController = TextEditingController();
+    bool obscureOld = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateDialog) => AlertDialog(
+          title: const Text('Reset Password', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: oldPasswordController,
+                  obscureText: obscureOld,
+                  decoration: InputDecoration(
+                    labelText: 'Current Password',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureOld ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setStateDialog(() => obscureOld = !obscureOld),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: newPasswordController,
+                  obscureText: obscureNew,
+                  decoration: InputDecoration(
+                    labelText: 'New Password',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setStateDialog(() => obscureNew = !obscureNew),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: confirmPasswordController,
+                  obscureText: obscureConfirm,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm New Password',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock_reset),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setStateDialog(() => obscureConfirm = !obscureConfirm),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF004D40),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                if (newPasswordController.text.isEmpty || confirmPasswordController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill in all fields.')),
+                  );
+                  return;
+                }
+                if (newPasswordController.text != confirmPasswordController.text) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('New passwords do not match.')),
+                  );
+                  return;
+                }
+                // Yahan aap apna password update logic implement kar sakte hain
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password updated successfully!')),
+                );
+              },
+              child: const Text('Update Password'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileVM = Provider.of<ProfileViewModel>(context);
@@ -212,6 +310,22 @@ class _ProfileViewState extends State<ProfileView> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Security Section (Reset Password)
+                Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: ListTile(
+                      leading: const Icon(Icons.lock_reset, color: Color(0xFF004D40)),
+                      title: const Text('Reset Password', style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: const Text('Change your account security password'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () => _showResetPasswordDialog(context),
                     ),
                   ),
                 ),

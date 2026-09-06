@@ -322,8 +322,8 @@ class ScholarCard extends StatelessWidget {
           : 'Scholar Account Verification Update';
 
       String bodyText = status == 'approved'
-          ? 'Alhamdulillah $name! Aap ka scholar account approve ho chuka hai. Aap ab app mein login karke sawalon ke jawabat de sakte hain.'
-          : 'Badqismati se aap ki scholar request filhal reject kar di gayi hai. Mazeed maloomat ke liye admin se rabta karein.';
+          ? 'Alhamdulillah $name!Your scholar account has been approved.'
+          : 'Unfortunately, your scholar request has been rejected for now.';
 
       await FirebaseFirestore.instance.collection('mail').add({
         'to': scholarEmail,

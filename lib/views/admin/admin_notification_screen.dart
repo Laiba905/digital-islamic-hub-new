@@ -21,6 +21,82 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Notifications'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.done_all),
+            tooltip: "Mark all as read",
+            onPressed: () async {
+              try {
+                final batch = FirebaseFirestore.instance.batch();
+                final querySnapshot = await FirebaseFirestore.instance
+                    .collection('notifications')
+                    .where('targetRole', isEqualTo: 'admin')
+                    .where('isRead', isEqualTo: false)
+                    .get();
+
+                for (var doc in querySnapshot.docs) {
+                  batch.update(doc.reference, {'isRead': true});
+                }
+
+                await batch.commit();
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("All notifications marked as read.")),
+                  );
+                }
+              } catch (e) {
+                debugPrint("Error marking all as read: $e");
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: "Clear all notifications",
+            onPressed: () async {
+              bool? confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Clear All Notifications"),
+                  content: const Text("Are you sure you want to delete all admin notifications? This action cannot be undone."),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text("Delete All", style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  final querySnapshot = await FirebaseFirestore.instance
+                      .collection('notifications')
+                      .where('targetRole', isEqualTo: 'admin')
+                      .get();
+
+                  final batch = FirebaseFirestore.instance.batch();
+                  for (var doc in querySnapshot.docs) {
+                    batch.delete(doc.reference);
+                  }
+                  await batch.commit();
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("All notifications cleared successfully.")),
+                    );
+                  }
+                } catch (e) {
+                  debugPrint("Error clearing all notifications: $e");
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -95,6 +171,10 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                   bodyMessage = "Scholar: $sName" + (amt != null ? " requested Rs. $amt" : "");
                 }
               }
+
+              // ✨ Email ya User ID (jaise h42529096) ko remove karke clean karne ka logic
+              bodyMessage = bodyMessage.replaceAll(RegExp(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'), 'A user');
+              bodyMessage = bodyMessage.replaceAll(RegExp(r'^\s*[a-zA-Z0-9]{8,}\s*'), 'A user ');
 
               final bool isRead = data['isRead'] ?? false;
 

@@ -146,7 +146,7 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // EasyPaisa Section (Without Optional word)
+                    // EasyPaisa Section
                     const Text("EasyPaisa Account Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green)),
                     const SizedBox(height: 10),
                     TextField(
@@ -169,7 +169,7 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // JazzCash Section (Without Optional word)
+                    // JazzCash Section
                     const Text("JazzCash Account Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.orange)),
                     const SizedBox(height: 10),
                     TextField(
@@ -204,7 +204,7 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
                         onPressed: _isLoading ? null : _saveSettings,
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text("Change & Save Settings ", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                            : const Text("Change & Save Settings", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],

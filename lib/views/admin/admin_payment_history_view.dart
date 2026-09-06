@@ -15,6 +15,54 @@ class AdminPaymentHistoryView extends StatelessWidget {
         backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: "Clear all payment history",
+            onPressed: () async {
+              bool? confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Clear Payment History"),
+                  content: const Text("Are you sure you want to delete all verified payment records? This action cannot be undone."),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text("Delete All", style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  final querySnapshot = await FirebaseFirestore.instance
+                      .collection('user_questions')
+                      .where('status', isEqualTo: 'sent_to_scholar')
+                      .get();
+
+                  final batch = FirebaseFirestore.instance.batch();
+                  for (var doc in querySnapshot.docs) {
+                    batch.delete(doc.reference);
+                  }
+                  await batch.commit();
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Payment history cleared successfully.")),
+                    );
+                  }
+                } catch (e) {
+                  debugPrint("Error clearing payment history: $e");
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         // Yahan se .orderBy hata diya hai taake index ka error na aaye
@@ -52,6 +100,7 @@ class AdminPaymentHistoryView extends StatelessWidget {
             itemCount: docs.length,
             itemBuilder: (context, index) {
               var data = docs[index].data() as Map<String, dynamic>;
+              String docId = docs[index].id;
               String userName = data['userName'] ?? data['name'] ?? 'User';
               String scholarName = data['scholarName'] ?? data['requestedScholarName'] ?? 'Scholar';
               double totalAmount = double.tryParse(data['totalAmount']?.toString() ?? data['amountPaid']?.toString() ?? '0') ?? 0.0;
@@ -110,6 +159,36 @@ class AdminPaymentHistoryView extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                        tooltip: "Delete Record",
+                        onPressed: () async {
+                          try {
+                            await FirebaseFirestore.instance
+                                .collection('user_questions')
+                                .doc(docId)
+                                .delete();
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Payment record deleted successfully"),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            debugPrint("Error deleting payment record: $e");
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                    ],
                   ),
                   children: [
                     Padding(
@@ -207,6 +286,10 @@ class AdminPaymentHistoryView extends StatelessWidget {
     String amountPaid = data['amountPaid']?.toString() ?? data['totalAmount']?.toString() ?? '100';
     final double screenHeight = MediaQuery.of(context).size.height;
 
+    showModalAppBarBottomSheet(context, screenshotUrl, amountPaid, screenHeight);
+  }
+
+  void showModalAppBarBottomSheet(BuildContext context, String? screenshotUrl, String amountPaid, double screenHeight) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

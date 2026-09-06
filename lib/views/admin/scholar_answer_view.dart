@@ -433,7 +433,7 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Account / Phone: ${widget.scholarPhone}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+                    Text(" Phone: ${widget.scholarPhone}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
                     const SizedBox(height: 16),
                     TextField(
                       controller: amountController,

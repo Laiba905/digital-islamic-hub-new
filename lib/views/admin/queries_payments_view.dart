@@ -23,6 +23,53 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.delete_sweep, size: 24),
+            tooltip: "Clear all pending queries",
+            onPressed: () async {
+              bool? confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Clear Pending Queries"),
+                  content: const Text("Are you sure you want to delete all pending verification queries? This action cannot be undone."),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text("Delete All", style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  final querySnapshot = await FirebaseFirestore.instance
+                      .collection('user_questions')
+                      .where('status', isEqualTo: 'pending_verification')
+                      .get();
+
+                  final batch = FirebaseFirestore.instance.batch();
+                  for (var doc in querySnapshot.docs) {
+                    batch.delete(doc.reference);
+                  }
+                  await batch.commit();
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Pending queries cleared successfully.")),
+                    );
+                  }
+                } catch (e) {
+                  debugPrint("Error clearing pending queries: $e");
+                }
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+          IconButton(
             icon: const Icon(Icons.payments_rounded, size: 26),
             tooltip: "Payment History",
             onPressed: () {
@@ -157,6 +204,36 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                         ),
                                       ],
                                     ),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                        tooltip: "Delete Query",
+                                        onPressed: () async {
+                                          try {
+                                            await FirebaseFirestore.instance
+                                                .collection('user_questions')
+                                                .doc(questionId)
+                                                .delete();
+
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text("Query deleted successfully"),
+                                                  duration: Duration(seconds: 2),
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            debugPrint("Error deleting query: $e");
+                                          }
+                                        },
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                                    ],
                                   ),
                                   children: [
                                     Padding(
