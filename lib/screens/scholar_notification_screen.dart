@@ -170,7 +170,6 @@ class ScholarNotificationsScreen extends StatelessWidget {
                       ],
                     ],
                   ),
-                  // 🚀 Delete Button Added Here
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                     tooltip: "Delete Notification",

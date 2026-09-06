@@ -1,358 +1,287 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_theme.dart';
 
 class DailyDeeds extends StatefulWidget {
-  final String userId;
-  const DailyDeeds({super.key, required this.userId});
+  const DailyDeeds({super.key});
 
   @override
   State<DailyDeeds> createState() => _DailyDeedsState();
 }
 
 class _DailyDeedsState extends State<DailyDeeds> {
-  bool _isSubmitting = false;
+  final User? user = FirebaseAuth.instance.currentUser;
 
-  // 🔄 30-Day Loop Day Calculator
-  Future<int> _getCurrentDayNumber() async {
+  Future<Map<String, dynamic>> _fetchTodayDeeds() async {
     try {
-      var configDoc = await FirebaseFirestore.instance.collection('daily_deeds').doc('program_config').get();
-      if (configDoc.exists && configDoc.data() != null && configDoc.data()!['startDate'] != null) {
-        Timestamp startTimestamp = configDoc.data()!['startDate'];
-        DateTime startDate = startTimestamp.toDate();
-        DateTime now = DateTime.now();
+      var configDoc = await FirebaseFirestore.instance
+          .collection('daily_deeds')
+          .doc('program_config')
+          .get();
 
-        int differenceInDays = DateTime(now.year, now.month, now.day)
-            .difference(DateTime(startDate.year, startDate.month, startDate.day))
-            .inDays;
-
-        if (differenceInDays < 0) return 1;
-        int currentDay = (differenceInDays % 30) + 1;
-        return currentDay;
+      if (!configDoc.exists || configDoc.data() == null) {
+        return _defaultDeedsData();
       }
-    } catch (e) {
-      debugPrint("Error calculating loop day: $e");
-    }
-    return 1;
-  }
 
-  // 📉 Streak Reset Check if user missed a day
-  Future<void> _checkAndResetStreakIfNeeded(String todayStr) async {
-    try {
-      DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(widget.userId);
-      DocumentSnapshot snap = await userRef.get();
+      var configData = configDoc.data()!;
+      Timestamp? startDateTs = configData['startDate'];
+      List deedsList = configData['deeds_list'] ?? [];
 
-      if (snap.exists && snap.data() != null) {
-        Map<String, dynamic> data = snap.data() as Map<String, dynamic>;
-        String lastUpdateDate = data['completedTodayDate'] ?? "";
-
-        if (lastUpdateDate.isNotEmpty && lastUpdateDate != todayStr) {
-          DateTime lastDate = DateTime.parse(lastUpdateDate);
-          DateTime today = DateTime.parse(todayStr);
-          int diffDays = today.difference(lastDate).inDays;
-
-          if (diffDays > 1) {
-            await userRef.update({
-              'streak': 0,
-            });
-          }
-        }
+      if (startDateTs == null || deedsList.isEmpty) {
+        return _defaultDeedsData();
       }
+
+      DateTime startDate = startDateTs.toDate();
+      DateTime today = DateTime.now();
+      int differenceDays = DateTime(today.year, today.month, today.day)
+          .difference(DateTime(startDate.year, startDate.month, startDate.day))
+          .inDays;
+
+      int currentDayIndex = differenceDays % 30;
+      int currentDayNumber = currentDayIndex + 1;
+
+      List dayDeeds = [];
+      if (currentDayIndex < deedsList.length) {
+        var todayData = deedsList[currentDayIndex];
+        dayDeeds = todayData['deeds'] ?? [];
+      }
+
+      return {
+        'dayNumber': currentDayNumber,
+        'deeds': dayDeeds.isNotEmpty ? dayDeeds : _defaultDeedsData()['deeds'],
+      };
     } catch (e) {
-      debugPrint("Error resetting streak: $e");
+      return _defaultDeedsData();
     }
   }
 
-  // ✅ Fixed Toggle Deed Logic - Streak will ONLY increase when ALL deeds in the list are checked
-  Future<void> _toggleDeed(String deedId, bool currentStatus, String todayStr, List<Map<String, dynamic>> deeds, Map<String, dynamic> savedProgress, int currentStreak, bool alreadyDone) async {
-    if (alreadyDone || _isSubmitting) return;
-
-    try {
-      setState(() => _isSubmitting = true);
-
-      // Temporary map to calculate progress including current click
-      Map<String, dynamic> tempProgress = Map.from(savedProgress);
-      bool newDeedStatus = !currentStatus;
-      tempProgress[deedId] = newDeedStatus;
-
-      if (deeds.isEmpty) {
-        setState(() => _isSubmitting = false);
-        return;
-      }
-
-      bool allCompletedNow = true;
-      int pointsCalculated = 0;
-
-      for (var deed in deeds) {
-        String id = deed['id'];
-        // Check current clicked status properly against saved progress
-        bool isChecked = (id == deedId) ? newDeedStatus : (tempProgress[id] == true);
-
-        if (!isChecked) {
-          allCompletedNow = false; // Agar aik bhi deed unchecked hai toh false rahega
-        }
-        pointsCalculated += (deed['points'] as num).toInt();
-      }
-
-      // Save individual deed progress to Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.userId)
-          .collection('daily_progress')
-          .doc(todayStr)
-          .set({
-        deedId: newDeedStatus,
-      }, SetOptions(merge: true));
-
-      // 🚀 Streak barhe gi SIRF TAB jab 'allCompletedNow' true ho (Yani saari deeds tick hon)
-      if (allCompletedNow) {
-        DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(widget.userId);
-        DocumentSnapshot snap = await userRef.get();
-
-        String lastDate = snap.exists ? (snap.data() as Map<String, dynamic>)['completedTodayDate'] ?? "" : "";
-
-        if (lastDate != todayStr) {
-          await userRef.update({
-            'totalPoints': FieldValue.increment(pointsCalculated),
-            'streak': currentStreak + 1,
-            'lastUpdate': Timestamp.now(),
-            'completedTodayDate': todayStr,
-          });
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("MashaAllah! All deeds completed, streak increased! 🎉"),
-                backgroundColor: AppTheme.primaryLight,
-              ),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint("Error saving deed status: $e");
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
+  Map<String, dynamic> _defaultDeedsData() {
+    return {
+      'dayNumber': 1,
+      'deeds': [
+        {'title': 'Subah ki Sunnah ada karein', 'points': 10},
+        {'title': 'Quran ki tilawat karein', 'points': 15},
+        {'title': 'Durood Shareef parhein', 'points': 10},
+      ],
+    };
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final double horizontalPadding = MediaQuery.of(context).size.width > 800 ? 32.0 : 16.0;
-    String todayDateStr = DateTime.now().toIso8601String().split('T')[0];
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double horizontalMargin = screenWidth > 800 ? 32.0 : 15.0;
 
-    _checkAndResetStreakIfNeeded(todayDateStr);
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _fetchTodayDeeds(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
+        }
 
-    return Scaffold(
-      backgroundColor: isDark ? AppTheme.primaryDark : const Color(0xFFF1F8E9),
-      appBar: AppBar(
-        title: const Text("Daily Sunnah & Deeds"),
-        backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
-      body: FutureBuilder<int>(
-        future: _getCurrentDayNumber(),
-        builder: (context, daySnapshot) {
-          if (daySnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
-          }
+        if (snapshot.hasError) {
+          return Center(child: Text("Error loading deeds", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)));
+        }
 
-          int currentDayNumber = daySnapshot.data ?? 1;
+        var data = snapshot.data ?? {};
+        int dayNumber = data['dayNumber'] ?? 1;
+        List deeds = data['deeds'] ?? [];
 
-          return StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance.collection('users').doc(widget.userId).snapshots(),
-            builder: (context, userSnap) {
-              int displayStreak = 0;
-              String lastDate = "";
+        return StreamBuilder<DocumentSnapshot>(
+          stream: user != null
+              ? FirebaseFirestore.instance.collection('users').doc(user!.uid).snapshots()
+              : null,
+          builder: (context, userSnap) {
+            int currentStreak = 0;
+            List completedToday = [];
 
-              if (userSnap.hasData && userSnap.data != null && userSnap.data!.exists) {
-                final data = userSnap.data!.data() as Map<String, dynamic>?;
-                if (data != null) {
-                  displayStreak = data['streak'] ?? 0;
-                  lastDate = data['completedTodayDate'] ?? "";
-                }
-              }
+            if (userSnap.hasData && userSnap.data != null && userSnap.data!.exists) {
+              var uData = userSnap.data!.data() as Map<String, dynamic>;
+              currentStreak = uData['streak'] ?? 0;
+              completedToday = uData['completedToday'] ?? [];
+            }
 
-              bool alreadyDone = (lastDate == todayDateStr);
-
-              return StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(widget.userId)
-                    .collection('daily_progress')
-                    .doc(todayDateStr)
-                    .snapshots(),
-                builder: (context, progressSnap) {
-                  Map<String, dynamic> savedProgress = {};
-                  if (progressSnap.hasData && progressSnap.data != null && progressSnap.data!.exists) {
-                    savedProgress = progressSnap.data!.data() as Map<String, dynamic>? ?? {};
-                  }
-
-                  // 🔍 UPDATED QUERY: Fetching deeds matching today's dateStr directly
-                  return StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('daily_deeds')
-                        .where('dateStr', isEqualTo: todayDateStr)
-                        .snapshots(),
-                    builder: (context, deedsSnap) {
-                      if (deedsSnap.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
-                      }
-
-                      var docs = deedsSnap.hasData ? deedsSnap.data!.docs : [];
-                      List<Map<String, dynamic>> todayDeedsList = [];
-
-                      for (var doc in docs) {
-                        var d = doc.data() as Map<String, dynamic>;
-                        if (doc.id != 'program_config') {
-                          todayDeedsList.add({
-                            'id': doc.id,
-                            'title': d['title'] ?? '',
-                            'points': d['points'] ?? 10,
-                          });
-                        }
-                      }
-
-                      if (todayDeedsList.isEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Text(
-                              "No deeds available for today ($todayDateStr). Please publish from admin panel.",
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.grey, fontSize: 16),
+            return Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 800),
+                margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.auto_awesome, color: Colors.orange, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Daily Sunnah & Deeds (Day $dayNumber)",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: isDark ? Colors.white : Colors.black87),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            "🔥 Streak: $currentStreak",
+                            style: const TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
                             ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: deeds.length,
+                      itemBuilder: (context, index) {
+                        var deed = deeds[index];
+                        String deedId = "day_${dayNumber}_deed_${index + 1}";
+                        String title = deed['title'] ?? 'Deed';
+                        int points = deed['points'] ?? 10;
+                        bool isCompleted = completedToday.contains(deedId);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withAlpha(13) : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isCompleted
+                                  ? AppTheme.accentGreen.withAlpha(150)
+                                  : (isDark ? Colors.white10 : Colors.green.shade50),
+                            ),
+                          ),
+                          child: CheckboxListTile(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            title: Text(
+                              title,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            secondary: CircleAvatar(
+                              backgroundColor: Colors.orange.withAlpha(30),
+                              child: Text("+$points",
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange)),
+                            ),
+                            value: isCompleted,
+                            activeColor: AppTheme.accentGreen,
+                            onChanged: user == null ? null : (bool? value) async {
+                              // Sirf local state ya temporary list update karne ke liye (Abhi streak increase nahi hogi)
+                              DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
+                              var snap = await userRef.get();
+                              if (!snap.exists) return;
+                              var uData = snap.data() as Map<String, dynamic>;
+                              List compToday = List.from(uData['completedToday'] ?? []);
+
+                              if (value == true) {
+                                if (!compToday.contains(deedId)) {
+                                  compToday.add(deedId);
+                                }
+                              } else {
+                                if (compToday.contains(deedId)) {
+                                  compToday.remove(deedId);
+                                }
+                              }
+
+                              // Sirf checkbox tick hone ka record save hoga, streak button dabane par barhegi
+                              await userRef.update({
+                                'completedToday': compToday,
+                                'lastUpdate': Timestamp.now(),
+                              });
+                            },
                           ),
                         );
-                      }
-
-                      return SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
-                        child: Center(
-                          child: Container(
-                            constraints: const BoxConstraints(maxWidth: 800),
-                            child: Column(
-                              children: [
-                                // Program Day Badge
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.accentGreen.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppTheme.accentGreen.withOpacity(0.3)),
-                                  ),
-                                  child: Text(
-                                    "Program Day $currentDayNumber of 30 (Loop Active)",
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.accentGreen),
-                                  ),
-                                ),
-                                // Streak Card
-                                Card(
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                                  elevation: 1,
-                                  color: isDark ? Colors.grey[850] : Colors.white,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 32),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          "$displayStreak Days Streak",
-                                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.orange),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: todayDeedsList.length,
-                                  itemBuilder: (context, index) {
-                                    var deed = todayDeedsList[index];
-                                    String title = deed['title'];
-                                    String id = deed['id'];
-                                    int pts = deed['points'];
-
-                                    bool ticked = alreadyDone || (savedProgress[id] == true);
-
-                                    return Card(
-                                      margin: const EdgeInsets.symmetric(vertical: 6),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      elevation: 0.5,
-                                      color: isDark ? Colors.grey[850] : Colors.white,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.accentGreen.withOpacity(0.2),
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                "+$pts",
-                                                style: const TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.bold, fontSize: 13),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 15),
-                                            Expanded(
-                                              child: Text(
-                                                title,
-                                                style: TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: isDark ? Colors.white : Colors.black87,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            GestureDetector(
-                                              onTap: alreadyDone ? null : () {
-                                                bool currentStatus = (savedProgress[id] == true);
-                                                _toggleDeed(id, currentStatus, todayDateStr, todayDeedsList, savedProgress, displayStreak, alreadyDone);
-                                              },
-                                              child: AnimatedContainer(
-                                                duration: const Duration(milliseconds: 200),
-                                                width: 28,
-                                                height: 28,
-                                                decoration: BoxDecoration(
-                                                  color: ticked ? AppTheme.accentGreen : Colors.transparent,
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(color: ticked ? AppTheme.accentGreen : Colors.grey, width: 2),
-                                                ),
-                                                child: ticked ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 20),
-                              ],
-                            ),
-                          ),
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    // Neechay Submit Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.styleFrom != null ? ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
+                        onPressed: user == null ? null : () async {
+                          DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
+                          var snap = await userRef.get();
+                          if (!snap.exists) return;
+                          var uData = snap.data() as Map<String, dynamic>;
+                          List compToday = List.from(uData['completedToday'] ?? []);
+                          int existingStreak = uData['streak'] ?? 0;
+                          int currentPoints = uData['totalPoints'] ?? 0;
+
+                          // Check karein ke kya saare tasks pure ho chuke hain?
+                          bool allDeedsCompleted = true;
+                          int calculatedPoints = 0;
+
+                          for (int i = 0; i < deeds.length; i++) {
+                            String dId = "day_${dayNumber}_deed_${i + 1}";
+                            int pts = deeds[i]['points'] ?? 10;
+                            if (compToday.contains(dId)) {
+                              calculatedPoints += pts;
+                            } else {
+                              allDeedsCompleted = false;
+                            }
+                          }
+
+                          if (!allDeedsCompleted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Please complete all three tasks for today first.!"),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          // Agar saare tasks pure hain, tab hi streak barhayen aur points save karein
+                          int newStreak = existingStreak == 0 ? 1 : existingStreak + 1;
+
+                          await userRef.update({
+                            'totalPoints': currentPoints + 50, // Bonus ya total points calculation
+                            'streak': newStreak,
+                            'lastUpdate': Timestamp.now(),
+                          });
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Congratulations! All of today's deeds have been completed and your streak has increased! 🎉"),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          "Complete Today's Deeds & Boost Streak",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                      ) : Container(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

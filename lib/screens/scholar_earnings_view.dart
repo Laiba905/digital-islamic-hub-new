@@ -70,8 +70,45 @@ class ScholarEarningsView extends StatelessWidget {
                         backgroundColor: canWithdraw ? AppTheme.accentGreen : Colors.grey,
                         foregroundColor: isDark ? AppTheme.primaryDark : Colors.white,
                       ),
-                      onPressed: canWithdraw ? () {
-                        // Withdraw Logic
+                      onPressed: canWithdraw ? () async {
+                        try {
+                          // 1. scholar_earnings_ledger ke documents update karein
+                          for (var doc in docs) {
+                            await FirebaseFirestore.instance
+                                .collection('scholar_earnings_ledger')
+                                .doc(doc.id)
+                                .update({
+                              'withdrawalRequested': true,
+                              'isWithdrawRequested': true,
+                              'status': 'Payment Processing',
+                            });
+                          }
+
+                          // 2. user_questions collection ko bhi update karein taake admin panel par match ho jaye
+                          var questionsSnapshot = await FirebaseFirestore.instance
+                              .collection('user_questions')
+                              .where('scholarId', isEqualTo: scholarId)
+                              .where('status', isEqualTo: 'answered')
+                              .get();
+
+                          for (var doc in questionsSnapshot.docs) {
+                            await doc.reference.update({
+                              'withdrawalRequested': true,
+                              'isWithdrawRequested': true,
+                              'status': 'Payment Processing',
+                            });
+                          }
+
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Withdrawal request sent to Admin successfully!")),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error sending request: $e")),
+                          );
+                        }
                       } : () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text("Withdrawal locked! Funds can only be withdrawn after 1 week.")),
@@ -87,12 +124,12 @@ class ScholarEarningsView extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    "Earnings History", 
-                    style: TextStyle(
-                      fontSize: 18, 
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : AppTheme.primaryLight
-                    )
+                      "Earnings History",
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : AppTheme.primaryLight
+                      )
                   ),
                 ),
               ),
@@ -116,8 +153,8 @@ class ScholarEarningsView extends StatelessWidget {
                           child: Icon(Icons.arrow_downward, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                         ),
                         title: Text(
-                          "Question Resolution Share", 
-                          style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)
+                            "Question Resolution Share",
+                            style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)
                         ),
                         subtitle: Text("Credited on: $dateStr", style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)),
                         trailing: Text("+ RS $amount", style: TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.bold, fontSize: 16)),

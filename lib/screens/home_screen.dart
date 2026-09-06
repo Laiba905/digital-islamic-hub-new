@@ -67,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'totalPoints': 0,
             'lastUpdate': Timestamp.now(),
             'completedToday': [],
+            'isDaySubmitted': false,
           });
           return;
         }
@@ -78,7 +79,10 @@ class _HomeScreenState extends State<HomeScreen> {
         if (isNewDay) {
           DateTime yesterday = now.subtract(const Duration(days: 1));
           bool missedADay = lastUpdate.year != yesterday.year || lastUpdate.month != yesterday.month || lastUpdate.day != yesterday.day;
-          Map<String, dynamic> updates = {'completedToday': []};
+          Map<String, dynamic> updates = {
+            'completedToday': [],
+            'isDaySubmitted': false,
+          };
           if (missedADay) updates['streak'] = 0;
           await userRef.update(updates);
           _fetchDailyAyah();
@@ -235,6 +239,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
             if (displayDeeds.isEmpty) return const SizedBox();
 
+            bool allDeedsSelected = displayDeeds.every((doc) => completedToday.contains(doc.id));
+
             return Center(
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 800),
@@ -303,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
-                                decoration: TextDecoration.none, // 👈 Line khatam kar di gayi hai
+                                decoration: TextDecoration.none,
                                 color: isDark ? Colors.white : Colors.black87,
                               ),
                             ),
@@ -374,6 +380,76 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
                       },
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentGreen,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: () async {
+                          if (!allDeedsSelected) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Please fill out the deeds first!"),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
+                          var userSnap = await userRef.get();
+                          if (!userSnap.exists) return;
+                          var uData = userSnap.data() as Map<String, dynamic>;
+                          bool isAlreadySubmitted = uData['isDaySubmitted'] ?? false;
+
+                          if (isAlreadySubmitted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Already deeds completed!"),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                          } else {
+                            int currentPoints = uData['totalPoints'] ?? 0;
+                            int streak = uData['streak'] ?? 0;
+
+                            for (var doc in displayDeeds) {
+                              var dData = doc.data() as Map<String, dynamic>;
+                              currentPoints += (dData['points'] ?? 10) as int;
+                            }
+                            streak = streak == 0 ? 1 : streak + 1;
+
+                            await userRef.update({
+                              'totalPoints': currentPoints,
+                              'streak': streak,
+                              'isDaySubmitted': true,
+                              'lastUpdate': Timestamp.now(),
+                            });
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Completed! Streak increased."),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text(
+                          "Completed",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
