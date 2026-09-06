@@ -521,6 +521,9 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
                     Navigator.pop(context);
                     setState(() {
                       questionData['isPaidToScholar'] = true;
+                      questionData['paidAmount'] = amountVal;
+                      questionData['transactionId'] = trxVal;
+                      questionData['paymentScreenshot'] = screenshotUrl ?? '';
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Payment marked as PAID & notification sent!')),
@@ -636,7 +639,6 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
 
                 String questionText = q['questionText'] ?? q['question'] ?? q['question_text'] ?? 'No Question';
                 String additionalNote = q['Additional Note / Message'] ?? q['additionalNote'] ?? q['userAdditionalNote'] ?? '';
-                String aiAnswerText = q['aiResponse'] ?? q['aiAnswer'] ?? 'No AI Answer';
                 String scholarAnswerText = q['scholarResponse'] ?? q['answer'] ?? 'No Scholar Answer Yet';
                 String amount = q['scholarShare']?.toString() ?? q['amount']?.toString() ?? '0';
                 bool isPaid = q['isPaidToScholar'] ?? false;
@@ -733,6 +735,62 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
                         ],
                         const SizedBox(height: 8),
                         Text("Scholar Answer: $scholarAnswerText", style: TextStyle(color: widget.isDark ? Colors.tealAccent : Colors.teal[800])),
+
+                        // Yahan payment record / screenshot details show hon gi jab payment ho chuki ho
+                        if (isPaid) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Paid Amount: RS ${q['paidAmount'] ?? amount}",
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                ),
+                                if (q['transactionId'] != null && q['transactionId'].toString().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Transaction ID: ${q['transactionId']}",
+                                    style: TextStyle(fontSize: 12, color: widget.isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                                if (q['paymentScreenshot'] != null && q['paymentScreenshot'].toString().isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  TextButton.icon(
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: const Size(50, 20),
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (_) => AlertDialog(
+                                          title: const Text("Payment Screenshot"),
+                                          content: Image.network(q['paymentScreenshot']),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              child: const Text("Close"),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.image, size: 16, color: Colors.teal),
+                                    label: const Text("View Payment Screenshot", style: TextStyle(fontSize: 12, color: Colors.teal)),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

@@ -7,8 +7,10 @@ import 'admin_information_screen.dart';
 import 'admin_notification_screen.dart';
 import 'scholar_management_hub_view.dart';
 import 'user_management_hub_view.dart';
-import 'scholar_answer_view.dart';
+import 'send_book_view.dart';
 import 'scholar_requests_view.dart';
+// Agar ScholarAnswerView kisi doosri file mein hai toh yeh import zaroori hai:
+import 'scholar_answer_view.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({super.key});
@@ -105,6 +107,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => const ScholarAnswerView(),
+                                      ),
+                                    );
+                                  } else if (module.route == '/book_send') {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const SendBookView(),
                                       ),
                                     );
                                   } else {
@@ -461,6 +470,15 @@ final List<DashboardModule> dashboardModulesConfig = [
     iconColor: Color(0xFFD32F2F),
     backgroundColor: Color(0xFFFFEBEE),
     route: '/scholar_answer',
+    spacingAfter: 8.0,
+  ),
+  const DashboardModule(
+    title: 'Book send',
+    subtitle: 'Send a book to the user',
+    icon: Icons.book_outlined,
+    iconColor: Color(0xFF3F51B5),
+    backgroundColor: Color(0xFFE8EAF6),
+    route: '/book_send',
     spacingAfter: 8.0,
   ),
 ];
