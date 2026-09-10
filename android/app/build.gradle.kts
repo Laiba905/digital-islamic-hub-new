@@ -48,6 +48,7 @@ flutter {
 }
 
 dependencies {
-    // Ye line file ke bilkul end mein add karein
+    // Android Splash Screen API dependency
+    implementation("androidx.core:core-splashscreen:1.0.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
 }
