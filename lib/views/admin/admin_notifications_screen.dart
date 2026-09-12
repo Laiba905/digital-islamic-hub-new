@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:admin/view_models/theme_provider.dart';
+import 'scholar_answer_view.dart';
 
 // 👇 Yahan apni us screen ka import lazmi check kar lein ke woh kis folder mein hai
 // Misal ke tor par:
