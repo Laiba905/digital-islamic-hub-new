@@ -1,10 +1,5 @@
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
-import 'package:http/http.dart' as http; // Cloudinary multipart request ke liye
 import 'package:admin/view_models/profile_view_model.dart';
 import 'package:admin/view_models/theme_provider.dart';
 
@@ -17,116 +12,50 @@ class ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<ProfileView> {
   late TextEditingController _nameController;
-  bool _isUploading = false;
-
-  // ⚙️ TODO: Apne Cloudinary credentials yahan enter karein
-  final String _cloudName = "lxuuhill";
-  final String _uploadPreset = "AppPresent";
 
   @override
   void initState() {
     super.initState();
     final profileVM = Provider.of<ProfileViewModel>(context, listen: false);
     _nameController = TextEditingController(text: profileVM.adminName);
+
+    // Listen to changes so controller updates if data fetches late from Firestore
+    profileVM.addListener(_updateNameController);
+  }
+
+  void _updateNameController() {
+    final profileVM = Provider.of<ProfileViewModel>(context, listen: false);
+    if (_nameController.text != profileVM.adminName) {
+      _nameController.text = profileVM.adminName;
+    }
   }
 
   @override
   void dispose() {
+    final profileVM = Provider.of<ProfileViewModel>(context, listen: false);
+    profileVM.removeListener(_updateNameController);
     _nameController.dispose();
     super.dispose();
   }
 
-  // 🚀 Cloudinary Image Picker & Upload Function
-  Future<void> _pickAndUploadImage(ProfileViewModel profileVM) async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? pickedFile = await showModalBottomSheet<XFile>(
+  void _showImageSourceDialog(ProfileViewModel profileVM) {
+    showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
         child: Wrap(
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library, color: Color(0xFF004D40)),
-              title: const Text('Gallery'),
-              onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.gallery, imageQuality: 70)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Color(0xFF004D40)),
-              title: const Text('Camera'),
-              onTap: () async => Navigator.pop(context, await picker.pickImage(source: ImageSource.camera, imageQuality: 70)),
+              title: const Text('Pick Image'),
+              onTap: () {
+                Navigator.pop(context);
+                profileVM.pickAndUploadProfileImage();
+              },
             ),
           ],
         ),
       ),
     );
-
-    if (pickedFile != null) {
-      setState(() {
-        _isUploading = true;
-      });
-
-      try {
-        Uint8List bytes = await pickedFile.readAsBytes();
-        String fileName = kIsWeb ? pickedFile.name : pickedFile.path.split('/').last;
-
-        // Agar mobile par hain toh Optional Cropper use kar sakte hain
-        if (!kIsWeb) {
-          CroppedFile? croppedFile = await ImageCropper().cropImage(
-            sourcePath: pickedFile.path,
-            uiSettings: [
-              AndroidUiSettings(
-                toolbarTitle: 'Crop Profile Picture',
-                toolbarColor: const Color(0xFF004D40),
-                toolbarWidgetColor: Colors.white,
-                initAspectRatio: CropAspectRatioPreset.square,
-                lockAspectRatio: true,
-              ),
-            ],
-          );
-          if (croppedFile != null) {
-            bytes = await croppedFile.readAsBytes();
-            fileName = croppedFile.path.split('/').last;
-          }
-        }
-
-        // Cloudinary Upload Request
-        var uri = Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
-        var request = http.MultipartRequest("POST", uri)
-          ..fields['upload_preset'] = _uploadPreset
-          ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
-
-        var response = await request.send();
-        if (response.statusCode == 200) {
-          var responseData = await response.stream.bytesToString();
-          var jsonData = json.decode(responseData);
-          String secureUrl = jsonData['secure_url'];
-
-          // ViewModel ke zariye profile image URL update karein
-          profileVM.updateProfileImageUrl(secureUrl);
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Profile picture successfully updated!')),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Cloudinary upload failed. Please try again.')),
-            );
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isUploading = false;
-          });
-        }
-      }
-    }
   }
 
   @override
@@ -159,7 +88,7 @@ class _ProfileViewState extends State<ProfileView> {
                       backgroundImage: profileVM.profileImageUrl != null && profileVM.profileImageUrl!.isNotEmpty
                           ? NetworkImage(profileVM.profileImageUrl!)
                           : null,
-                      child: _isUploading
+                      child: profileVM.isUploading
                           ? const CircularProgressIndicator(color: Colors.white)
                           : (profileVM.profileImageUrl == null || profileVM.profileImageUrl!.isEmpty)
                           ? const Icon(Icons.person, size: 70, color: Colors.white)
@@ -168,7 +97,7 @@ class _ProfileViewState extends State<ProfileView> {
                     FloatingActionButton.small(
                       backgroundColor: const Color(0xFF004D40),
                       foregroundColor: Colors.white,
-                      onPressed: _isUploading ? null : () => _pickAndUploadImage(profileVM),
+                      onPressed: profileVM.isUploading ? null : () => _showImageSourceDialog(profileVM),
                       child: const Icon(Icons.camera_alt),
                     ),
                   ],
@@ -200,7 +129,7 @@ class _ProfileViewState extends State<ProfileView> {
                             onPressed: () {
                               profileVM.updateName(_nameController.text);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Name Updated!')),
+                                const SnackBar(content: Text('Name Updated successfully!')),
                               );
                             },
                             style: ElevatedButton.styleFrom(
@@ -234,22 +163,6 @@ class _ProfileViewState extends State<ProfileView> {
                           },
                         ),
                       ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Logout Section
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => profileVM.logout(context),
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Logout'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
                 ),

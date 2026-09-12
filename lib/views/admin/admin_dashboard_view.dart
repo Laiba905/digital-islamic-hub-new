@@ -5,11 +5,11 @@ import 'package:admin/view_models/theme_provider.dart';
 import 'package:admin/view_models/profile_view_model.dart';
 import 'admin_information_screen.dart';
 import 'admin_notification_screen.dart';
-import 'package:admin/views/admin/upload_books_view.dart';
 import 'scholar_management_hub_view.dart';
 import 'user_management_hub_view.dart';
-import 'scholar_answer_view.dart';
+import 'send_book_view.dart';
 import 'scholar_requests_view.dart';
+import 'scholar_answer_view.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({super.key});
@@ -47,7 +47,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
+      backgroundColor: isDark ? const Color(0xFF002419) : const Color(0xFFF8FAFB),
       drawer: isMobile ? const Drawer(child: _Sidebar()) : null,
       body: SafeArea(
         bottom: false,
@@ -67,7 +67,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                         children: [
                           Text(
                               "Admin Control Panel",
-                              style: TextStyle(fontSize: isMobile ? 22 : 28, fontWeight: FontWeight.bold)
+                              style: TextStyle(
+                                  fontSize: isMobile ? 22 : 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : Colors.black87
+                              )
                           ),
                           SizedBox(height: isMobile ? 20 : 32),
 
@@ -87,16 +91,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                 title: module.title,
                                 subtitle: module.subtitle,
                                 icon: module.icon,
-                                iconColor: module.iconColor,
-                                backgroundColor: module.backgroundColor,
+                                iconColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
+                                backgroundColor: isDark ? const Color(0xFF004D40) : const Color(0xFFE8F5E9),
                                 spacingAfter: module.spacingAfter,
                                 onTap: () {
-                                  if (module.route == '/upload_books' || module.route == '/upload_book_screen') {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => const UploadBooksView()),
-                                    );
-                                  } else if (module.route == '/scholar_hub') {
+                                  if (module.route == '/scholar_hub') {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(builder: (context) => const ScholarManagementHubView()),
@@ -111,6 +110,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => const ScholarAnswerView(),
+                                      ),
+                                    );
+                                  } else if (module.route == '/book_send') {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const SendBookView(),
                                       ),
                                     );
                                   } else {
@@ -159,16 +165,16 @@ class _ModuleCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : backgroundColor,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
             blurRadius: 12,
             offset: const Offset(0, 6),
           )
         ],
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
       ),
       child: Material(
         color: Colors.transparent,
@@ -183,7 +189,7 @@ class _ModuleCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.black26 : Colors.white.withOpacity(0.8),
+                    color: isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.8),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(icon, color: iconColor, size: 26),
@@ -210,7 +216,7 @@ class _ModuleCard extends StatelessWidget {
                         subtitle,
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? Colors.grey.shade400 : Colors.black54,
+                          color: isDark ? Colors.white70 : Colors.black54,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -219,9 +225,13 @@ class _ModuleCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Align(
+                Align(
                   alignment: Alignment.center,
-                  child: Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey),
+                  child: Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 12,
+                    color: isDark ? Colors.white70 : Colors.grey,
+                  ),
                 ),
               ],
             ),
@@ -240,20 +250,19 @@ class _Sidebar extends StatelessWidget {
     final profileVM = Provider.of<ProfileViewModel>(context);
     return Container(
       width: 270,
-      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      color: isDark ? const Color(0xFF004D40) : Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Admin Panel', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: isDark ? Colors.tealAccent : const Color(0xFF004D40))),
+          Text('Admin Panel', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40))),
           const SizedBox(height: 40),
-          _SidebarItem(icon: Icons.dashboard_outlined, label: 'Dashboard', isActive: true, onTap: () => Navigator.pushReplacementNamed(context, '/dashboard')),
-          _SidebarItem(icon: Icons.library_books_outlined, label: 'Manage Library', isActive: false, onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const UploadBooksView()),
-            );
-          }),
+          _SidebarItem(
+            icon: Icons.dashboard_outlined,
+            label: 'Dashboard',
+            isActive: true,
+            onTap: () => Navigator.pushReplacementNamed(context, '/dashboard'),
+          ),
           _SidebarItem(
               icon: Icons.admin_panel_settings_outlined,
               label: 'Admin Information',
@@ -270,7 +279,7 @@ class _Sidebar extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, '/profile'),
             child: Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFF004D40), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF002419), borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: [
                   CircleAvatar(
@@ -304,7 +313,20 @@ class _SidebarItem extends StatelessWidget {
   const _SidebarItem({required this.icon, required this.label, required this.isActive, required this.onTap});
   @override
   Widget build(BuildContext context) {
-    return ListTile(onTap: onTap, leading: Icon(icon, color: isActive ? const Color(0xFF004D40) : Colors.grey), title: Text(label, style: TextStyle(color: isActive ? const Color(0xFF004D40) : Colors.grey, fontSize: 13, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)), dense: true);
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    return ListTile(
+        onTap: onTap,
+        leading: Icon(icon, color: isActive ? (isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)) : Colors.grey),
+        title: Text(
+            label,
+            style: TextStyle(
+                color: isActive ? (isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)) : Colors.grey,
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal
+            )
+        ),
+        dense: true
+    );
   }
 }
 
@@ -318,15 +340,17 @@ class _TopHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final profileVM = Provider.of<ProfileViewModel>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Container(
       height: 70,
-      color: themeProvider.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+      color: isDark ? const Color(0xFF004D40) : Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
           if (isMobile)
             IconButton(
-              icon: const Icon(Icons.menu),
+              icon: Icon(Icons.menu, color: isDark ? Colors.white : Colors.black87),
               onPressed: () => scaffoldKey.currentState?.openDrawer(),
             ),
 
@@ -351,7 +375,7 @@ class _TopHeader extends StatelessWidget {
                 }).length;
               }
 
-              final Color bellColor = unreadCount > 0 ? Colors.red : Colors.tealAccent;
+              final Color bellColor = unreadCount > 0 ? Colors.red : (isDark ? const Color(0xFF81C784) : Colors.teal);
 
               return Stack(
                 children: [
@@ -395,15 +419,27 @@ class _TopHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
 
-          IconButton(icon: Icon(themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode, size: 22), onPressed: () => themeProvider.toggleTheme(!themeProvider.isDarkMode)),
+          IconButton(
+              icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode, size: 22, color: isDark ? Colors.white : Colors.black87),
+              onPressed: () => themeProvider.toggleTheme(!isDark)
+          ),
           const SizedBox(width: 16),
           InkWell(
             onTap: () => Navigator.pushNamed(context, '/profile'),
             child: Row(
               children: [
-                if (!isMobile) Text(profileVM.adminName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                if (!isMobile)
+                  Text(
+                      profileVM.adminName,
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: isDark ? Colors.white : Colors.black87)
+                  ),
                 const SizedBox(width: 12),
-                CircleAvatar(radius: 16, backgroundColor: const Color(0xFF004D40), backgroundImage: profileVM.profileImageUrl != null ? NetworkImage(profileVM.profileImageUrl!) : null, child: profileVM.profileImageUrl == null ? const Icon(Icons.person, color: Colors.white, size: 18) : null),
+                CircleAvatar(
+                    radius: 16,
+                    backgroundColor: const Color(0xFF002419),
+                    backgroundImage: profileVM.profileImageUrl != null ? NetworkImage(profileVM.profileImageUrl!) : null,
+                    child: profileVM.profileImageUrl == null ? const Icon(Icons.person, color: Colors.white, size: 18) : null
+                ),
               ],
             ),
           ),
@@ -436,38 +472,47 @@ class DashboardModule {
 final List<DashboardModule> dashboardModulesConfig = [
   const DashboardModule(
     title: 'Manage User',
-    subtitle: 'System ke active users ko monitor aur manage krein.',
+    subtitle: 'Monitor and manage active system users.',
     icon: Icons.people_outline,
     iconColor: Color(0xFF004D40),
-    backgroundColor: Color(0xFFE0F2F1),
+    backgroundColor: Color(0xFFE8F5E9),
     route: '/user_hub',
     spacingAfter: 8.0,
   ),
   const DashboardModule(
     title: 'Manage Scholar',
-    subtitle: 'Scholars ki registration aur profiles check krein.',
+    subtitle: 'Review scholar registrations and profiles.',
     icon: Icons.school_outlined,
-    iconColor: Color(0xFF00695C),
+    iconColor: Color(0xFF004D40),
     backgroundColor: Color(0xFFE8F5E9),
     route: '/scholar_hub',
     spacingAfter: 8.0,
   ),
   const DashboardModule(
     title: 'Manage Sunnah and Deeds',
-    subtitle: 'Daily Sunnah library aur activities update krein.',
+    subtitle: 'Update daily Sunnah library and activities.',
     icon: Icons.auto_stories_outlined,
-    iconColor: Color(0xFF00796B),
-    backgroundColor: Color(0xFFFFF3E0),
+    iconColor: Color(0xFF004D40),
+    backgroundColor: Color(0xFFE8F5E9),
     route: '/sunnah_deeds',
     spacingAfter: 8.0,
   ),
   const DashboardModule(
     title: 'Scholar Answer',
-    subtitle: 'Receive a scholar answer',
+    subtitle: 'Receive a scholar answer.',
     icon: Icons.forum_outlined,
-    iconColor: Color(0xFFD32F2F),
-    backgroundColor: Color(0xFFFFEBEE),
+    iconColor: Color(0xFF004D40),
+    backgroundColor: Color(0xFFE8F5E9),
     route: '/scholar_answer',
+    spacingAfter: 8.0,
+  ),
+  const DashboardModule(
+    title: 'Book send',
+    subtitle: 'Send a book to the user.',
+    icon: Icons.book_outlined,
+    iconColor: Color(0xFF004D40),
+    backgroundColor: Color(0xFFE8F5E9),
+    route: '/book_send',
     spacingAfter: 8.0,
   ),
 ];

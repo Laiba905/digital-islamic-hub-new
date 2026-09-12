@@ -13,12 +13,63 @@ class _LoginViewState extends State<LoginView> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  // 🔑 Yahan aap apni marzi ki email aur password hardcode kar sakti hain
+  final String _hardcodedAdminEmail = "malaikatariq0102@gmail.com";
+  final String _hardcodedAdminPassword = "223344"; // Apna password yahan set kar lein
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // Hardcoded Admin Login Logic
+  Future<void> _handleAdminLogin() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+
+      // Thoda sa delay taake loading feel ho
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      String enteredEmail = _emailController.text.trim();
+      String enteredPassword = _passwordController.text.trim();
+
+      // Check karein ke email aur password match hote hain ya nahi
+      if (enteredEmail == _hardcodedAdminEmail && enteredPassword == _hardcodedAdminPassword) {
+
+        // Safe name extraction from email
+        if (enteredEmail.contains('@')) {
+          String name = enteredEmail.split('@')[0];
+          if (name.isNotEmpty) {
+            if (mounted) {
+              Provider.of<ProfileViewModel>(context, listen: false).updateName(name);
+            }
+          }
+        }
+
+        // Dashboard par bhej dein
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        }
+      } else {
+        // Agar ghalat email ya password enter kiya ho
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Invalid email or password."),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -49,6 +100,7 @@ class _LoginViewState extends State<LoginView> {
                         labelText: 'Email',
                         border: OutlineInputBorder(),
                       ),
+                      validator: (value) => value!.isEmpty ? 'Enter email' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -58,6 +110,7 @@ class _LoginViewState extends State<LoginView> {
                         labelText: 'Password',
                         border: OutlineInputBorder(),
                       ),
+                      validator: (value) => value!.isEmpty ? 'Enter password' : null,
                     ),
                     const SizedBox(height: 24),
                     SizedBox(
@@ -68,19 +121,10 @@ class _LoginViewState extends State<LoginView> {
                           backgroundColor: const Color(0xFF004D40),
                           foregroundColor: Colors.white,
                         ),
-                        onPressed: () {
-                          // Safe name extraction from email
-                          if (_emailController.text.contains('@')) {
-                            String name = _emailController.text.split('@')[0];
-                            if (name.isNotEmpty) {
-                              Provider.of<ProfileViewModel>(context, listen: false).updateName(name);
-                            }
-                          }
-
-                          // Navigate to Dashboard using named route to match main.dart
-                          Navigator.pushReplacementNamed(context, '/dashboard');
-                        },
-                        child: const Text('Login'),
+                        onPressed: _isLoading ? null : _handleAdminLogin,
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text('Login'),
                       ),
                     ),
                   ],

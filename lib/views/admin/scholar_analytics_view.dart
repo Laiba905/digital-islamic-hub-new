@@ -9,13 +9,62 @@ class ScholarAnalyticsView extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFB),
       appBar: AppBar(
-        title: const Text('Scholar Analytics'),
+        title: const Text('Approved Scholar Analytics'),
         backgroundColor: const Color(0xFF004D40),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: "Clear all approved scholars",
+            onPressed: () async {
+              bool? confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Clear All Scholars"),
+                  content: const Text("Are you sure you want to delete all approved scholars? This action cannot be undone."),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text("Delete All", style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  final querySnapshot = await FirebaseFirestore.instance
+                      .collection('scholars')
+                      .where('status', isEqualTo: 'approved')
+                      .get();
+
+                  final batch = FirebaseFirestore.instance.batch();
+                  for (var doc in querySnapshot.docs) {
+                    batch.delete(doc.reference);
+                  }
+                  await batch.commit();
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("All approved scholars cleared successfully.")),
+                    );
+                  }
+                } catch (e) {
+                  debugPrint("Error clearing scholars: $e");
+                }
+              }
+            },
+          ),
+        ],
       ),
+      // Yahan .where('status', isEqualTo: 'approved') add kar diya gaya hai
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('scholars').snapshots(),
+        stream: FirebaseFirestore.instance.collection('scholars').where('status', isEqualTo: 'approved').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(color: Color(0xFF004D40)));
@@ -24,7 +73,7 @@ class ScholarAnalyticsView extends StatelessWidget {
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
               child: Text(
-                'No Scholars registered yet in scholars collection.',
+                'No approved scholars found yet.',
                 style: TextStyle(color: Colors.grey, fontSize: 15),
               ),
             );
@@ -32,16 +81,17 @@ class ScholarAnalyticsView extends StatelessWidget {
 
           final scholars = snapshot.data!.docs;
 
-          // 📊 Accurate Metrics Calculation (Corrected Logic)
-          int totalScholars = scholars.length;
+          // 📊 Approved Scholars Metrics Calculation
+          int totalApprovedScholars = scholars.length;
 
           int blockedScholars = scholars.where((doc) {
             var data = doc.data() as Map<String, dynamic>;
-            return data['status'] == 'blocked';
+            // Agar aapka account blocking field 'accountStatus' ya 'status' hai uske mutabiq check karein
+            return data['accountStatus'] == 'blocked';
           }).length;
 
-          // Active scholars woh hain jo blocked nahi hain
-          int activeScholars = totalScholars - blockedScholars;
+          // Active approved scholars woh hain jo block nahi hain
+          int activeScholars = totalApprovedScholars - blockedScholars;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -49,7 +99,7 @@ class ScholarAnalyticsView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "System Analytics Insights",
+                  "Approved System Analytics Insights",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
@@ -57,11 +107,11 @@ class ScholarAnalyticsView extends StatelessWidget {
                 // 📈 Top Counters Summary Blocks
                 Row(
                   children: [
-                    _buildAnalyticsCard("Registered Scholar", totalScholars.toString(), Colors.blue, Icons.analytics),
+                    _buildAnalyticsCard("Total Approved", totalApprovedScholars.toString(), Colors.blue, Icons.analytics),
                     const SizedBox(width: 12),
-                    _buildAnalyticsCard("Active Scholar", activeScholars.toString(), Colors.green, Icons.verified_user_outlined),
+                    _buildAnalyticsCard("Active Scholars", activeScholars.toString(), Colors.green, Icons.verified_user_outlined),
                     const SizedBox(width: 12),
-                    _buildAnalyticsCard("Blocked Scholar", blockedScholars.toString(), Colors.red, Icons.gpp_bad_outlined),
+                    _buildAnalyticsCard("Blocked Scholars", blockedScholars.toString(), Colors.red, Icons.gpp_bad_outlined),
                   ],
                 ),
 
@@ -73,7 +123,7 @@ class ScholarAnalyticsView extends StatelessWidget {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-                _buildMediumBarChart(totalScholars, activeScholars, blockedScholars),
+                _buildMediumBarChart(totalApprovedScholars, activeScholars, blockedScholars),
               ],
             ),
           );
@@ -103,7 +153,7 @@ class ScholarAnalyticsView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _buildSingleBar("Total", total, Colors.blue, chartHeight, maxVal),
+              _buildSingleBar("Approved", total, Colors.blue, chartHeight, maxVal),
               _buildSingleBar("Active", active, Colors.green, chartHeight, maxVal),
               _buildSingleBar("Blocked", blocked, Colors.red, chartHeight, maxVal),
             ],
@@ -115,7 +165,7 @@ class ScholarAnalyticsView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildLegendCircle(Colors.blue, "Total"),
+              _buildLegendCircle(Colors.blue, "Total Approved"),
               const SizedBox(width: 16),
               _buildLegendCircle(Colors.green, "Active"),
               const SizedBox(width: 16),

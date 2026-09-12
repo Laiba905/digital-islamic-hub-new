@@ -21,12 +21,86 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Notifications'),
-        // AppBar color automatic global theme se aayega
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.done_all),
+            tooltip: "Mark all as read",
+            onPressed: () async {
+              try {
+                final batch = FirebaseFirestore.instance.batch();
+                final querySnapshot = await FirebaseFirestore.instance
+                    .collection('notifications')
+                    .where('targetRole', isEqualTo: 'admin')
+                    .where('isRead', isEqualTo: false)
+                    .get();
+
+                for (var doc in querySnapshot.docs) {
+                  batch.update(doc.reference, {'isRead': true});
+                }
+
+                await batch.commit();
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("All notifications marked as read.")),
+                  );
+                }
+              } catch (e) {
+                debugPrint("Error marking all as read: $e");
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: "Clear all notifications",
+            onPressed: () async {
+              bool? confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Clear All Notifications"),
+                  content: const Text("Are you sure you want to delete all admin notifications? This action cannot be undone."),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text("Delete All", style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  final querySnapshot = await FirebaseFirestore.instance
+                      .collection('notifications')
+                      .where('targetRole', isEqualTo: 'admin')
+                      .get();
+
+                  final batch = FirebaseFirestore.instance.batch();
+                  for (var doc in querySnapshot.docs) {
+                    batch.delete(doc.reference);
+                  }
+                  await batch.commit();
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("All notifications cleared successfully.")),
+                    );
+                  }
+                } catch (e) {
+                  debugPrint("Error clearing all notifications: $e");
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('notifications')
-            .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -53,10 +127,23 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
 
             return targetRole == 'admin' ||
                 title.contains('payment') ||
+                title.contains('withdrawal') ||
                 title.contains('verification') ||
                 title.contains('scholar') ||
                 title.contains('answered');
           }).toList();
+
+          docs.sort((a, b) {
+            var aData = a.data() as Map<String, dynamic>;
+            var bData = b.data() as Map<String, dynamic>;
+            Timestamp? aTime = aData['createdAt'] ?? aData['timestamp'];
+            Timestamp? bTime = bData['createdAt'] ?? bData['timestamp'];
+
+            if (aTime == null && bTime == null) return 0;
+            if (aTime == null) return 1;
+            if (bTime == null) return -1;
+            return bTime.compareTo(aTime);
+          });
 
           if (docs.isEmpty) {
             return const Center(
@@ -75,10 +162,27 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
               final notificationId = docs[index].id;
               final title = data['title'] ?? 'Notification';
 
+              // 🔍 Automatic fallback agar body field missing ho
+              String bodyMessage = data['body'] ?? data['message'] ?? '';
+              if (bodyMessage.isEmpty) {
+                final sName = data['scholarName'];
+                final amt = data['amount'];
+                if (sName != null) {
+                  bodyMessage = "Scholar: $sName" + (amt != null ? " requested Rs. $amt" : "");
+                }
+              }
+
+              // ✨ Email ya User ID (jaise h42529096) ko remove karke clean karne ka logic
+              bodyMessage = bodyMessage.replaceAll(RegExp(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'), 'A user');
+              bodyMessage = bodyMessage.replaceAll(RegExp(r'^\s*[a-zA-Z0-9]{8,}\s*'), 'A user ');
+
+              final bool isRead = data['isRead'] ?? false;
+
               String formattedDate = '';
-              if (data['createdAt'] != null) {
+              var timestampField = data['createdAt'] ?? data['timestamp'];
+              if (timestampField != null) {
                 try {
-                  Timestamp timestamp = data['createdAt'];
+                  Timestamp timestamp = timestampField;
                   DateTime dateTime = timestamp.toDate();
                   formattedDate = DateFormat('MMM d, yyyy - hh:mm a').format(dateTime);
                 } catch (e) {
@@ -92,19 +196,20 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                // Theme colors implementation
-                color: isDark ? theme.cardColor : theme.colorScheme.primary.withOpacity(0.08),
+                color: isDark
+                    ? theme.cardColor
+                    : (isRead ? Colors.white : theme.colorScheme.primary.withOpacity(0.08)),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () async {
                     final lowerTitle = title.toLowerCase();
 
-                    if (lowerTitle.contains('answered')) {
+                    if (lowerTitle.contains('withdrawal') || lowerTitle.contains('answered')) {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const ScholarAnswerView()));
-                    } else if (lowerTitle.contains('scholar') || lowerTitle.contains('verification')) {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const ScholarRequestsView()));
-                    } else if (lowerTitle.contains('payment')) {
+                    } else if (lowerTitle.contains('payment') || lowerTitle.contains('question')) {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const QueriesPaymentsView()));
+                    } else if (lowerTitle.contains('scholar') || lowerTitle.contains('verification') || lowerTitle.contains('request')) {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const ScholarRequestsView()));
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text("Notification marked as read.")),
@@ -112,7 +217,9 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                     }
 
                     try {
-                      await FirebaseFirestore.instance.collection('notifications').doc(notificationId).delete();
+                      await FirebaseFirestore.instance.collection('notifications').doc(notificationId).update({
+                        'isRead': true,
+                      });
                     } catch (e) {}
                   },
                   child: Padding(
@@ -128,22 +235,49 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                title,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: isDark ? Colors.white : theme.colorScheme.primary,
-                                ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      title,
+                                      style: TextStyle(
+                                        fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                                        fontSize: 16,
+                                        color: isDark ? Colors.white : theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  if (!isRead)
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      margin: const EdgeInsets.only(right: 8),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                ],
                               ),
+                              if (bodyMessage.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  bodyMessage,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.tealAccent : Colors.teal[800],
+                                  ),
+                                ),
+                              ],
                               if (formattedDate.isNotEmpty) ...[
                                 const SizedBox(height: 6),
                                 Text(
                                   formattedDate,
                                   style: TextStyle(
-                                    fontSize: 11, 
-                                    color: isDark ? Colors.white70 : Colors.blueGrey, 
-                                    fontWeight: FontWeight.w500
+                                      fontSize: 11,
+                                      color: isDark ? Colors.white70 : Colors.blueGrey,
+                                      fontWeight: FontWeight.w500
                                   ),
                                 ),
                               ],
@@ -151,6 +285,30 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                          tooltip: "Delete Notification",
+                          onPressed: () async {
+                            try {
+                              await FirebaseFirestore.instance
+                                  .collection('notifications')
+                                  .doc(notificationId)
+                                  .delete();
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Notification deleted successfully"),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              debugPrint("Error deleting notification: $e");
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 4),
                         const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
                       ],
                     ),
