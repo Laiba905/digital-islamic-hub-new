@@ -215,12 +215,12 @@ class AdminPaymentHistoryView extends StatelessWidget {
                             ],
                           ),
                           const Divider(height: 24),
-                          const Text("Sawal / Question:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40), fontSize: 13)),
+                          const Text("  Question:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40), fontSize: 13)),
                           const SizedBox(height: 4),
                           Text(userQuestion, style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87, height: 1.4)),
                           const SizedBox(height: 16),
                           if (aiResponse.isNotEmpty) ...[
-                            _buildResponseBox(title: "AI Response / Jawab:", message: aiResponse, icon: Icons.auto_awesome, themeColor: Colors.blue, isDark: isDark),
+                            _buildResponseBox(title: "AI Response :", message: aiResponse, icon: Icons.auto_awesome, themeColor: Colors.blue, isDark: isDark),
                             const SizedBox(height: 16),
                           ],
                           if (optionalText.isNotEmpty && optionalText != 'null') ...[

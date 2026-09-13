@@ -102,6 +102,17 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
             );
           }
 
+          var docs = snapshot.data!.docs;
+
+          docs.sort((a, b) {
+            var dataA = a.data() as Map<String, dynamic>;
+            var dataB = b.data() as Map<String, dynamic>;
+            Timestamp? timeA = dataA['createdAt'] ?? dataA['timestamp'];
+            Timestamp? timeB = dataB['createdAt'] ?? dataB['timestamp'];
+            if (timeA == null || timeB == null) return 0;
+            return timeB.compareTo(timeA);
+          });
+
           return LayoutBuilder(
             builder: (context, constraints) {
               bool isDesktopOrWeb = constraints.maxWidth > 768;
@@ -112,9 +123,9 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                   constraints: const BoxConstraints(maxWidth: 1100),
                   child: ListView.builder(
                     padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 20),
-                    itemCount: snapshot.data!.docs.length,
+                    itemCount: docs.length,
                     itemBuilder: (context, index) {
-                      var doc = snapshot.data!.docs[index];
+                      var doc = docs[index];
                       var data = doc.data() as Map<String, dynamic>;
                       String questionId = doc.id;
 
@@ -123,10 +134,14 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                       String optionalText = (data['userRemarks'] ?? data['optionalNote'] ?? data['userFeedback'] ?? data['feedback'] ?? data['additionalNote'] ?? '').toString().trim();
                       String transactionId = data['transactionId'] ?? data['tid'] ?? 'N/A';
 
+                      Timestamp? timestamp = data['createdAt'] ?? data['timestamp'];
+                      String dateStr = timestamp != null
+                          ? "${timestamp.toDate().day}/${timestamp.toDate().month}/${timestamp.toDate().year} at ${timestamp.toDate().hour.toString().padLeft(2, '0')}:${timestamp.toDate().minute.toString().padLeft(2, '0')}"
+                          : 'Recent';
+
                       String? scholarId = data['scholarId'] ?? data['assignedScholarId'];
                       String? userId = data['userId'];
 
-                      // User ki enter ki hui actual amount yahan fetch ho rahi hai
                       String amountPaid = data['amountPaid']?.toString() ?? data['feeAmount']?.toString() ?? '100';
 
                       return FutureBuilder<DocumentSnapshot>(
@@ -183,7 +198,10 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                   ),
                                   subtitle: Padding(
                                     padding: const EdgeInsets.only(top: 4.0),
-                                    child: Row(
+                                    child: Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -196,11 +214,13 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                             style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold),
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
-                                        // Admin ko user ki bheji hui exact amount (e.g. Paid: RS 300) nazar aayegi
                                         Text(
                                           "Paid: RS $amountPaid",
                                           style: TextStyle(color: Colors.orange.shade800, fontSize: 12, fontWeight: FontWeight.w600),
+                                        ),
+                                        Text(
+                                          "• $dateStr",
+                                          style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
                                         ),
                                       ],
                                     ),
@@ -248,20 +268,20 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                                 "TID: $transactionId",
                                                 style: TextStyle(color: isDark ? Colors.white54 : Colors.grey.shade600, fontSize: 12, fontStyle: FontStyle.italic),
                                               ),
-                                              Text("Doc ID: $questionId", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                              Text("Sent At: $dateStr", style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                             ],
                                           ),
                                           const Divider(height: 24),
-                                          const Text("Sawal / Question:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40), fontSize: 13)),
+                                          const Text(" Question:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40), fontSize: 13)),
                                           const SizedBox(height: 4),
                                           Text(userQuestion, style: TextStyle(fontSize: 15, color: isDark ? Colors.white : Colors.black87, height: 1.4, fontWeight: FontWeight.w500)),
                                           const SizedBox(height: 16),
                                           if (aiResponse.isNotEmpty) ...[
-                                            ResponseDisplayBox(title: "AI Response / Jawab:", message: aiResponse, icon: Icons.auto_awesome, themeColor: Colors.blue, isDark: isDark),
+                                            ResponseDisplayBox(title: "AI Response :", message: aiResponse, icon: Icons.auto_awesome, themeColor: Colors.blue, isDark: isDark),
                                             const SizedBox(height: 16),
                                           ],
                                           if (optionalText.isNotEmpty && optionalText != 'null') ...[
-                                            ResponseDisplayBox(title: "User's Optional Note / Remarks:", message: optionalText, icon: Icons.rate_review_outlined, themeColor: Colors.purple, isDark: isDark),
+                                            ResponseDisplayBox(title: "User's Optional Note :", message: optionalText, icon: Icons.rate_review_outlined, themeColor: Colors.purple, isDark: isDark),
                                             const SizedBox(height: 16),
                                           ],
                                           Container(
@@ -327,7 +347,6 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF004D40), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
       icon: const Icon(Icons.verified_user_rounded, size: 18),
       label: Text("Verify & Forward to $scholarName"),
-      // Direct click par baghair kisi popup ke user ki amount ka half calculate ho kar forward ho jaye ga
       onPressed: () => _processVerificationDirectly(questionId, scholarId, scholarName, data),
     );
 
@@ -338,12 +357,9 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
     }
   }
 
-  // 👈 Direct verification aur user ki amount ka half calculation
   Future<void> _processVerificationDirectly(String questionId, String? scholarId, String scholarName, Map<String, dynamic> data) async {
-    // User ne jo amount enter ki thi (e.g., 300), usay yahan read kia ja raha hai
     double totalPaid = double.tryParse(data['amountPaid']?.toString() ?? data['feeAmount']?.toString() ?? '100') ?? 100.0;
 
-    // Automatically half calculate karna (e.g., 300 ka 150)
     double adminShare = totalPaid / 2;
     double scholarShare = totalPaid / 2;
 
@@ -360,7 +376,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
         'scholarId': scholarId,
         'scholarName': scholarName,
         'questionId': questionId,
-        'amount': scholarShare, // Yeh half amount scholar ke ledger mein save hogi realtime mein
+        'amount': scholarShare,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'accumulated',
       });
@@ -370,7 +386,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
         'questionId': questionId,
         'targetRole': 'scholar',
         'title': 'New Question Received! 📩',
-        'message': 'You have received a new verified question. RS $scholarShare has been added to your pending earnings ledger.',
+        'message': 'A new verified question has been received.',
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -378,11 +394,11 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
 
     if (data['userId'] != null) {
       await FirebaseFirestore.instance.collection('notifications').add({
-        'targetId': data['userId'],
+        'userId': data['userId'],
         'questionId': questionId,
         'targetRole': 'user',
-        'title': 'Question Submitted Successfully! ✅',
-        'message': 'Your payment is verified and your question has been sent to the scholar.',
+        'title': 'Payment Verified ✅',
+        'message': 'Your payment has been verified and your question has been forwarded to the scholar. You will receive the answer within a few hours.',
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });

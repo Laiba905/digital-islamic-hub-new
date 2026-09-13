@@ -132,12 +132,21 @@ class _SendBookViewState extends State<SendBookView> {
           'author': authorText,
           'pdfUrl': pdfUrl,
           'fileName': fileNameText,
-          'timestamp': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // 🚀 Yahan book upload hone par sab users ke liye notification add kar diya gaya hai
+        await FirebaseFirestore.instance.collection('notifications').add({
+          'targetRole': 'all_users',
+          'title': 'New Book Uploaded! 📚',
+          'message': 'A new Islamic book "$titleText" by $authorText has been uploaded to the library.',
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
         });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Islamic Book sent successfully to users!"), backgroundColor: Colors.green),
+            const SnackBar(content: Text("Islamic Book & Notification sent successfully!"), backgroundColor: Colors.green),
           );
 
           _titleController.clear();
@@ -169,7 +178,6 @@ class _SendBookViewState extends State<SendBookView> {
     }
   }
 
-  // 🚀 User app wala tested open function
   Future<void> _openBookUrl(BuildContext context, String fileUrl, String title) async {
     final Uri url = Uri.parse(fileUrl.trim());
     try {
@@ -231,7 +239,6 @@ class _SendBookViewState extends State<SendBookView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Upload Form Card
                 Card(
                   elevation: 6,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -317,7 +324,6 @@ class _SendBookViewState extends State<SendBookView> {
                 const Divider(thickness: 2),
                 const SizedBox(height: 20),
 
-                // 2. Previously Sent Books List
                 const Text(
                   'Previously Sent Books (Admin History)',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF004D40)),

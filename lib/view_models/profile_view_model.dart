@@ -3,27 +3,72 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'package:admin/view_models/theme_provider.dart'; // Apne ThemeProvider ka path yahan check kar Lein
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:admin/view_models/theme_provider.dart';
 
 class ProfileViewModel extends ChangeNotifier {
   String _adminName = "Administrator";
   String? _profileImageUrl;
   bool _isUploading = false;
+  bool _isLoading = false;
 
   String get adminName => _adminName;
   String? get profileImageUrl => _profileImageUrl;
   bool get isUploading => _isUploading;
+  bool get isLoading => _isLoading;
 
   final String cloudName = 'lxuuhill';
   final String uploadPreset = 'AppPresent';
 
-  // 1. Admin Name Update karne ke liye
-  void updateName(String newName) {
-    _adminName = newName;
-    notifyListeners();
+  ProfileViewModel() {
+    fetchAdminData();
   }
 
-  // 2. Profile Image Pick & Upload (Cloudinary)
+  // 📥 Firestore ki 'admin' collection se data fetch karna
+  Future<void> fetchAdminData() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        _isLoading = true;
+        notifyListeners();
+
+        DocumentSnapshot doc = await FirebaseFirestore.instance.collection('admin').doc(user.uid).get();
+
+        if (doc.exists) {
+          var data = doc.data() as Map<String, dynamic>?;
+          if (data != null) {
+            _adminName = data['name'] ?? data['displayName'] ?? _adminName;
+            _profileImageUrl = data['profileImage'] ?? data['photoUrl'];
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching admin data: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // 1. Admin Name Update karke Firestore mein save karna
+  Future<void> updateName(String newName) async {
+    try {
+      _adminName = newName;
+      notifyListeners();
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance.collection('admin').doc(user.uid).set({
+          'name': newName,
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      debugPrint('Error updating name in Firestore: $e');
+    }
+  }
+
+  // 2. Profile Image Pick, Upload (Cloudinary) & Save to Firestore
   Future<void> pickAndUploadProfileImage() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -54,13 +99,11 @@ class ProfileViewModel extends ChangeNotifier {
         var streamedResponse = await request.send();
         var response = await http.Response.fromStream(streamedResponse);
 
-        print('Cloudinary Status Code: ${response.statusCode}');
-        print('Cloudinary Response Body: ${response.body}');
-
         if (response.statusCode == 200) {
           var jsonData = json.decode(response.body);
-          _profileImageUrl = jsonData['secure_url'];
-          notifyListeners();
+          String secureUrl = jsonData['secure_url'];
+
+          await updateProfileImageUrl(secureUrl);
         } else {
           debugPrint('Upload Failed: ${response.body}');
         }
@@ -73,12 +116,24 @@ class ProfileViewModel extends ChangeNotifier {
     }
   }
 
-  void updateProfileImageUrl(String url) {
+  // URL ko state aur 'admin' collection dono mein save karna
+  Future<void> updateProfileImageUrl(String url) async {
     _profileImageUrl = url;
     notifyListeners();
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance.collection('admin').doc(user.uid).set({
+          'profileImage': url,
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      debugPrint('Error saving profile image URL to Firestore: $e');
+    }
   }
 
-  // 3. Logout Function (Routes clear karke Login par bhejne ke liye)
+  // 3. Logout Function
   void logout(BuildContext context) {
     Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
