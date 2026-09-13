@@ -59,6 +59,7 @@ class ProfileViewModel extends ChangeNotifier {
 
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // Ensure it matches the exact collection/doc path used in fetchAdminData
         await FirebaseFirestore.instance.collection('admin').doc(user.uid).set({
           'name': newName,
         }, SetOptions(merge: true));
