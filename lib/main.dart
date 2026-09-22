@@ -1,0 +1,70 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:admin/views/auth/login_view.dart';
+import 'package:admin/views/admin/admin_dashboard_view.dart';
+import 'package:admin/views/admin/profile_view.dart';
+import 'package:admin/views/admin/user_management_hub_view.dart';
+import 'package:admin/views/admin/user_analytics_view.dart';
+import 'package:admin/views/admin/scholar_management_hub_view.dart';
+import 'package:admin/views/admin/manage_scholars_view.dart';
+import 'package:admin/views/admin/scholar_analytics_view.dart';
+import 'package:admin/views/admin/scholar_requests_view.dart';
+import 'package:admin/views/admin/queries_payments_view.dart';
+import 'package:admin/views/admin/sunnah_deeds_view.dart';
+import 'package:admin/view_models/theme_provider.dart';
+import 'package:admin/view_models/profile_view_model.dart';
+import 'firebase_options.dart';
+import 'package:admin/views/admin/scholar_answer_view.dart';
+import 'views/admin/app_theme.dart';
+// <--- Yeh line import kare gi app_theme.dart ko
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  }
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => ProfileViewModel()),
+      ],
+      child: const MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'Admin Panel',
+          debugShowCheckedModeBanner: false,
+          themeMode: themeProvider.themeMode,
+          theme: AppTheme.lightTheme,      // Alag file se light theme uthay ga
+          darkTheme: AppTheme.darkTheme,  // Alag file se dark theme uthay ga
+          initialRoute: '/',
+          routes: {
+            '/': (context) => const LoginView(),
+            '/dashboard': (context) => const AdminDashboardView(),
+            '/profile': (context) => const ProfileView(),
+            '/user_hub': (context) => const UserManagementHubView(),
+            '/user_analytics': (context) => const UserAnalyticsView(),
+            '/scholar_hub': (context) => const ScholarManagementHubView(),
+            '/manage_scholars': (context) => const ManageScholarsPage(),
+            '/scholar_analytics': (context) => const ScholarAnalyticsView(),
+            '/scholar_requests': (context) => const ScholarRequestsView(),
+            '/scholar_answer': (context) => const ScholarAnswerView(),
+            '/queries_payments': (context) => const QueriesPaymentsView(),
+            '/sunnah_deeds': (context) => const SunnahDeedsView(),
+          },
+        );
+      },
+    );
+  }
+}
