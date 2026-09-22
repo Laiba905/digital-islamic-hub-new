@@ -20,7 +20,7 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Notifications'),
+        title: const Text('Notifications'),
         actions: [
           IconButton(
             icon: const Icon(Icons.done_all),
@@ -52,22 +52,16 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.delete_sweep),
-            tooltip: "Clear all notifications",
+            tooltip: "Clear all",
             onPressed: () async {
               bool? confirm = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text("Clear All Notifications"),
-                  content: const Text("Are you sure you want to delete all admin notifications? This action cannot be undone."),
+                  title: const Text("Clear Notifications"),
+                  content: const Text("Delete all admin notifications?"),
                   actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text("Cancel"),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text("Delete All", style: TextStyle(color: Colors.red)),
-                    ),
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Delete All", style: TextStyle(color: Colors.red))),
                   ],
                 ),
               );
@@ -87,11 +81,11 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
 
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("All notifications cleared successfully.")),
+                      const SnackBar(content: Text("Notifications cleared.")),
                     );
                   }
                 } catch (e) {
-                  debugPrint("Error clearing all notifications: $e");
+                  debugPrint("Error clearing notifications: $e");
                 }
               }
             },
@@ -99,9 +93,7 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('notifications')
-            .snapshots(),
+        stream: FirebaseFirestore.instance.collection('notifications').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -109,10 +101,7 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
-              child: Text(
-                'No notifications found.',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
+              child: Text('No notifications found.', style: TextStyle(color: Colors.grey)),
             );
           }
 
@@ -121,9 +110,7 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
             final targetRole = (data['targetRole'] ?? '').toString().toLowerCase();
             final title = (data['title'] ?? '').toString().toLowerCase();
 
-            if (targetRole == 'user' || title.contains('submitted successfully')) {
-              return false;
-            }
+            if (targetRole == 'user' || title.contains('submitted successfully')) return false;
 
             return targetRole == 'admin' ||
                 title.contains('payment') ||
@@ -138,7 +125,6 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
             var bData = b.data() as Map<String, dynamic>;
             Timestamp? aTime = aData['createdAt'] ?? aData['timestamp'];
             Timestamp? bTime = bData['createdAt'] ?? bData['timestamp'];
-
             if (aTime == null && bTime == null) return 0;
             if (aTime == null) return 1;
             if (bTime == null) return -1;
@@ -147,23 +133,19 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
 
           if (docs.isEmpty) {
             return const Center(
-              child: Text(
-                'No admin notifications found.',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
+              child: Text('No notifications found.', style: TextStyle(color: Colors.grey)),
             );
           }
 
           return ListView.builder(
             itemCount: docs.length,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             itemBuilder: (context, index) {
               final data = docs[index].data() as Map<String, dynamic>;
               final notificationId = docs[index].id;
               final title = data['title'] ?? 'Notification';
-
-              // 🔍 Automatic fallback agar body field missing ho
               String bodyMessage = data['body'] ?? data['message'] ?? '';
+              
               if (bodyMessage.isEmpty) {
                 final sName = data['scholarName'];
                 final amt = data['amount'];
@@ -172,54 +154,37 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                 }
               }
 
-              // ✨ Email ya User ID (jaise h42529096) ko remove karke clean karne ka logic
               bodyMessage = bodyMessage.replaceAll(RegExp(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'), 'A user');
               bodyMessage = bodyMessage.replaceAll(RegExp(r'^\s*[a-zA-Z0-9]{8,}\s*'), 'A user ');
 
               final bool isRead = data['isRead'] ?? false;
-
               String formattedDate = '';
               var timestampField = data['createdAt'] ?? data['timestamp'];
               if (timestampField != null) {
                 try {
                   Timestamp timestamp = timestampField;
                   DateTime dateTime = timestamp.toDate();
-                  formattedDate = DateFormat('MMM d, yyyy - hh:mm a').format(dateTime);
-                } catch (e) {
-                  formattedDate = '';
-                }
+                  formattedDate = DateFormat('MMM d, hh:mm a').format(dateTime);
+                } catch (e) {}
               }
 
               return Card(
-                elevation: 2,
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                color: isDark
-                    ? theme.cardColor
-                    : (isRead ? Colors.white : theme.colorScheme.primary.withOpacity(0.08)),
+                color: isDark ? theme.cardColor : (isRead ? Colors.white : theme.colorScheme.primary.withAlpha(20)),
+                margin: const EdgeInsets.only(bottom: 12),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   onTap: () async {
                     final lowerTitle = title.toLowerCase();
-
                     if (lowerTitle.contains('withdrawal') || lowerTitle.contains('answered')) {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const ScholarAnswerView()));
                     } else if (lowerTitle.contains('payment') || lowerTitle.contains('question')) {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const QueriesPaymentsView()));
                     } else if (lowerTitle.contains('scholar') || lowerTitle.contains('verification') || lowerTitle.contains('request')) {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const ScholarRequestsView()));
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Notification marked as read.")),
-                      );
                     }
 
                     try {
-                      await FirebaseFirestore.instance.collection('notifications').doc(notificationId).update({
-                        'isRead': true,
-                      });
+                      await FirebaseFirestore.instance.collection('notifications').doc(notificationId).update({'isRead': true});
                     } catch (e) {}
                   },
                   child: Padding(
@@ -227,89 +192,43 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                     child: Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: theme.colorScheme.primary,
-                          child: const Icon(Icons.notifications_active, color: Colors.white),
+                          backgroundColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
+                          child: Icon(Icons.notifications, color: isDark ? Colors.black : Colors.white),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      title,
-                                      style: TextStyle(
-                                        fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                                        fontSize: 16,
-                                        color: isDark ? Colors.white : theme.colorScheme.primary,
-                                      ),
-                                    ),
-                                  ),
-                                  if (!isRead)
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      margin: const EdgeInsets.only(right: 8),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                ],
+                              Text(
+                                title,
+                                style: TextStyle(
+                                  fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                                  fontSize: 15,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
                               ),
-                              if (bodyMessage.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  bodyMessage,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? Colors.tealAccent : Colors.teal[800],
-                                  ),
+                              const SizedBox(height: 4),
+                              Text(
+                                bodyMessage,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark ? Colors.white70 : Colors.black54,
                                 ),
-                              ],
+                              ),
                               if (formattedDate.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  formattedDate,
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: isDark ? Colors.white70 : Colors.blueGrey,
-                                      fontWeight: FontWeight.w500
-                                  ),
-                                ),
+                                const SizedBox(height: 4),
+                                Text(formattedDate, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                               ],
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                          tooltip: "Delete Notification",
                           onPressed: () async {
-                            try {
-                              await FirebaseFirestore.instance
-                                  .collection('notifications')
-                                  .doc(notificationId)
-                                  .delete();
-
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("Notification deleted successfully"),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              debugPrint("Error deleting notification: $e");
-                            }
+                            await FirebaseFirestore.instance.collection('notifications').doc(notificationId).delete();
                           },
                         ),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
                       ],
                     ),
                   ),

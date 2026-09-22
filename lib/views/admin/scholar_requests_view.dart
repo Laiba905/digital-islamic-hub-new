@@ -12,11 +12,12 @@ class ScholarRequestsView extends StatelessWidget {
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isDesktop = screenWidth > 750;
     final double contentWidth = isDesktop ? 700 : screenWidth;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        // 🔢 LIVE COUNTER: AppBar mein hi pending requests ki ginti show ho gi
+        // 🔢 LIVE COUNTER
         title: StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('scholars')
@@ -27,8 +28,6 @@ class ScholarRequestsView extends StatelessWidget {
             return Text("Scholar Requests ${count > 0 ? '($count)' : ''}");
           },
         ),
-        backgroundColor: const Color(0xFF004D40),
-        foregroundColor: Colors.white,
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
@@ -38,13 +37,13 @@ class ScholarRequestsView extends StatelessWidget {
               }
             },
             itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'history',
                 child: Row(
                   children: [
-                    Icon(Icons.history, color: Colors.black54),
-                    SizedBox(width: 8),
-                    Text("Verification History"),
+                    Icon(Icons.history, color: isDark ? Colors.white70 : Colors.black54),
+                    const SizedBox(width: 8),
+                    const Text("Verification History"),
                   ],
                 ),
               ),
@@ -63,27 +62,25 @@ class ScholarRequestsView extends StatelessWidget {
             builder: (context, snapshot) {
               if (snapshot.hasError) return _buildErrorState(snapshot.error.toString());
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: Color(0xFF004D40)));
+                return const Center(child: CircularProgressIndicator());
               }
 
               final requests = snapshot.data?.docs ?? [];
-
-              // 🔄 CLIENT-SIDE SORTING: Nayi request ko automatically top par laane ke liye
+              
               requests.sort((a, b) {
                 var aData = a.data() as Map<String, dynamic>;
                 var bData = b.data() as Map<String, dynamic>;
-
                 Timestamp? aTime = aData['createdAt'] as Timestamp?;
                 Timestamp? bTime = bData['createdAt'] as Timestamp?;
-
                 if (aTime == null || bTime == null) return 0;
-                return bTime.compareTo(aTime); // descending order (newest first)
+                return bTime.compareTo(aTime);
               });
 
               if (requests.isEmpty) {
                 return _buildEmptyState(
-                  title: "No pending requests found!",
-                  subtitle: "There are currently no scholars waiting for verification.",
+                  isDark: isDark,
+                  title: "No pending requests!",
+                  subtitle: "No scholars waiting for verification.",
                 );
               }
 
@@ -107,11 +104,11 @@ class ScholarRequestsView extends StatelessWidget {
     child: Text("Error: $error", style: const TextStyle(color: Colors.red)),
   ));
 
-  Widget _buildEmptyState({required String title, required String subtitle}) => Center(
+  Widget _buildEmptyState({required bool isDark, required String title, required String subtitle}) => Center(
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black54)),
+        Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.black54)),
         const SizedBox(height: 8),
         Text(subtitle, style: const TextStyle(color: Colors.grey)),
       ],
@@ -119,10 +116,12 @@ class ScholarRequestsView extends StatelessWidget {
   );
 
   void _showHistoryDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (context) {
         return Dialog(
+          backgroundColor: isDark ? const Color(0xFF002419) : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: SizedBox(
             width: 700,
@@ -131,10 +130,11 @@ class ScholarRequestsView extends StatelessWidget {
               length: 2,
               child: Column(
                 children: [
-                  const TabBar(
-                    indicatorColor: Color(0xFF004D40),
-                    labelColor: Color(0xFF004D40),
-                    tabs: [Tab(text: "Approved"), Tab(text: "Rejected")],
+                  TabBar(
+                    indicatorColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
+                    labelColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
+                    unselectedLabelColor: Colors.grey,
+                    tabs: const [Tab(text: "Approved"), Tab(text: "Rejected")],
                   ),
                   Expanded(
                     child: TabBarView(children: [
@@ -189,11 +189,11 @@ class ScholarCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String? storageImageUrl = data['image'];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Card(
       elevation: 3,
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -206,11 +206,11 @@ class ScholarCard extends StatelessWidget {
                 data['displayName'] ?? 'Scholar',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
-              subtitle: Text(data['email'] ?? ''),
+              subtitle: Text(data['email'] ?? '', style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)),
               trailing: !isHistoryCard
                   ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(6)),
+                decoration: BoxDecoration(color: Colors.orange.withAlpha(50), borderRadius: BorderRadius.circular(6)),
                 child: const Text("New", style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
               )
                   : null,
@@ -219,18 +219,18 @@ class ScholarCard extends StatelessWidget {
             const SizedBox(height: 8),
 
             // Scholar Details
-            _buildDetailRow("Phone:", data['phone'] ?? 'N/A'),
-            _buildDetailRow("Degree:", data['degree'] ?? 'N/A'),
-            _buildDetailRow("Address:", data['address'] ?? 'N/A'),
-            _buildDetailRow("Gender:", data['gender'] ?? 'N/A'),
-            _buildDetailRow("Certificate:", data['payment_method'] ?? 'N/A'),
+            _buildDetailRow(context, "Phone:", data['phone'] ?? 'N/A'),
+            _buildDetailRow(context, "Degree:", data['degree'] ?? 'N/A'),
+            _buildDetailRow(context, "Address:", data['address'] ?? 'N/A'),
+            _buildDetailRow(context, "Gender:", data['gender'] ?? 'N/A'),
+            _buildDetailRow(context, "Certificate:", data['payment_method'] ?? 'N/A'),
 
             const SizedBox(height: 12),
 
             // --- IMAGE LOADING SECTION ---
             if (storageImageUrl != null && storageImageUrl.isNotEmpty) ...[
               const SizedBox(height: 8),
-              const Text("Degree / Certificate Screenshot:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
+              Text("Degree / Certificate Screenshot:", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40))),
               const SizedBox(height: 8),
               Center(
                 child: ClipRRect(
@@ -239,8 +239,8 @@ class ScholarCard extends StatelessWidget {
                     height: 200,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      border: Border.all(color: Colors.grey.shade300),
+                      color: isDark ? Colors.white10 : Colors.grey[200],
+                      border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
                     ),
                     child: Image.network(
                       storageImageUrl,
@@ -258,7 +258,7 @@ class ScholarCard extends StatelessWidget {
               ),
             ],
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
 
             // Action Area (Approve & Reject Buttons)
             if (!isHistoryCard)
@@ -277,10 +277,6 @@ class ScholarCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   // Approve Button
                   ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF004D40),
-                      foregroundColor: Colors.white,
-                    ),
                     onPressed: () => _updateScholarStatus(context, docId, data['displayName'] ?? 'Scholar', 'approved', data['email']),
                     child: const Text("Approve"),
                   ),
@@ -293,7 +289,8 @@ class ScholarCard extends StatelessWidget {
   }
 
   // Helper widget to display text rows neatly
-  Widget _buildDetailRow(String title, String value) {
+  Widget _buildDetailRow(BuildContext context, String title, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -301,10 +298,10 @@ class ScholarCard extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
+            child: Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black87)),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(color: Colors.black54)),
+            child: Text(value, style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)),
           ),
         ],
       ),
@@ -335,6 +332,8 @@ class ScholarCard extends StatelessWidget {
     }
 
     String message = status == 'approved' ? "$name approved successfully!" : "$name request rejected!";
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 }

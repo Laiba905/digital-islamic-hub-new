@@ -8,7 +8,6 @@ import 'admin_notification_screen.dart';
 import 'scholar_management_hub_view.dart';
 import 'user_management_hub_view.dart';
 import 'send_book_view.dart';
-import 'scholar_requests_view.dart';
 import 'scholar_answer_view.dart';
 
 class AdminDashboardView extends StatefulWidget {
@@ -47,7 +46,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: isDark ? const Color(0xFF002419) : const Color(0xFFF8FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       drawer: isMobile ? const Drawer(child: _Sidebar()) : null,
       body: SafeArea(
         bottom: false,
@@ -169,7 +168,7 @@ class _ModuleCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            color: Colors.black.withAlpha(isDark ? 50 : 10),
             blurRadius: 12,
             offset: const Offset(0, 6),
           )
@@ -248,9 +247,11 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final profileVM = Provider.of<ProfileViewModel>(context);
+    final isMobile = MediaQuery.of(context).size.width < 800;
+
     return Container(
       width: 270,
-      color: isDark ? const Color(0xFF004D40) : Colors.white,
+      color: isDark ? Theme.of(context).cardColor : Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,13 +262,17 @@ class _Sidebar extends StatelessWidget {
             icon: Icons.dashboard_outlined,
             label: 'Dashboard',
             isActive: true,
-            onTap: () => Navigator.pushReplacementNamed(context, '/dashboard'),
+            onTap: () {
+              if (isMobile) Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/dashboard');
+            },
           ),
           _SidebarItem(
               icon: Icons.admin_panel_settings_outlined,
               label: 'Admin Information',
               isActive: false,
               onTap: () {
+                if (isMobile) Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const AdminInformationScreen()),
@@ -276,14 +281,21 @@ class _Sidebar extends StatelessWidget {
           ),
           const Spacer(),
           GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/profile'),
+            onTap: () {
+              if (isMobile) Navigator.pop(context);
+              Navigator.pushNamed(context, '/profile');
+            },
             child: Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFF002419), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black.withOpacity(0.3) : const Color(0xFF004D40),
+                borderRadius: BorderRadius.circular(12)
+              ),
               child: Row(
                 children: [
                   CircleAvatar(
                       radius: 14,
+                      backgroundColor: isDark ? const Color(0xFF81C784) : Colors.white24,
                       backgroundImage: profileVM.profileImageUrl != null ? NetworkImage(profileVM.profileImageUrl!) : null,
                       child: profileVM.profileImageUrl == null ? const Icon(Icons.person, color: Colors.white, size: 14) : null
                   ),
@@ -344,7 +356,7 @@ class _TopHeader extends StatelessWidget {
 
     return Container(
       height: 70,
-      color: isDark ? const Color(0xFF004D40) : Colors.white,
+      color: isDark ? Theme.of(context).cardColor : Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
@@ -375,7 +387,7 @@ class _TopHeader extends StatelessWidget {
                 }).length;
               }
 
-              final Color bellColor = unreadCount > 0 ? Colors.red : (isDark ? const Color(0xFF81C784) : Colors.teal);
+              final Color bellColor = unreadCount > 0 ? Colors.red : (isDark ? const Color(0xFF81C784) : const Color(0xFF004D40));
 
               return Stack(
                 children: [
@@ -436,7 +448,7 @@ class _TopHeader extends StatelessWidget {
                 const SizedBox(width: 12),
                 CircleAvatar(
                     radius: 16,
-                    backgroundColor: const Color(0xFF002419),
+                    backgroundColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
                     backgroundImage: profileVM.profileImageUrl != null ? NetworkImage(profileVM.profileImageUrl!) : null,
                     child: profileVM.profileImageUrl == null ? const Icon(Icons.person, color: Colors.white, size: 18) : null
                 ),

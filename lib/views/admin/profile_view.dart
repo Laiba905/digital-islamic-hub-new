@@ -39,13 +39,15 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   void _showImageSourceDialog(ProfileViewModel profileVM) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
+      backgroundColor: isDark ? const Color(0xFF004D40) : Colors.white,
       builder: (context) => SafeArea(
         child: Wrap(
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Color(0xFF004D40)),
+              leading: Icon(Icons.photo_library, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)),
               title: const Text('Pick Image'),
               onTap: () {
                 Navigator.pop(context);
@@ -63,6 +65,7 @@ class _ProfileViewState extends State<ProfileView> {
     final profileVM = Provider.of<ProfileViewModel>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -72,10 +75,10 @@ class _ProfileViewState extends State<ProfileView> {
         foregroundColor: isDark ? Colors.white : Colors.black,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
         child: Center(
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 500),
+            constraints: const BoxConstraints(maxWidth: 600),
             child: Column(
               children: [
                 // Profile Picture Section
@@ -84,7 +87,7 @@ class _ProfileViewState extends State<ProfileView> {
                   children: [
                     CircleAvatar(
                       radius: 70,
-                      backgroundColor: const Color(0xFF004D40),
+                      backgroundColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
                       backgroundImage: profileVM.profileImageUrl != null && profileVM.profileImageUrl!.isNotEmpty
                           ? NetworkImage(profileVM.profileImageUrl!)
                           : null,
@@ -95,7 +98,7 @@ class _ProfileViewState extends State<ProfileView> {
                           : null,
                     ),
                     FloatingActionButton.small(
-                      backgroundColor: const Color(0xFF004D40),
+                      backgroundColor: isDark ? const Color(0xFF002419) : const Color(0xFF004D40),
                       foregroundColor: Colors.white,
                       onPressed: profileVM.isUploading ? null : () => _showImageSourceDialog(profileVM),
                       child: const Icon(Icons.camera_alt),
@@ -106,19 +109,17 @@ class _ProfileViewState extends State<ProfileView> {
 
                 // Name Change Section
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Personal Info', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text('Personal Info', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 20),
                         TextField(
                           controller: _nameController,
                           decoration: const InputDecoration(
                             labelText: 'Display Name',
-                            border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.edit),
                           ),
                         ),
@@ -132,11 +133,6 @@ class _ProfileViewState extends State<ProfileView> {
                                 const SnackBar(content: Text('Name Updated successfully!')),
                               );
                             },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF004D40),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
                             child: const Text('Update Name'),
                           ),
                         ),
@@ -148,12 +144,12 @@ class _ProfileViewState extends State<ProfileView> {
 
                 // Settings Section (Dark Mode)
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Padding(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Column(
                       children: [
                         SwitchListTile(
+                          activeColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
                           title: const Text('Dark Mode'),
                           subtitle: const Text('Change the appearance of the dashboard'),
                           secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode),

@@ -61,7 +61,7 @@ class MyApp extends StatelessWidget {
             '/scholar_requests': (context) => const ScholarRequestsView(),
             '/scholar_answer': (context) => const ScholarAnswerView(),
             '/queries_payments': (context) => const QueriesPaymentsView(),
-            '/sunnah_deeds': (context) => SunnahDeedsView(),
+            '/sunnah_deeds': (context) => const SunnahDeedsView(),
           },
         );
       },

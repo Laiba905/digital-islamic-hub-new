@@ -102,33 +102,36 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Admin Information"),
-        backgroundColor: const Color(0xFF1B5E20),
-        foregroundColor: Colors.white,
       ),
       body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 650),
-          padding: const EdgeInsets.all(24.0),
-          child: Card(
-            elevation: 6,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: SingleChildScrollView(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(screenWidth < 600 ? 16.0 : 32.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "Payment Details & Fee Management",
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1B5E20)),
+                    Text(
+                      "Fee Management",
+                      style: TextStyle(
+                        fontSize: 22, 
+                        fontWeight: FontWeight.bold, 
+                        color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)
+                      ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      "Here you can change and save details whenever you want, and they will update immediately.",
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                    Text(
+                      "Update fee and account details for user payments.",
+                      style: TextStyle(color: isDark ? Colors.white60 : Colors.grey, fontSize: 13),
                     ),
                     const Divider(height: 40),
 
@@ -138,73 +141,68 @@ class _AdminInformationScreenState extends State<AdminInformationScreen> {
                     TextField(
                       controller: _feeController,
                       keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: "e.g: 50",
-                        prefixIcon: const Icon(Icons.attach_money, color: Colors.green),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: Icon(Icons.attach_money),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 32),
 
                     // EasyPaisa Section
-                    const Text("EasyPaisa Account Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green)),
-                    const SizedBox(height: 10),
+                    Text("EasyPaisa Account", 
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? const Color(0xFF81C784) : Colors.green.shade700)
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _easyPaisaNumController,
                       keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        hintText: "EasyPaisa Mobile Number (e.g., 03001234567)",
-                        prefixIcon: const Icon(Icons.phone_android),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      decoration: const InputDecoration(
+                        hintText: "Mobile Number",
+                        prefixIcon: Icon(Icons.phone_android),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _easyPaisaNameController,
-                      decoration: InputDecoration(
-                        hintText: "Owner Name",
-                        prefixIcon: const Icon(Icons.person),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      decoration: const InputDecoration(
+                        hintText: "Account Title / Owner Name",
+                        prefixIcon: Icon(Icons.person),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 32),
 
                     // JazzCash Section
-                    const Text("JazzCash Account Details", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.orange)),
-                    const SizedBox(height: 10),
+                    Text("JazzCash Account", 
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.orange.shade300 : Colors.orange.shade800)
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _jazzCashNumController,
                       keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        hintText: "JazzCash Mobile Number (e.g., 03007654321)",
-                        prefixIcon: const Icon(Icons.phone_android),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      decoration: const InputDecoration(
+                        hintText: "Mobile Number",
+                        prefixIcon: Icon(Icons.phone_android),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _jazzCashNameController,
-                      decoration: InputDecoration(
-                        hintText: "Owner Name",
-                        prefixIcon: const Icon(Icons.person),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      decoration: const InputDecoration(
+                        hintText: "Account Title / Owner Name",
+                        prefixIcon: Icon(Icons.person),
                       ),
                     ),
-                    const SizedBox(height: 35),
+                    const SizedBox(height: 40),
 
                     // Save / Change Button
                     SizedBox(
                       width: double.infinity,
-                      height: 52,
+                      height: 55,
                       child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1B5E20),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
                         onPressed: _isLoading ? null : _saveSettings,
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text("Change & Save Settings", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                            ? CircularProgressIndicator(color: isDark ? Colors.black : Colors.white)
+                            : const Text("SAVE SETTINGS", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1)),
                       ),
                     ),
                   ],

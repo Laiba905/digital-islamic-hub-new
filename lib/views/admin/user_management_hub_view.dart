@@ -7,6 +7,8 @@ class UserManagementHubView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     Color cardBgColor = isDark ? const Color(0xFF004D40) : const Color(0xFFE8F5E9);
 
@@ -14,40 +16,43 @@ class UserManagementHubView extends StatelessWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('User & Analytics Hub'),
-        backgroundColor: isDark ? const Color(0xFF004D40) : Colors.green.shade800,
-        foregroundColor: Colors.white,
-        elevation: 0,
       ),
-      body: Center(
+      body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(100),
-          child: Row(
+          padding: EdgeInsets.all(isMobile ? 20 : 40),
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _HubCard(
-                title: 'Manage Users',
-                subtitle: 'Control user access, block or unblock accounts.',
-                icon: Icons.manage_accounts_outlined,
-                cardBgColor: cardBgColor,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ManageUsersListScreen()),
-                  );
-                },
-              ),
-              const SizedBox(width: 32),
-              _HubCard(
-                title: 'User Analytics',
-                subtitle: 'View detailed charts and registration statistics.',
-                icon: Icons.analytics_outlined,
-                cardBgColor: cardBgColor,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const UserAnalyticsDetailScreen()),
-                  );
-                },
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 32,
+                runSpacing: 32,
+                children: [
+                  _HubCard(
+                    title: 'Manage Users',
+                    subtitle: 'Control user access, block or unblock accounts.',
+                    icon: Icons.manage_accounts_outlined,
+                    cardBgColor: cardBgColor,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ManageUsersListScreen()),
+                      );
+                    },
+                  ),
+                  _HubCard(
+                    title: 'User Analytics',
+                    subtitle: 'View detailed charts and registration statistics.',
+                    icon: Icons.analytics_outlined,
+                    cardBgColor: cardBgColor,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const UserAnalyticsDetailScreen()),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),
@@ -74,9 +79,10 @@ class _HubCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return SizedBox(
-      width: 420,
+      width: screenWidth < 500 ? double.infinity : 400,
       height: 260,
       child: Card(
         elevation: 2,
@@ -162,6 +168,8 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     Color cardBgColor = isDark ? const Color(0xFF004D40) : const Color(0xFFE8F5E9);
 
@@ -169,41 +177,62 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Manage Users Account Control"),
-        backgroundColor: isDark ? const Color(0xFF004D40) : Colors.green.shade800,
-        foregroundColor: Colors.white,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(32.0),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 32.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Registered Users List",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-                SizedBox(
-                  width: 300,
-                  height: 45,
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
-                    decoration: InputDecoration(
-                      hintText: "Search user by email...",
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+            isMobile 
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Registered Users List",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _searchController,
+                      onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+                      decoration: const InputDecoration(
+                      hintText: "Search user by email...",
+                      prefixIcon: Icon(Icons.search),
+                      contentPadding: EdgeInsets.symmetric(vertical: 0),
+                    ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Registered Users List",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 300,
+                      height: 45,
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+                        decoration: InputDecoration(
+                          hintText: "Search user by email...",
+                          prefixIcon: const Icon(Icons.search),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
             const SizedBox(height: 20),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
@@ -249,14 +278,15 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                           leading: CircleAvatar(
                             backgroundColor: isBlocked
-                                ? Colors.red.shade900.withOpacity(0.3)
+                                ? Colors.red.shade900.withAlpha(80)
                                 : (isDark ? Colors.white10 : Colors.green.shade100),
                             child: Icon(
                               isBlocked ? Icons.block : Icons.person_outline,
                               color: isBlocked ? Colors.redAccent : (isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)),
                             ),
                           ),
-                          title: Row(
+                          title: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
                                 email,
@@ -284,16 +314,29 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                               )
                             ],
                           ),
-                          trailing: ElevatedButton.icon(
+                          trailing: isMobile ? null : ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isBlocked ? Colors.green : Colors.red,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             icon: Icon(isBlocked ? Icons.lock_open : Icons.block),
-                            label: Text(isBlocked ? "Unblock Account" : "Block Account"),
+                            label: Text(isBlocked ? "Unblock" : "Block"),
                             onPressed: () => _toggleUserStatus(doc.id, status),
                           ),
+                          subtitle: isMobile ? Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isBlocked ? Colors.green : Colors.red,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: Icon(isBlocked ? Icons.lock_open : Icons.block, size: 16),
+                              label: Text(isBlocked ? "Unblock" : "Block"),
+                              onPressed: () => _toggleUserStatus(doc.id, status),
+                            ),
+                          ) : null,
                         );
                       },
                     ),
@@ -334,6 +377,8 @@ class UserAnalyticsDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     Color cardBgColor = isDark ? const Color(0xFF004D40) : const Color(0xFFE8F5E9);
 
@@ -341,8 +386,6 @@ class UserAnalyticsDetailScreen extends StatelessWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("User Analytics & Statistics Charts"),
-        backgroundColor: isDark ? const Color(0xFF004D40) : Colors.green.shade800,
-        foregroundColor: Colors.white,
       ),
       body: StreamBuilder<Map<String, int>>(
         stream: getAnalyticsData(),
@@ -357,7 +400,7 @@ class UserAnalyticsDetailScreen extends StatelessWidget {
           if (calculatedMaxY < 10) calculatedMaxY = 10;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(32.0),
+            padding: EdgeInsets.all(isMobile ? 16.0 : 32.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -371,15 +414,26 @@ class UserAnalyticsDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                Row(
-                  children: [
-                    _buildStaticCard(context, "Total Users", data['total'].toString(), Colors.blue, Icons.people_outline, cardBgColor, isDark),
-                    const SizedBox(width: 16),
-                    _buildStaticCard(context, "Active Users", data['active'].toString(), Colors.green, Icons.check_circle_outline, cardBgColor, isDark),
-                    const SizedBox(width: 16),
-                    _buildStaticCard(context, "Blocked Users", data['blocked'].toString(), Colors.red, Icons.block_outlined, cardBgColor, isDark),
-                  ],
-                ),
+                if (isMobile)
+                  Column(
+                    children: [
+                      _buildStaticCard(context, "Total Users", data['total'].toString(), Colors.blue, Icons.people_outline, cardBgColor, isDark),
+                      const SizedBox(height: 16),
+                      _buildStaticCard(context, "Active Users", data['active'].toString(), Colors.green, Icons.check_circle_outline, cardBgColor, isDark),
+                      const SizedBox(height: 16),
+                      _buildStaticCard(context, "Blocked Users", data['blocked'].toString(), Colors.red, Icons.block_outlined, cardBgColor, isDark),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      _buildStaticCard(context, "Total Users", data['total'].toString(), Colors.blue, Icons.people_outline, cardBgColor, isDark),
+                      const SizedBox(width: 16),
+                      _buildStaticCard(context, "Active Users", data['active'].toString(), Colors.green, Icons.check_circle_outline, cardBgColor, isDark),
+                      const SizedBox(width: 16),
+                      _buildStaticCard(context, "Blocked Users", data['blocked'].toString(), Colors.red, Icons.block_outlined, cardBgColor, isDark),
+                    ],
+                  ),
 
                 const SizedBox(height: 40),
                 Text(

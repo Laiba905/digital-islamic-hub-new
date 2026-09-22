@@ -15,12 +15,9 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Incoming Queries & Verification', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF004D40),
-        foregroundColor: Colors.white,
-        centerTitle: true,
+        title: const Text('Incoming Queries', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_sweep, size: 24),
@@ -144,8 +141,8 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
 
                       String amountPaid = data['amountPaid']?.toString() ?? data['feeAmount']?.toString() ?? '100';
 
-                      return FutureBuilder<DocumentSnapshot>(
-                        future: userId != null ? FirebaseFirestore.instance.collection('users').doc(userId).get() : Future.value(null),
+                      return FutureBuilder<DocumentSnapshot?>(
+                        future: userId != null ? FirebaseFirestore.instance.collection('users').doc(userId).get() : Future<DocumentSnapshot?>.value(null),
                         builder: (context, userSnapshot) {
                           String userName = "User";
                           if (userSnapshot.hasData && userSnapshot.data != null && userSnapshot.data!.exists) {
@@ -155,8 +152,8 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                             userName = data['userName'];
                           }
 
-                          return FutureBuilder<DocumentSnapshot>(
-                            future: scholarId != null ? FirebaseFirestore.instance.collection('users').doc(scholarId).get() : Future.value(null),
+                          return FutureBuilder<DocumentSnapshot?>(
+                            future: scholarId != null ? FirebaseFirestore.instance.collection('users').doc(scholarId).get() : Future<DocumentSnapshot?>.value(null),
                             builder: (context, scholarSnapshot) {
                               String requestedScholarName = "Assigned Scholar";
                               if (scholarSnapshot.hasData && scholarSnapshot.data != null && scholarSnapshot.data!.exists) {
@@ -169,24 +166,24 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                                  color: Theme.of(context).cardColor,
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.04),
+                                      color: Colors.black.withAlpha(isDark ? 80 : 10),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
                                   ],
-                                  border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                                  border: Border.all(color: isDark ? Colors.white12 : Colors.grey.withAlpha(40)),
                                 ),
                                 child: ExpansionTile(
                                   shape: const RoundedRectangleBorder(side: BorderSide.none),
                                   collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
                                   tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                                   leading: CircleAvatar(
-                                    backgroundColor: const Color(0xFF004D40).withOpacity(0.1),
-                                    child: const Icon(Icons.person, color: Color(0xFF004D40)),
+                                    backgroundColor: isDark ? const Color(0xFF81C784).withOpacity(0.2) : const Color(0xFF004D40).withOpacity(0.1),
+                                    child: Icon(Icons.person, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)),
                                   ),
                                   title: Text(
                                     userName,
@@ -272,7 +269,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                             ],
                                           ),
                                           const Divider(height: 24),
-                                          const Text(" Question:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40), fontSize: 13)),
+                                          Text(" Question:", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40), fontSize: 13)),
                                           const SizedBox(height: 4),
                                           Text(userQuestion, style: TextStyle(fontSize: 15, color: isDark ? Colors.white : Colors.black87, height: 1.4, fontWeight: FontWeight.w500)),
                                           const SizedBox(height: 16),
@@ -287,10 +284,14 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                           Container(
                                             width: double.infinity,
                                             padding: const EdgeInsets.all(14),
-                                            decoration: BoxDecoration(color: const Color(0xFF004D40).withOpacity(0.06), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF004D40).withOpacity(0.15))),
+                                            decoration: BoxDecoration(
+                                              color: isDark ? const Color(0xFF81C784).withOpacity(0.06) : const Color(0xFF004D40).withOpacity(0.06), 
+                                              borderRadius: BorderRadius.circular(12), 
+                                              border: Border.all(color: isDark ? const Color(0xFF81C784).withOpacity(0.15) : const Color(0xFF004D40).withOpacity(0.15))
+                                            ),
                                             child: Row(
                                               children: [
-                                                const Icon(Icons.person_pin_rounded, color: Color(0xFF004D40), size: 20),
+                                                Icon(Icons.person_pin_rounded, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40), size: 20),
                                                 const SizedBox(width: 8),
                                                 Expanded(
                                                   child: RichText(
@@ -298,7 +299,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                                       style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
                                                       children: [
                                                         const TextSpan(text: "Target Scholar Requested by User: "),
-                                                        TextSpan(text: requestedScholarName, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
+                                                        TextSpan(text: requestedScholarName, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40))),
                                                       ],
                                                     ),
                                                   ),
@@ -336,17 +337,18 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
   }
 
   Widget _buildResponsiveActionControls({required bool isDesktopOrWeb, required String questionId, required String? scholarId, required String scholarName, required Map<String, dynamic> data}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     Widget checkPaymentBtn = ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+      style: ElevatedButton.styleFrom(backgroundColor: isDark ? Colors.blueGrey.shade800 : Colors.blueGrey.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
       icon: const Icon(Icons.receipt_long_outlined, size: 20),
       label: const Text("Check Payment Receipt"),
       onPressed: () => _showPaymentReceiptBottomSheet(context, data),
     );
 
     Widget verifyAndForwardBtn = ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF004D40), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+      style: ElevatedButton.styleFrom(backgroundColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40), foregroundColor: isDark ? Colors.black : Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
       icon: const Icon(Icons.verified_user_rounded, size: 18),
-      label: Text("Verify & Forward to $scholarName"),
+      label: const Text("Verify & Forward"),
       onPressed: () => _processVerificationDirectly(questionId, scholarId, scholarName, data),
     );
 
@@ -467,6 +469,6 @@ class ResponseDisplayBox extends StatelessWidget {
   const ResponseDisplayBox({super.key, required this.title, required this.message, required this.icon, required this.themeColor, required this.isDark});
   @override
   Widget build(BuildContext context) {
-    return Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: themeColor.withOpacity(0.06), borderRadius: BorderRadius.circular(12), border: Border.all(color: themeColor.withOpacity(0.2))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(icon, color: themeColor, size: 18), const SizedBox(width: 8), Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: themeColor, fontSize: 13))]), const SizedBox(height: 8), Text(message, style: TextStyle(fontSize: 14, color: Colors.black87, height: 1.4))]));
+    return Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: themeColor.withOpacity(isDark ? 0.1 : 0.06), borderRadius: BorderRadius.circular(12), border: Border.all(color: themeColor.withOpacity(0.2))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(icon, color: themeColor, size: 18), const SizedBox(width: 8), Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: themeColor, fontSize: 13))]), const SizedBox(height: 8), Text(message, style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black87, height: 1.4))]));
   }
 }

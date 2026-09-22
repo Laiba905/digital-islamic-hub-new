@@ -9,83 +9,78 @@ class ScholarManagementHubView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scholar Management Hub'),
-        // Global theme handles color
+        title: const Text('Scholar Hub'),
       ),
-      body: Center(
+      body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Wrap(
-            spacing: 32,
-            runSpacing: 32,
-            alignment: WrapAlignment.center,
-            children: [
-              // 1. Manage Scholars Card
-              _HubCard(
-                title: 'Manage Scholars',
-                subtitle: 'Verify, Block, or Unblock Scholar accounts.',
-                icon: Icons.school_outlined,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ManageScholarsPage(),
-                    ),
-                  );
-                },
-              ),
-
-              // 2. Scholar Requests Card
-              _HubCard(
-                title: 'Scholar Requests',
-                subtitle: 'New registration requests from scholars.',
-                icon: Icons.person_add_alt_1_outlined,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ScholarRequestsView(),
-                    ),
-                  );
-                },
-              ),
-
-              // 3. Scholar Analytics Card
-              _HubCard(
-                title: 'Scholar Analytics',
-                subtitle: 'View registration trends and active counts.',
-                icon: Icons.analytics_outlined,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ScholarAnalyticsView(),
-                    ),
-                  );
-                },
-              ),
-
-              // 4. Queries & Payments Card
-              _HubCard(
-                title: 'Queries & Payments',
-                subtitle: 'Verify user payments, view screenshots, and assign to scholars.',
-                icon: Icons.payments_outlined,
-                iconColor: Colors.amber.shade800,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const QueriesPaymentsView(),
-                    ),
-                  );
-                },
-              ),
-            ],
+          padding: EdgeInsets.all(isMobile ? 20.0 : 40.0),
+          child: Center(
+            child: Wrap(
+              spacing: 32,
+              runSpacing: 32,
+              alignment: WrapAlignment.center,
+              children: [
+                _HubCard(
+                  title: 'Manage Scholars',
+                  subtitle: 'Verify, Block, or Unblock Scholar accounts.',
+                  icon: Icons.school_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ManageScholarsPage(),
+                      ),
+                    );
+                  },
+                ),
+                _HubCard(
+                  title: 'Scholar Requests',
+                  subtitle: 'New registration requests from scholars.',
+                  icon: Icons.person_add_alt_1_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ScholarRequestsView(),
+                      ),
+                    );
+                  },
+                ),
+                _HubCard(
+                  title: 'Scholar Analytics',
+                  subtitle: 'View registration trends and active counts.',
+                  icon: Icons.analytics_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ScholarAnalyticsView(),
+                      ),
+                    );
+                  },
+                ),
+                _HubCard(
+                  title: 'Queries & Payments',
+                  subtitle: 'Verify user payments and assign to scholars.',
+                  icon: Icons.payments_outlined,
+                  iconColor: Colors.amber.shade800,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const QueriesPaymentsView(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -111,9 +106,10 @@ class _HubCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return SizedBox(
-      width: 300,
+      width: screenWidth < 500 ? double.infinity : 300,
       height: 250,
       child: Card(
         elevation: 4,

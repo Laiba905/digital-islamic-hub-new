@@ -15,9 +15,9 @@ class ScholarAnswerView extends StatelessWidget {
     final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Scholar Weekly Payouts"),
+        title: const Text("Scholar Payouts"),
         backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         elevation: 0,
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
@@ -223,7 +223,7 @@ class ScholarAnswerView extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: totalWeeklyAmount > 0 ? Colors.red.withOpacity(0.15) : Colors.green.withOpacity(0.15),
+                                  color: totalWeeklyAmount > 0 ? Colors.red.withAlpha(40) : Colors.green.withAlpha(40),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(color: totalWeeklyAmount > 0 ? Colors.red : Colors.green, width: 1.5),
                                 ),
@@ -294,9 +294,9 @@ class AllScholarsBiodataScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Approved Scholars Biodata"),
+        title: const Text("Approved Scholars"),
         backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         elevation: 0,
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
@@ -363,7 +363,7 @@ class AllScholarsBiodataScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.15),
+                              color: Colors.green.withAlpha(40),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -470,9 +470,11 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
                             });
                           } catch (e) {
                             setStateDialog(() => isUploading = false);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Upload failed: $e')),
-                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Upload failed: $e')),
+                              );
+                            }
                           }
                         }
                       },
@@ -518,16 +520,18 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
                       'createdAt': FieldValue.serverTimestamp(),
                     });
 
-                    Navigator.pop(context);
-                    setState(() {
-                      questionData['isPaidToScholar'] = true;
-                      questionData['paidAmount'] = amountVal;
-                      questionData['transactionId'] = trxVal;
-                      questionData['paymentScreenshot'] = screenshotUrl ?? '';
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Payment marked as PAID & notification sent!')),
-                    );
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      setState(() {
+                        questionData['isPaidToScholar'] = true;
+                        questionData['paidAmount'] = amountVal;
+                        questionData['transactionId'] = trxVal;
+                        questionData['paymentScreenshot'] = screenshotUrl ?? '';
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Payment marked as PAID & notification sent!')),
+                      );
+                    }
                   },
                   child: const Text("Submit Payment"),
                 ),
@@ -569,9 +573,9 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
     double displayAmount = isWeekCompleted ? completedWeekAmount : runningWeekAmount;
 
     return Scaffold(
-      backgroundColor: widget.isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text("Payout Details: ${widget.scholarName}"),
+        title: Text("Payout: ${widget.scholarName}"),
         backgroundColor: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
         elevation: 0,
         iconTheme: IconThemeData(color: widget.isDark ? Colors.white : Colors.black87),

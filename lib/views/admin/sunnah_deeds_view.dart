@@ -86,8 +86,12 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
 
   @override
   void dispose() {
-    for (var c in _taskControllers) c.dispose();
-    for (var c in _pointsControllers) c.dispose();
+    for (var c in _taskControllers) {
+      c.dispose();
+    }
+    for (var c in _pointsControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -95,107 +99,130 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
   Widget build(BuildContext context) {
     String todayDateStr = DateTime.now().toIso8601String().split('T')[0];
     final screenWidth = MediaQuery.of(context).size.width;
-    final double dynamicPadding = screenWidth > 800 ? 40.0 : 16.0;
+    final isMobile = screenWidth < 800;
+    final double dynamicPadding = isMobile ? 16.0 : 40.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Sunnah & Deeds Management'),
-        backgroundColor: const Color(0xFF004D40),
-        foregroundColor: Colors.white,
+        title: const Text('Sunnah & Deeds'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-            child: ElevatedButton.icon(
+          if (!isMobile)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const Manage30DaysDeedsView()),
+                  );
+                },
+                icon: const Icon(Icons.calendar_month, size: 18),
+                label: const Text('30-Day Program'),
+              ),
+            ),
+          if (isMobile)
+            IconButton(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const Manage30DaysDeedsView()),
                 );
               },
-              icon: const Icon(Icons.calendar_month, size: 18),
-              label: const Text('Manage 30-Day Program', style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.tealAccent.shade700,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
+              icon: const Icon(Icons.calendar_month),
             ),
-          ),
         ],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(dynamicPadding),
         child: Center(
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 700),
+            constraints: const BoxConstraints(maxWidth: 800),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 2,
                   child: Padding(
                     padding: EdgeInsets.all(dynamicPadding),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('Publish 3 Daily Sunnah/Deeds', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
+                        Text('Publish 3 Daily Sunnah/Deeds', 
+                          style: TextStyle(
+                            fontSize: 20, 
+                            fontWeight: FontWeight.bold, 
+                            color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)
+                          )
+                        ),
                         const SizedBox(height: 8),
-                        const Text('Set up 3 daily tasks with 2 points each (or customize as needed).', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        const Text('Set up 3 daily tasks with points.', style: TextStyle(color: Colors.grey, fontSize: 13)),
                         const SizedBox(height: 24),
                         for (int i = 0; i < 3; i++) ...[
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: TextField(
+                          isMobile 
+                          ? Column(
+                              children: [
+                                TextField(
                                   controller: _taskControllers[i],
                                   decoration: InputDecoration(
                                     labelText: 'Deed ${i + 1} Title',
                                     hintText: 'e.g., Istighfar 10 times',
-                                    border: const OutlineInputBorder(),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 1,
-                                child: TextField(
+                                const SizedBox(height: 12),
+                                TextField(
                                   controller: _pointsControllers[i],
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(
                                     labelText: 'Points',
-                                    border: OutlineInputBorder(),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: TextField(
+                                    controller: _taskControllers[i],
+                                    decoration: InputDecoration(
+                                      labelText: 'Deed ${i + 1} Title',
+                                      hintText: 'e.g., Istighfar 10 times',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 1,
+                                  child: TextField(
+                                    controller: _pointsControllers[i],
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Points',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           if (i < 2) const SizedBox(height: 16),
                         ],
                         const SizedBox(height: 24),
                         Align(
                           alignment: Alignment.centerRight,
                           child: SizedBox(
-                            width: 200,
-                            height: 45,
+                            width: isMobile ? double.infinity : 200,
+                            height: 50,
                             child: ElevatedButton(
                               onPressed: _isUploading ? null : _updateDailyTasks,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF004D40),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
                               child: _isUploading
                                   ? const SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                               )
-                                  : const Text('Publish All 3 Deeds', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                  : const Text('Publish All 3 Deeds'),
                             ),
                           ),
                         ),
@@ -209,13 +236,24 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("Today's History", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
+                    Text("Today's History", 
+                      style: TextStyle(
+                        fontSize: 20, 
+                        fontWeight: FontWeight.bold, 
+                        color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)
+                      )
+                    ),
                     TextButton.icon(
                       onPressed: () {
                         Navigator.push(context, MaterialPageRoute(builder: (context) => const SunnahHistoryView()));
                       },
-                      icon: const Icon(Icons.history, size: 18, color: Color(0xFF004D40)),
-                      label: const Text("View All History", style: TextStyle(color: Color(0xFF004D40), fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                      icon: Icon(Icons.history, size: 18, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)),
+                      label: Text("View All", 
+                        style: TextStyle(
+                          color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40), 
+                          fontWeight: FontWeight.bold
+                        )
+                      ),
                     ),
                   ],
                 ),
@@ -227,25 +265,27 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: CircularProgressIndicator(color: Color(0xFF004D40))));
+                      return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: CircularProgressIndicator()));
                     }
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
-                        child: const Center(child: Text("No deeds active for today.", style: TextStyle(color: Colors.grey, fontSize: 15, fontStyle: FontStyle.italic))),
+                      return Card(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          child: const Center(child: Text("No deeds active for today.", style: TextStyle(color: Colors.grey, fontSize: 15, fontStyle: FontStyle.italic))),
+                        ),
                       );
                     }
 
                     var validDocs = snapshot.data!.docs.where((doc) => doc.id != 'program_config').toList();
 
                     if (validDocs.isEmpty) {
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
-                        child: const Center(child: Text("No deeds active for today.", style: TextStyle(color: Colors.grey, fontSize: 15, fontStyle: FontStyle.italic))),
+                      return Card(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          child: const Center(child: Text("No deeds active for today.", style: TextStyle(color: Colors.grey, fontSize: 15, fontStyle: FontStyle.italic))),
+                        ),
                       );
                     }
 
@@ -259,12 +299,11 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
 
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                             leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF004D40),
-                              child: Text("+${data['points'] ?? 2}", style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                              backgroundColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
+                              child: Text("+${data['points'] ?? 2}", style: TextStyle(color: isDark ? Colors.black : Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
                             ),
                             title: Text(data['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                             subtitle: const Text("Active for today's users", style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w500)),
@@ -287,7 +326,6 @@ class _SunnahDeedsViewState extends State<SunnahDeedsView> {
   }
 }
 
-// 🗓️ 30 DAYS PROGRAM MANAGEMENT SCREEN (Using 'daily_deeds' collection & day_1 to day_30 IDs)
 class Manage30DaysDeedsView extends StatefulWidget {
   const Manage30DaysDeedsView({super.key});
 
@@ -329,7 +367,7 @@ class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
         }
       }
     } catch (e) {
-      print("Error fetching 30 days data: $e");
+      debugPrint("Error fetching 30 days data: $e");
     } finally {
       if (mounted) setState(() => _isFetching = false);
     }
@@ -342,7 +380,6 @@ class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
 
       for (int day = 1; day <= 30; day++) {
         int index = day - 1;
-        // Yahan DocumentReference type use ki gayi hai
         DocumentReference docRef = FirebaseFirestore.instance.collection('daily_deeds').doc('day_$day');
 
         List<Map<String, dynamic>> dayTasks = [];
@@ -377,27 +414,25 @@ class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage 30-Day Program '),
-        backgroundColor: const Color(0xFF004D40),
-        foregroundColor: Colors.white,
+        title: const Text('30-Day Program'),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ElevatedButton.icon(
+            child: IconButton(
               onPressed: _isLoading ? null : _saveAll30Days,
               icon: _isLoading
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.save, size: 18),
-              label: const Text('Save All 30 Days', style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.tealAccent.shade700, foregroundColor: Colors.white),
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.save),
+              tooltip: 'Save All',
             ),
           ),
         ],
       ),
       body: _isFetching
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF004D40)))
+          ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: 30,
@@ -405,43 +440,58 @@ class _Manage30DaysDeedsViewState extends State<Manage30DaysDeedsView> {
           int day = index + 1;
           return Card(
             margin: const EdgeInsets.only(bottom: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 2,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Day $day Program', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
+                  Text('Day $day Program', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40))),
                   const Divider(),
                   const SizedBox(height: 8),
                   for (int t = 0; t < 3; t++) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextField(
+                    MediaQuery.of(context).size.width < 600
+                    ? Column(
+                        children: [
+                          TextField(
                             controller: _titleControllers[index][t],
                             decoration: InputDecoration(
                               labelText: 'Task ${t + 1} Title',
-                              border: const OutlineInputBorder(),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 1,
-                          child: TextField(
+                          const SizedBox(height: 12),
+                          TextField(
                             controller: _pointsControllers[index][t],
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               labelText: 'Points',
-                              border: const OutlineInputBorder(),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextField(
+                              controller: _titleControllers[index][t],
+                              decoration: InputDecoration(
+                                labelText: 'Task ${t + 1} Title',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 1,
+                            child: TextField(
+                              controller: _pointsControllers[index][t],
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Points',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     if (t < 2) const SizedBox(height: 12),
                   ],
                 ],

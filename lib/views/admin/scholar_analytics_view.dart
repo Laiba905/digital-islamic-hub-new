@@ -6,17 +6,17 @@ class ScholarAnalyticsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFB),
       appBar: AppBar(
-        title: const Text('Approved Scholar Analytics'),
-        backgroundColor: const Color(0xFF004D40),
-        foregroundColor: Colors.white,
-        elevation: 0,
+        title: const Text('Scholar Analytics'),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_sweep),
-            tooltip: "Clear all approved scholars",
+            tooltip: "Clear All Approved",
             onPressed: () async {
               bool? confirm = await showDialog<bool>(
                 context: context,
@@ -62,68 +62,77 @@ class ScholarAnalyticsView extends StatelessWidget {
           ),
         ],
       ),
-      // Yahan .where('status', isEqualTo: 'approved') add kar diya gaya hai
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('scholars').where('status', isEqualTo: 'approved').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFF004D40)));
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
               child: Text(
-                'No approved scholars found yet.',
+                'No approved scholars found.',
                 style: TextStyle(color: Colors.grey, fontSize: 15),
               ),
             );
           }
 
           final scholars = snapshot.data!.docs;
-
-          // 📊 Approved Scholars Metrics Calculation
           int totalApprovedScholars = scholars.length;
-
           int blockedScholars = scholars.where((doc) {
             var data = doc.data() as Map<String, dynamic>;
-            // Agar aapka account blocking field 'accountStatus' ya 'status' hai uske mutabiq check karein
             return data['accountStatus'] == 'blocked';
           }).length;
-
-          // Active approved scholars woh hain jo block nahi hain
           int activeScholars = totalApprovedScholars - blockedScholars;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(isMobile ? 16.0 : 32.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Approved System Analytics Insights",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  "Scholar Analytics Overview",
+                  style: TextStyle(
+                    fontSize: 22, 
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-                // 📈 Top Counters Summary Blocks
-                Row(
-                  children: [
-                    _buildAnalyticsCard("Total Approved", totalApprovedScholars.toString(), Colors.blue, Icons.analytics),
-                    const SizedBox(width: 12),
-                    _buildAnalyticsCard("Active Scholars", activeScholars.toString(), Colors.green, Icons.verified_user_outlined),
-                    const SizedBox(width: 12),
-                    _buildAnalyticsCard("Blocked Scholars", blockedScholars.toString(), Colors.red, Icons.gpp_bad_outlined),
-                  ],
-                ),
+                if (isMobile)
+                  Column(
+                    children: [
+                      _renderAnalyticsCard(context, "Total Approved", totalApprovedScholars.toString(), Colors.blue, Icons.analytics),
+                      const SizedBox(height: 12),
+                      _renderAnalyticsCard(context, "Active Scholars", activeScholars.toString(), Colors.green, Icons.verified_user_outlined),
+                      const SizedBox(height: 12),
+                      _renderAnalyticsCard(context, "Blocked Scholars", blockedScholars.toString(), Colors.red, Icons.gpp_bad_outlined),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      _renderAnalyticsCard(context, "Total Approved", totalApprovedScholars.toString(), Colors.blue, Icons.analytics),
+                      const SizedBox(width: 12),
+                      _renderAnalyticsCard(context, "Active Scholars", activeScholars.toString(), Colors.green, Icons.verified_user_outlined),
+                      const SizedBox(width: 12),
+                      _renderAnalyticsCard(context, "Blocked Scholars", blockedScholars.toString(), Colors.red, Icons.gpp_bad_outlined),
+                    ],
+                  ),
 
-                const SizedBox(height: 28),
-
-                // 📊 🌟 VISUAL STATISTICS BAR CHART SECTION
-                const Text(
+                const SizedBox(height: 40),
+                Text(
                   "Visual Statistics (Bar Chart)",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 22, 
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
                 ),
-                const SizedBox(height: 16),
-                _buildMediumBarChart(totalApprovedScholars, activeScholars, blockedScholars),
+                const SizedBox(height: 20),
+                _buildBarChartContainer(context, totalApprovedScholars, activeScholars, blockedScholars),
               ],
             ),
           );
@@ -132,19 +141,38 @@ class ScholarAnalyticsView extends StatelessWidget {
     );
   }
 
-  // 🛠️ Custom Premium Medium Sized Bar Chart Builder
-  Widget _buildMediumBarChart(int total, int active, int blocked) {
-    int maxVal = [total, active, blocked].reduce((curr, next) => curr > next ? curr : next);
-    double chartHeight = 180.0;
+  Widget _buildBarChartContainer(BuildContext context, int total, int active, int blocked) {
+    final int maxVal = [total, active, blocked].reduce((curr, next) => curr > next ? curr : next);
+    const double chartHeight = 250.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Widget buildBar(String label, int value, Color color) {
+      final double factor = maxVal == 0 ? 0 : (value / maxVal);
+      final double barHeight = (factor * (chartHeight - 60)).clamp(10.0, chartHeight);
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(value.toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Container(
+            height: barHeight,
+            width: 32,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black54)),
+        ],
+      );
+    }
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.01), blurRadius: 10, offset: const Offset(0, 4))
+          BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 10, offset: const Offset(0, 4))
         ],
       ),
       child: Column(
@@ -153,23 +181,22 @@ class ScholarAnalyticsView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _buildSingleBar("Approved", total, Colors.blue, chartHeight, maxVal),
-              _buildSingleBar("Active", active, Colors.green, chartHeight, maxVal),
-              _buildSingleBar("Blocked", blocked, Colors.red, chartHeight, maxVal),
+              buildBar("Approved", total, Colors.blue),
+              buildBar("Active", active, Colors.green),
+              buildBar("Blocked", blocked, Colors.red),
             ],
           ),
+          const SizedBox(height: 16),
+          Divider(thickness: 1, color: isDark ? Colors.white12 : Colors.black12),
           const SizedBox(height: 8),
-          const Divider(thickness: 1, color: Colors.black12),
-          const SizedBox(height: 4),
-          // Chart Legends
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            runSpacing: 8,
             children: [
-              _buildLegendCircle(Colors.blue, "Total Approved"),
-              const SizedBox(width: 16),
-              _buildLegendCircle(Colors.green, "Active"),
-              const SizedBox(width: 16),
-              _buildLegendCircle(Colors.red, "Blocked"),
+              _renderLegend(Colors.blue, "Total Approved"),
+              _renderLegend(Colors.green, "Active"),
+              _renderLegend(Colors.red, "Blocked"),
             ],
           )
         ],
@@ -177,44 +204,9 @@ class ScholarAnalyticsView extends StatelessWidget {
     );
   }
 
-  // Helper inside chart to render unique status item bar dynamically
-  Widget _buildSingleBar(String label, int value, Color barColor, double maxChartHeight, int maximumValue) {
-    double factor = maximumValue == 0 ? 0 : (value / maximumValue);
-    double calculatedBarHeight = (factor * (maxChartHeight - 40)).clamp(10.0, maxChartHeight);
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Text(
-          value.toString(),
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: barColor),
-        ),
-        const SizedBox(height: 8),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeOutCubic,
-          height: calculatedBarHeight,
-          width: 28,
-          decoration: BoxDecoration(
-            color: barColor,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(6),
-              topRight: Radius.circular(6),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black54),
-        ),
-      ],
-    );
-  }
-
-  // Small circle visual label indicators code logic
-  Widget _buildLegendCircle(Color color, String text) {
+  Widget _renderLegend(Color color, String text) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 10,
@@ -222,31 +214,41 @@ class ScholarAnalyticsView extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(text, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+        Text(text, style: const TextStyle(fontSize: 12)),
       ],
     );
   }
 
-  // Reusable Helper for Quick Analytics Summary Blocks
-  Widget _buildAnalyticsCard(String title, String value, Color color, IconData icon) {
+  Widget _renderAnalyticsCard(BuildContext context, String title, String value, Color color, IconData icon) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
+      flex: MediaQuery.of(context).size.width < 800 ? 0 : 1,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        margin: MediaQuery.of(context).size.width < 800 ? const EdgeInsets.only(bottom: 12) : EdgeInsets.zero,
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(15),
+          border: Border(left: BorderSide(color: color, width: 4)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 3))
+            BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 6, offset: const Offset(0, 3))
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 22),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 12),
-            Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(
+              value, 
+              style: TextStyle(
+                fontSize: 22, 
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              )
+            ),
             const SizedBox(height: 2),
-            Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+            Text(title, style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.grey, fontWeight: FontWeight.w500)),
           ],
         ),
       ),

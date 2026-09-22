@@ -32,11 +32,11 @@ class ManageScholarsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Manage Approved Scholars"),
+        title: const Text("Manage Scholars"),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_sweep),
-            tooltip: "Clear all approved scholars",
+            tooltip: "Clear All Approved",
             onPressed: () async {
               bool? confirm = await showDialog<bool>(
                 context: context,
@@ -84,31 +84,36 @@ class ManageScholarsPage extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-                "Scholar Overview",
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
-            ),
-            const SizedBox(height: 16),
-            Row(
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _counterCard(context, "Approved", getScholarCount(), colorScheme.primary, Icons.school_outlined),
-                const SizedBox(width: 12),
-                _counterCard(context, "Active", getScholarCount(statusValue: 'active'), Colors.green, Icons.check_circle_outline),
-                const SizedBox(width: 12),
-                _counterCard(context, "Blocked", getScholarCount(statusValue: 'blocked'), colorScheme.error, Icons.block_outlined),
+                Text(
+                    "Scholar Overview",
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _counterCard(context, "Approved", getScholarCount(), colorScheme.primary, Icons.school_outlined),
+                    _counterCard(context, "Active", getScholarCount(statusValue: 'active'), Colors.green, Icons.check_circle_outline),
+                    _counterCard(context, "Blocked", getScholarCount(statusValue: 'blocked'), colorScheme.error, Icons.block_outlined),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                Text(
+                    "Approved Scholar List",
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
+                ),
+                const SizedBox(height: 16),
+                _buildVerifiedScholarsList(context),
               ],
             ),
-            const SizedBox(height: 32),
-            Text(
-                "Approved Scholar List",
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
-            ),
-            const SizedBox(height: 16),
-            _buildVerifiedScholarsList(context),
-          ],
+          ),
         ),
       ),
     );
@@ -117,15 +122,16 @@ class ManageScholarsPage extends StatelessWidget {
   Widget _buildVerifiedScholarsList(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('scholars').where('status', isEqualTo: 'approved').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
+          return const Center(
             child: Padding(
-              padding: const EdgeInsets.all(40.0),
-              child: CircularProgressIndicator(color: colorScheme.primary),
+              padding: EdgeInsets.all(40.0),
+              child: CircularProgressIndicator(),
             ),
           );
         }
@@ -154,84 +160,71 @@ class ManageScholarsPage extends StatelessWidget {
 
             bool isBlocked = scholar['accountStatus'] == 'blocked';
             String scholarEmail = scholar['email'] ?? 'No Email';
+            String scholarName = scholar['displayName'] ?? 'Scholar';
 
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 6),
-              elevation: 1,
               child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 leading: CircleAvatar(
-                  radius: 20,
                   backgroundColor: isBlocked
-                      ? colorScheme.error.withOpacity(0.1)
-                      : colorScheme.primary.withOpacity(0.1),
+                      ? colorScheme.error.withAlpha(30)
+                      : colorScheme.primary.withAlpha(30),
                   child: Icon(
                     Icons.school,
                     color: isBlocked ? colorScheme.error : colorScheme.primary,
-                    size: 20,
                   ),
                 ),
                 title: Text(
-                  scholarEmail,
+                  scholarName,
                   style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    color: isBlocked ? Colors.grey : null,
+                    fontWeight: FontWeight.bold,
                     decoration: isBlocked ? TextDecoration.lineThrough : null,
                   ),
                 ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                      tooltip: "Delete Scholar",
-                      onPressed: () async {
-                        try {
-                          await FirebaseFirestore.instance
-                              .collection('scholars')
-                              .doc(docId)
-                              .delete();
+                subtitle: Text(scholarEmail),
+                trailing: isMobile 
+                  ? null 
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                          onPressed: () async {
+                            try {
+                              await FirebaseFirestore.instance
+                                  .collection('scholars')
+                                  .doc(docId)
+                                  .delete();
 
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Scholar deleted successfully"),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          debugPrint("Error deleting scholar: $e");
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 95,
-                      height: 36,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          await FirebaseFirestore.instance.collection('scholars').doc(docId).update({
-                            'accountStatus': isBlocked ? 'active' : 'blocked',
-                          });
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isBlocked ? Colors.green.shade700 : colorScheme.error,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Scholar deleted successfully"),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              debugPrint("Error deleting scholar: $e");
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            await FirebaseFirestore.instance.collection('scholars').doc(docId).update({
+                              'accountStatus': isBlocked ? 'active' : 'blocked',
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isBlocked ? Colors.green : colorScheme.error,
+                            foregroundColor: Colors.white,
                           ),
+                          child: Text(isBlocked ? "Unblock" : "Block"),
                         ),
-                        child: Text(
-                          isBlocked ? "Unblock" : "Block",
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
               ),
             );
           },
@@ -242,8 +235,10 @@ class ManageScholarsPage extends StatelessWidget {
 
   Widget _counterCard(BuildContext context, String title, Stream<int> stream, Color accentColor, IconData icon) {
     final theme = Theme.of(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
-    return Expanded(
+    return SizedBox(
+      width: isMobile ? (MediaQuery.of(context).size.width - 52) / 2 : 200,
       child: StreamBuilder<int>(
         stream: stream,
         builder: (context, snapshot) => Container(
@@ -276,10 +271,9 @@ class ManageScholarsPage extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       snapshot.data?.toString() ?? '0',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: theme.textTheme.bodyLarge?.color,
                       ),
                     ),
                   ],
