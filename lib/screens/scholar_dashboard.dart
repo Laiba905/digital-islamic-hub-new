@@ -20,7 +20,7 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    // 🚀 STABILITY: Rely on inherited theme from main.dart
+    // 🚀 STABILITY: Rely on context theme instead of double listeners
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return StreamBuilder<DocumentSnapshot>(
@@ -38,7 +38,6 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
         }
 
         return Scaffold(
-          key: ValueKey('scholar_dashboard_$isDark'),
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             elevation: 0,

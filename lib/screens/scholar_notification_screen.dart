@@ -2,197 +2,95 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
-import 'scholar_questions_screen.dart';
-import 'scholar_payments_screen.dart';
 
 class ScholarNotificationsScreen extends StatelessWidget {
   final String currentScholarId;
-
   const ScholarNotificationsScreen({super.key, required this.currentScholarId});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final size = MediaQuery.sizeOf(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Notifications", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text("Scholar Notifications", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
         foregroundColor: Colors.white,
+        centerTitle: true,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('notifications')
             .where('scholarId', isEqualTo: currentScholarId)
-            .where('targetRole', isEqualTo: 'scholar')
+            .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
+            return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
           }
-
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
-              child: Text(
-                "No notifications yet.",
-                style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.notifications_none, size: 60, color: isDark ? Colors.white24 : Colors.grey.shade300),
+                  const SizedBox(height: 16),
+                  Text("No notifications yet", style: TextStyle(color: isDark ? Colors.white60 : Colors.grey.shade600, fontSize: 16)),
+                ],
               ),
             );
           }
 
-          var docs = snapshot.data!.docs;
-
-          docs.sort((a, b) {
-            var aData = a.data() as Map<String, dynamic>;
-            var bData = b.data() as Map<String, dynamic>;
-            Timestamp? aTime = aData['createdAt'] ?? aData['timestamp'];
-            Timestamp? bTime = bData['createdAt'] ?? bData['timestamp'];
-            if (aTime == null || bTime == null) return 0;
-            return bTime.compareTo(aTime);
-          });
+          final docs = snapshot.data!.docs;
 
           return ListView.builder(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             itemCount: docs.length,
             itemBuilder: (context, index) {
-              var data = docs[index].data() as Map<String, dynamic>;
-              String docId = docs[index].id;
-              String title = data['title'] ?? "Notification";
-              String message = data['message'] ?? data['body'] ?? "";
-              bool isRead = data['isRead'] ?? false;
+              final data = docs[index].data() as Map<String, dynamic>;
+              final createdAt = data['createdAt'] as Timestamp?;
+              final String timeStr = createdAt != null 
+                  ? DateFormat('EEE, dd MMM, hh:mm a').format(createdAt.toDate()) 
+                  : 'Recent';
 
-              String formattedDate = '';
-              var timestampField = data['createdAt'] ?? data['timestamp'];
-              if (timestampField != null) {
-                try {
-                  Timestamp timestamp = timestampField;
-                  DateTime dateTime = timestamp.toDate();
-                  formattedDate = DateFormat('EEE, MMM d, yyyy - hh:mm a').format(dateTime);
-                } catch (e) {
-                  formattedDate = '';
-                }
-              }
-
-              Future<void> handleTapOrRead() async {
-                await FirebaseFirestore.instance
-                    .collection('notifications')
-                    .doc(docId)
-                    .update({'isRead': true});
-
-                if (context.mounted) {
-                  final lowerTitle = title.toLowerCase();
-                  final lowerMessage = message.toLowerCase();
-
-                  if (lowerTitle.contains("payment") || lowerMessage.contains("payment") || lowerMessage.contains("sent")) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ScholarPaymentsScreen(scholarId: currentScholarId),
-                      ),
-                    );
-                  } else if (lowerTitle.contains("question") || lowerMessage.contains("question") || lowerMessage.contains("subscription") || lowerMessage.contains("pass")) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ScholarQuestionsScreen(scholarId: currentScholarId),
-                      ),
-                    );
-                  } else if (lowerTitle.contains("earning") || lowerMessage.contains("earnings") || lowerMessage.contains("ledger")) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ScholarPaymentsScreen(scholarId: currentScholarId),
-                      ),
-                    );
-                  }
-                }
-              }
-
-              return Card(
-                color: !isRead
-                    ? AppTheme.accentGreen.withAlpha(isDark ? 50 : 30)
-                    : (isDark ? Colors.white.withAlpha(12) : Colors.white),
-                shape: RoundedRectangleBorder(
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withAlpha(10) : Colors.white,
                   borderRadius: BorderRadius.circular(15),
-                  side: BorderSide(
-                    color: !isRead
-                        ? AppTheme.accentGreen.withAlpha(100)
-                        : (isDark ? Colors.white10 : AppTheme.primaryLight.withAlpha(30)),
-                  ),
+                  border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50),
+                  boxShadow: [if(!isDark) BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 8, offset: const Offset(0, 4))],
                 ),
-                margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   leading: CircleAvatar(
-                    backgroundColor: !isRead ? AppTheme.accentGreen : Colors.grey.shade400,
-                    child: Icon(
-                      Icons.notifications,
-                      color: !isRead ? AppTheme.primaryDark : Colors.white,
-                      size: 20,
-                    ),
+                    backgroundColor: AppTheme.accentGreen.withAlpha(30),
+                    child: const Icon(Icons.notifications, color: AppTheme.accentGreen),
                   ),
-                  title: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            fontWeight: !isRead ? FontWeight.bold : FontWeight.normal,
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                      ),
-                      if (isRead) ...[
-                        const SizedBox(width: 8),
-                        const Icon(Icons.check_circle, color: Colors.green, size: 18),
-                      ],
-                    ],
+                  title: Text(
+                    data['title'] ?? 'Notification',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87, fontSize: 14),
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 4),
                       Text(
-                        message,
-                        style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                        data['message'] ?? '',
+                        style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 12),
                       ),
-                      if (formattedDate.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          formattedDate,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: isDark ? Colors.tealAccent : Colors.teal.shade700,
-                          ),
-                        ),
-                      ],
+                      const SizedBox(height: 6),
+                      Text(
+                        timeStr,
+                        style: TextStyle(fontSize: 10, color: isDark ? Colors.white38 : Colors.grey),
+                      ),
                     ],
                   ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                    tooltip: "Delete Notification",
-                    onPressed: () async {
-                      try {
-                        await FirebaseFirestore.instance
-                            .collection('notifications')
-                            .doc(docId)
-                            .delete();
-
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Notification deleted successfully"),
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        debugPrint("Error deleting notification: $e");
-                      }
-                    },
-                  ),
-                  onTap: handleTapOrRead,
+                  onTap: () {
+                    FirebaseFirestore.instance.collection('notifications').doc(docs[index].id).update({'isRead': true});
+                  },
                 ),
               );
             },

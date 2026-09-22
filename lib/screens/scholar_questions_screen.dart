@@ -66,6 +66,8 @@ class ScholarQuestionsScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               String userId = userIds[index];
               var userDocs = userGroups[userId]!;
+              final size = MediaQuery.sizeOf(context);
+              final isSmall = size.width < 360;
 
               userDocs.sort((a, b) {
                 Timestamp? timeA = (a.data() as Map<String, dynamic>)['createdAt'];
@@ -112,19 +114,27 @@ class ScholarQuestionsScreen extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     color: isDark ? Colors.white.withAlpha(12) : Colors.white,
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      leading: CircleAvatar(
-                        backgroundColor: isDark ? AppTheme.accentGreen.withAlpha(30) : AppTheme.primaryLight.withAlpha(15),
-                        child: Icon(Icons.person, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: isSmall ? 12 : 16, 
+                        vertical: isSmall ? 8 : 12
                       ),
-                      title: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      leading: CircleAvatar(
+                        radius: isSmall ? 18 : 22,
+                        backgroundColor: isDark ? AppTheme.accentGreen.withAlpha(30) : AppTheme.primaryLight.withAlpha(15),
+                        child: Icon(Icons.person, size: isSmall ? 20 : 24, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
+                      ),
+                      title: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Expanded(
-                            child: Text(
-                              displayName,
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87),
-                              overflow: TextOverflow.ellipsis,
+                          Text(
+                            displayName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold, 
+                              fontSize: isSmall ? 14 : 16, 
+                              color: isDark ? Colors.white : Colors.black87
                             ),
                           ),
                           if (pendingCount > 0)
@@ -135,8 +145,12 @@ class ScholarQuestionsScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                "New Pass ($pendingCount)",
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                "New ($pendingCount)",
+                                style: TextStyle(
+                                  fontSize: isSmall ? 9 : 10, 
+                                  fontWeight: FontWeight.bold, 
+                                  color: Colors.white
+                                ),
                               ),
                             ),
                         ],
@@ -323,36 +337,38 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
               }
 
               return Center(
-                child: ConstrainedBox(
+                child: Container(
                   constraints: const BoxConstraints(maxWidth: 800),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: size.width < 400 ? 12 : 16, 
+                    vertical: 4
+                  ),
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 20),
                     elevation: isDark ? 0 : 3,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     color: isDark ? Colors.white.withAlpha(12) : Colors.white,
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: EdgeInsets.all(size.width < 400 ? 12.0 : 16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.start,
+                            spacing: 12,
+                            runSpacing: 4,
                             children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.person_outline, size: 18, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        "User: ${widget.userName}",
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white70 : Colors.black87),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.person_outline, size: 18, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    "User: ${widget.userName}",
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: size.width < 360 ? 12 : 14, color: isDark ? Colors.white70 : Colors.black87),
+                                  ),
+                                ],
                               ),
                               Text(
                                 formattedDateTime,
@@ -361,8 +377,10 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            spacing: 12,
+                            runSpacing: 8,
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

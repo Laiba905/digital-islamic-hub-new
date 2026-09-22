@@ -37,20 +37,19 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
   }
 
   Future<void> _loadScholarData() async {
-    if (user != null) {
-      try {
-        DocumentSnapshot doc = await _firestore.collection('scholars').doc(user!.uid).get();
-        if (doc.exists && mounted) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
-          setState(() {
-            _profileImageUrl = data['profileImage'];
-            _isNotificationEnabled = data['notifications'] ?? true;
-            _nameController.text = data['displayName'] ?? user?.displayName ?? "Scholar";
-          });
-        }
-      } catch (e) {
-        debugPrint("Error loading scholar data: $e");
+    if (user == null) return;
+    try {
+      DocumentSnapshot doc = await _firestore.collection('scholars').doc(user!.uid).get();
+      if (doc.exists && mounted) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
+        setState(() {
+          _profileImageUrl = data['profileImage'];
+          _isNotificationEnabled = data['notifications'] ?? true;
+          _nameController.text = data['displayName'] ?? user?.displayName ?? "Scholar";
+        });
       }
+    } catch (e) {
+      debugPrint("Error loading scholar data: $e");
     }
   }
 
@@ -136,12 +135,10 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🚀 STABILITY: Rely on context-based theme, removed local listeners
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      key: ValueKey('scholar_profile_$isDark'),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Scholar Profile", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
@@ -186,13 +183,16 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
                       color: Colors.blueAccent,
                       isDark: isDark,
                       onChanged: (val) async {
+                        // 🚀 SAFE THEME SWITCHING
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setString('app_theme', val ? 'dark' : 'light');
                         
                         _firestore.collection('scholars').doc(user!.uid).set({'darkMode': val}, SetOptions(merge: true));
                         
-                        // 🚀 Only update the global notifier
-                        themeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
+                        // Small delay to prevent tree interference during switch
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          themeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
+                        });
                       },
                     ),
                     _buildSwitchTile(
@@ -268,7 +268,6 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
 
   Widget _buildSettingsCard(bool isDark, List<Widget> children) {
     return Container(
-      key: ValueKey('card_$isDark'),
       decoration: BoxDecoration(color: isDark ? Colors.white.withAlpha(12) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50), boxShadow: [if (!isDark) BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))]), 
       child: Column(children: children)
     );

@@ -225,11 +225,15 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                     ),
                   ],
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text(
                           "Total Consultation Earnings",
@@ -324,23 +328,31 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(14.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 12,
+                              runSpacing: 12,
                               children: [
-                                Expanded(
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.55),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Row(
                                         children: [
                                           Icon(Icons.person, size: 14, color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight),
                                           const SizedBox(width: 4),
-                                          Text(
-                                            displayName,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                              color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
+                                          Expanded(
+                                            child: Text(
+                                              displayName,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
                                         ],
@@ -384,6 +396,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                                   border: Border.all(color: isDark ? AppTheme.accentGreen : Colors.green),
                                                 ),
                                                 child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
                                                   children: [
                                                     Icon(Icons.receipt, size: 12, color: isDark ? AppTheme.accentGreen : Colors.green),
                                                     const SizedBox(width: 4),
@@ -401,7 +414,6 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 10),
                                 isPaid
                                     ? Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
