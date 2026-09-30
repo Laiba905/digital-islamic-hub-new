@@ -737,7 +737,7 @@ class ScholarMyComplaintsScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text("Status: ${status.toUpperCase()}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: status == 'resolved' ? Colors.green : Colors.orange)),
                   const Divider(height: 20),
-                  const Text("Admin Resolution & Updated Proof:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+                  const Text("Update Proof:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
                   const SizedBox(height: 10),
 
                   FutureBuilder<DocumentSnapshot>(
