@@ -139,7 +139,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                   const SnackBar(content: Text("Issue reported to admin successfully!")),
                 );
               },
-              child: const Text("Submit", style: TextStyle(color: Colors.white)),
+              child: const Text("Submit Issue", style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -223,7 +223,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("Payment Screenshot / Proof:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const Text("Payment Screenshot Proof:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
                     if (imageUrl.isNotEmpty)
                       TextButton.icon(
                         onPressed: () => _showFullImageDialog(context, imageUrl),
@@ -280,7 +280,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                       _showReportIssueDialog(context, docId, amount);
                     },
                     icon: const Icon(Icons.report_problem_outlined, size: 16),
-                    label: const Text("Report Issue to Admin", style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: const Text("Report Issue", style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -463,7 +463,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                       },
                       icon: const Icon(Icons.account_balance_wallet, size: 16),
                       label: const Text(
-                        "Cashout History",
+                        "Check History",
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ),
@@ -583,7 +583,7 @@ class _ScholarPaymentsScreenState extends State<ScholarPaymentsScreen> {
                                                     Icon(Icons.receipt, size: 12, color: isDark ? AppTheme.accentGreen : Colors.green),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      transactionId.isNotEmpty ? "ID: $transactionId" : "Transferred",
+                                                      transactionId.isNotEmpty ? "ID: $transactionId" : "Transfered",
                                                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? AppTheme.accentGreen : Colors.green),
                                                     ),
                                                   ],
