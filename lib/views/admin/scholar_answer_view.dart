@@ -286,112 +286,55 @@ class ScholarAnswerView extends StatelessWidget {
   }
 }
 
-class AllScholarsBiodataScreen extends StatelessWidget {
-  final bool isDark;
-
-  const AllScholarsBiodataScreen({super.key, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text("Approved Scholars"),
-        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
-        titleTextStyle: TextStyle(
-          color: isDark ? Colors.white : Colors.black87,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('scholars')
-            .where('status', isEqualTo: 'approved')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("No approved scholars found."));
-          }
-
-          var docs = snapshot.data!.docs;
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              var data = docs[index].data() as Map<String, dynamic>;
-
-              String email = data['email'] ?? 'N/A';
-              String derivedNameFromEmail = email != 'N/A' && email.contains('@') ? email.split('@')[0] : 'Unknown Name';
-
-              String name = data['name'] ??
-                  data['displayName'] ??
-                  data['fullName'] ??
-                  derivedNameFromEmail;
-
-              String phone = data['phone'] ?? data['accountNumber'] ?? data['jazzcash'] ?? data['easypaisa'] ?? 'N/A';
-              String paymentMethod = data['payment_method'] ?? data['paymentMethod'] ?? data['accountType'] ?? 'N/A';
-              String status = data['status'] ?? 'approved';
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            name,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.tealAccent : const Color(0xFF004D40),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withAlpha(40),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              status.toUpperCase(),
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 16),
-                      Text("Email: $email", style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
-                      const SizedBox(height: 4),
-                      Text("Account / Phone Number: $phone", style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
-                      const SizedBox(height: 4),
-                      Text("Payment Method: $paymentMethod", style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87)),
-                    ],
-                  ),
+// -----------------------------------------------------------------------------
+// Helper Function: Full Screen Image Preview Dialog
+// -----------------------------------------------------------------------------
+void _showFullScreenImage(BuildContext context, String imageUrl) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.black.withOpacity(0.9),
+      insetPadding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: const EdgeInsets.all(40),
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return const Center(child: CircularProgressIndicator(color: Colors.white));
+                },
+                errorBuilder: (context, error, stackTrace) => const Center(
+                  child: Text("Failed to load image", style: TextStyle(color: Colors.white, fontSize: 16)),
                 ),
-              );
-            },
-          );
-        },
+              ),
+            ),
+          ),
+          Positioned(
+            top: 20,
+            right: 20,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 32),
+              style: IconButton.styleFrom(backgroundColor: Colors.black54),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
-class ScholarWithdrawalFullScreen extends StatefulWidget {
+// -----------------------------------------------------------------------------
+// ScholarWithdrawalFullScreen
+// -----------------------------------------------------------------------------
+class ScholarWithdrawalFullScreen extends StatelessWidget {
   final String scholarName;
   final String scholarId;
   final String scholarPhone;
@@ -408,132 +351,500 @@ class ScholarWithdrawalFullScreen extends StatefulWidget {
   });
 
   @override
-  State<ScholarWithdrawalFullScreen> createState() => _ScholarWithdrawalFullScreenState();
-}
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[100],
+      appBar: AppBar(
+        title: Text("$scholarName - Details"),
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.teal,
+        foregroundColor: Colors.white,
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: questionsList.length,
+        itemBuilder: (context, index) {
+          var q = questionsList[index];
+          String questionText = q['question'] ?? q['questionText'] ?? 'No Question';
+          String answerText = q['answer'] ?? q['scholarResponse'] ?? 'No Answer';
+          bool isPaid = q['isPaidToScholar'] ?? false;
+          double share = double.tryParse(q['scholarShare']?.toString() ?? q['amount']?.toString() ?? '0') ?? 0;
+          String recordId = q['docId'] ?? '';
 
-class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScreen> {
-  void _openPaymentDialog(BuildContext context, Map<String, dynamic> questionData) {
-    final TextEditingController amountController = TextEditingController(
-      text: questionData['scholarShare']?.toString() ?? questionData['amount']?.toString() ?? '0',
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Share: RS ${share.toStringAsFixed(0)}",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isPaid ? Colors.green : Colors.orange,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Chip(
+                        label: Text(isPaid ? "Paid" : "Unpaid"),
+                        backgroundColor: isPaid ? Colors.green.withAlpha(40) : Colors.orange.withAlpha(40),
+                        labelStyle: TextStyle(
+                          color: isPaid ? Colors.green : Colors.orange,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  const Text("Question:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 2),
+                  Text(questionText, style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
+                  const SizedBox(height: 8),
+                  const Text("Answer:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 2),
+                  Text(answerText, style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black54)),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (isPaid) ...[
+                        OutlinedButton.icon(
+                          onPressed: () => _showPaidDetailsDialog(context, q),
+                          icon: const Icon(Icons.receipt, size: 16),
+                          label: const Text("View Proof"),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      // StreamBuilder to check if complaint exists and is resolved
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('admin_complaints')
+                            .where('recordId', isEqualTo: recordId)
+                            .snapshots(),
+                        builder: (context, complaintSnapshot) {
+                          bool hasResolvedComplaint = false;
+                          if (complaintSnapshot.hasData && complaintSnapshot.data!.docs.isNotEmpty) {
+                            for (var doc in complaintSnapshot.data!.docs) {
+                              var data = doc.data() as Map<String, dynamic>;
+                              if ((data['status'] ?? '').toString().toLowerCase() == 'resolved') {
+                                hasResolvedComplaint = true;
+                                break;
+                              }
+                            }
+                          }
+
+                          if (hasResolvedComplaint) {
+                            return ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () => _showAdminComplaintsDialog(context, recordId, q),
+                              icon: const Icon(Icons.check_circle, size: 16),
+                              label: const Text("Resolved"),
+                            );
+                          }
+
+                          return ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () => _showAdminComplaintsDialog(context, recordId, q),
+                            icon: const Icon(Icons.warning, size: 16),
+                            label: const Text("Complaints"),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
-    final TextEditingController trxController = TextEditingController();
-    String? screenshotUrl;
-    bool isUploading = false;
+  }
+
+  void _showPaidDetailsDialog(BuildContext context, Map<String, dynamic> qData) {
+    String tid = qData['adminTransactionId'] ?? 'N/A';
+    String? screenshotUrl = qData['adminPaymentScreenshot'];
 
     showDialog(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              backgroundColor: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
-              title: Text("Pay Scholar: ${widget.scholarName}", style: TextStyle(color: widget.isDark ? Colors.white : Colors.black87)),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(" Phone: ${widget.scholarPhone}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: amountController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Enter Amount (RS)',
-                        border: OutlineInputBorder(),
-                      ),
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          title: const Text("Payment Proof & History", style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: 450,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Transaction ID (TID) / Account Number:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withAlpha(20),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.teal.withAlpha(50)),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: trxController,
-                      decoration: const InputDecoration(
-                        labelText: 'Transaction ID / Reference No',
-                        border: OutlineInputBorder(),
+                    child: Text(tid, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal)),
+                  ),
+                  const SizedBox(height: 15),
+                  const Text("Uploaded Payment Screenshot:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 8),
+                  if (screenshotUrl != null && screenshotUrl.isNotEmpty)
+                    GestureDetector(
+                      onTap: () => _showFullScreenImage(context, screenshotUrl),
+                      child: Container(
+                        height: 180,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.teal.withAlpha(100)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(screenshotUrl, fit: BoxFit.cover),
+                              Positioned(
+                                bottom: 8,
+                                right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                                      SizedBox(width: 4),
+                                      Text("Click to view full", style: TextStyle(color: Colors.white, fontSize: 10)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: isUploading
-                          ? null
-                          : () async {
-                        final picker = ImagePicker();
-                        final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-                        if (pickedFile != null) {
-                          setStateDialog(() => isUploading = true);
-                          try {
-                            dynamic uploadResult = await CloudinaryService.uploadImage(pickedFile);
-                            String? url = uploadResult?.toString();
+                    )
+                  else
+                    const Text("No screenshot found.", style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-                            setStateDialog(() {
-                              screenshotUrl = url;
-                              isUploading = false;
-                            });
-                          } catch (e) {
-                            setStateDialog(() => isUploading = false);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Upload failed: $e')),
-                              );
-                            }
-                          }
-                        }
-                      },
-                      icon: isUploading
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.upload_file),
-                      label: Text(screenshotUrl == null ? "Upload Payment Screenshot" : "Screenshot Uploaded ✅"),
-                    ),
-                  ],
+  // Admin Complaints Dialog
+  void _showAdminComplaintsDialog(BuildContext context, String recordId, Map<String, dynamic> qData) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent),
+              SizedBox(width: 8),
+              Text("Scholar Complaints / Issues", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          content: SizedBox(
+            width: 450,
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('admin_complaints')
+                  .where('recordId', isEqualTo: recordId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Text("No complaints found for this record.");
+                }
+
+                var complaints = snapshot.data!.docs;
+
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: complaints.length,
+                  itemBuilder: (context, index) {
+                    var compDoc = complaints[index];
+                    var compData = compDoc.data() as Map<String, dynamic>;
+                    String issueMessage = compData['issueMessage'] ?? 'No message';
+                    String status = compData['status'] ?? 'pending';
+                    double complaintAmount = double.tryParse(compData['amount']?.toString() ?? '0') ?? 0;
+                    String sName = compData['scholarName'] ?? scholarName;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: status == 'resolved' ? Colors.green.withAlpha(20) : Colors.orange.withAlpha(20),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: status == 'resolved' ? Colors.green.withAlpha(50) : Colors.orange.withAlpha(50)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Scholar: $sName", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.teal)),
+                          const SizedBox(height: 2),
+                          Text("Amount: RS ${complaintAmount.toStringAsFixed(0)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 4),
+                          Text("Issue: $issueMessage", style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
+                          const SizedBox(height: 4),
+                          Text("Status: $status", style: TextStyle(fontSize: 12, color: status == 'resolved' ? Colors.green : Colors.grey, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: status == 'pending'
+                                ? ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.teal,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              ),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showResolveOptionsDialog(context, compDoc.id, recordId, qData);
+                              },
+                              child: const Text("Resolve & Update", style: TextStyle(fontSize: 11)),
+                            )
+                                : ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              ),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showPaidDetailsDialog(context, qData);
+                              },
+                              icon: const Icon(Icons.check_circle, size: 14),
+                              label: const Text("Resolved (View Proof)", style: TextStyle(fontSize: 11)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey, foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Resolve Options Dialog with 3 Options & Full Screen Image Preview
+  void _showResolveOptionsDialog(BuildContext context, String complaintId, String recordId, Map<String, dynamic> qData) {
+    String selectedOption = 'id';
+    final TextEditingController updateTidController = TextEditingController();
+    String? updatedScreenshotUrl;
+    bool isUploadingImg = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateModal) {
+            Future<void> pickImageForUpdate() async {
+              final ImagePicker picker = ImagePicker();
+              final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+
+              if (pickedFile != null) {
+                setStateModal(() => isUploadingImg = true);
+                try {
+                  dynamic uploadResult = await CloudinaryService.uploadImage(pickedFile);
+                  setStateModal(() {
+                    updatedScreenshotUrl = uploadResult?.toString();
+                    isUploadingImg = false;
+                  });
+                } catch (e) {
+                  setStateModal(() => isUploadingImg = false);
+                }
+              }
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              title: const Text("Select Update Type", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              content: SizedBox(
+                width: 450,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text("Choose what you want to update/correct for this payment:", style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: selectedOption,
+                        dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'id', child: Text("ID Number (TID)")),
+                          DropdownMenuItem(value: 'screenshot', child: Text("Screenshot Attached")),
+                          DropdownMenuItem(value: 'both', child: Text("Both (ID & Screenshot)")),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setStateModal(() => selectedOption = val);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      if (selectedOption == 'id' || selectedOption == 'both') ...[
+                        const Text("Enter Correct ID Number (TID):", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: updateTidController,
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                          decoration: InputDecoration(
+                            hintText: "Enter updated Transaction ID",
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (selectedOption == 'screenshot' || selectedOption == 'both') ...[
+                        const Text("Upload New Screenshot:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(height: 6),
+                        if (updatedScreenshotUrl != null && updatedScreenshotUrl!.isNotEmpty)
+                          GestureDetector(
+                            onTap: () => _showFullScreenImage(context, updatedScreenshotUrl!),
+                            child: Container(
+                              height: 120,
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.teal),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Image.network(updatedScreenshotUrl!, fit: BoxFit.cover),
+                                    const Positioned(
+                                      bottom: 6,
+                                      right: 6,
+                                      child: CircleAvatar(
+                                        radius: 12,
+                                        backgroundColor: Colors.black54,
+                                        child: Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ElevatedButton.icon(
+                          onPressed: isUploadingImg ? null : pickImageForUpdate,
+                          icon: const Icon(Icons.upload_file, size: 16),
+                          label: Text(updatedScreenshotUrl == null ? "Pick Screenshot" : "Change Screenshot"),
+                          style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
+                        ),
+                        if (isUploadingImg) const LinearProgressIndicator(color: Colors.teal),
+                      ],
+                    ],
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel"),
+                  child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
                 ),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                  onPressed: isUploading
-                      ? null
-                      : () async {
-                    String docId = questionData['docId'];
-                    String amountVal = amountController.text;
-                    String trxVal = trxController.text;
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
+                  onPressed: () async {
+                    String newTid = updateTidController.text.trim();
 
-                    // 1. Update question payment status
-                    await FirebaseFirestore.instance.collection('user_questions').doc(docId).update({
-                      'isPaidToScholar': true,
-                      'paidAmount': amountVal,
-                      'transactionId': trxVal,
-                      'paymentScreenshot': screenshotUrl ?? '',
-                      'paidAt': FieldValue.serverTimestamp(),
+                    if ((selectedOption == 'id' || selectedOption == 'both') && newTid.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter updated Transaction ID.')));
+                      return;
+                    }
+                    if ((selectedOption == 'screenshot' || selectedOption == 'both') && (updatedScreenshotUrl == null || updatedScreenshotUrl!.isEmpty)) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload the new screenshot.')));
+                      return;
+                    }
+
+                    Map<String, dynamic> updateData = {};
+                    if (selectedOption == 'id' || selectedOption == 'both') {
+                      updateData['adminTransactionId'] = newTid;
+                    }
+                    if (selectedOption == 'screenshot' || selectedOption == 'both') {
+                      updateData['adminPaymentScreenshot'] = updatedScreenshotUrl;
+                    }
+
+                    // 1. Update user_questions record
+                    await FirebaseFirestore.instance.collection('user_questions').doc(recordId).update(updateData);
+
+                    // 2. Mark complaint as resolved
+                    await FirebaseFirestore.instance.collection('admin_complaints').doc(complaintId).update({
+                      'status': 'resolved',
+                      'resolvedAt': FieldValue.serverTimestamp(),
                     });
 
-                    // 2. Add notification with the exact title/message format that matches previous working notifications
-                    await FirebaseFirestore.instance.collection('notifications').add({
-                      'scholarId': widget.scholarId,
-                      'scholarName': widget.scholarName,
-                      'targetRole': 'scholar',
-                      'title': 'New Earning Added! 💰',
-                      'message': 'RS $amountVal added to your pending earnings ledger. TrxID: $trxVal',
-                      'isRead': false,
-                      'createdAt': FieldValue.serverTimestamp(),
-                    });
-
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      setState(() {
-                        questionData['isPaidToScholar'] = true;
-                        questionData['paidAmount'] = amountVal;
-                        questionData['transactionId'] = trxVal;
-                        questionData['paymentScreenshot'] = screenshotUrl ?? '';
+                    // 3. Send Notification Strictly to Scholar
+                    if (scholarId.isNotEmpty) {
+                      await FirebaseFirestore.instance.collection('notifications').add({
+                        'scholarId': scholarId,
+                        'targetRole': 'scholar', // <-- Strictly set to scholar so it won't show in admin panel
+                        'title': 'Payment Issue Resolved ',
+                        'message': 'The admin has resolved your issue and updated the details.',
+                        'isRead': false,
+                        'createdAt': FieldValue.serverTimestamp(),
                       });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Payment marked as PAID & notification sent!')),
-                      );
+                    }
+
+                    Navigator.pop(context);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Issue resolved & notification sent to scholar successfully!')));
                     }
                   },
-                  child: const Text("Submit Payment"),
+                  child: const Text("Update & Resolve"),
                 ),
               ],
             );
@@ -542,266 +853,30 @@ class _ScholarWithdrawalFullScreenState extends State<ScholarWithdrawalFullScree
       },
     );
   }
+}
+
+// -----------------------------------------------------------------------------
+// AllScholarsBiodataScreen Class
+// -----------------------------------------------------------------------------
+class AllScholarsBiodataScreen extends StatelessWidget {
+  final bool isDark;
+  const AllScholarsBiodataScreen({super.key, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
-    double completedWeekAmount = 0;
-    double runningWeekAmount = 0;
-
-    for (var q in widget.questionsList) {
-      bool isPaid = q['isPaidToScholar'] ?? false;
-      if (isPaid) continue;
-
-      double share = double.tryParse(q['scholarShare']?.toString() ?? q['amount']?.toString() ?? '0') ?? 0;
-      Timestamp? t = q['answeredAt'] ?? q['createdAt'];
-
-      if (t != null) {
-        DateTime date = t.toDate();
-        int differenceDays = DateTime.now().difference(date).inDays;
-
-        if (differenceDays >= 7) {
-          completedWeekAmount += share;
-        } else {
-          runningWeekAmount += share;
-        }
-      } else {
-        runningWeekAmount += share;
-      }
-    }
-
-    bool isWeekCompleted = completedWeekAmount > 0;
-    double displayAmount = isWeekCompleted ? completedWeekAmount : runningWeekAmount;
-
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       appBar: AppBar(
-        title: Text("Payout: ${widget.scholarName}"),
-        backgroundColor: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: widget.isDark ? Colors.white : Colors.black87),
-        titleTextStyle: TextStyle(
-          color: widget.isDark ? Colors.white : Colors.black87,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
+        title: const Text("All Scholars Biodata"),
+        backgroundColor: Colors.teal,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayAmount == 0 ? "All Cleared:" : (isWeekCompleted ? "Completed Week Payout:" : "Running Week Balance:"),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: displayAmount == 0 ? Colors.grey : (isWeekCompleted ? Colors.red : Colors.green),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "RS ${displayAmount.toStringAsFixed(0)}",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: displayAmount == 0 ? Colors.grey : (isWeekCompleted ? Colors.red : Colors.green),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text("Scholar Answers & Questions Record:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: widget.questionsList.length,
-              itemBuilder: (context, index) {
-                var q = widget.questionsList[index];
-
-                String questionText = q['questionText'] ?? q['question'] ?? q['question_text'] ?? 'No Question';
-                String additionalNote = q['Additional Note / Message'] ?? q['additionalNote'] ?? q['userAdditionalNote'] ?? '';
-                String scholarAnswerText = q['scholarResponse'] ?? q['answer'] ?? 'No Scholar Answer Yet';
-                String amount = q['scholarShare']?.toString() ?? q['amount']?.toString() ?? '0';
-                bool isPaid = q['isPaidToScholar'] ?? false;
-
-                Timestamp? answeredAt = q['answeredAt'] as Timestamp?;
-                String formattedDate = "N/A";
-                String countdownText = "";
-                Color countdownColor = Colors.grey;
-
-                if (answeredAt != null) {
-                  DateTime dateTime = answeredAt.toDate();
-                  formattedDate = DateFormat('EEEE, dd MMM yyyy, hh:mm a').format(dateTime);
-
-                  int diffDays = DateTime.now().difference(dateTime).inDays;
-                  if (isPaid) {
-                    countdownText = "PAID";
-                    countdownColor = Colors.green;
-                  } else if (diffDays < 7) {
-                    int daysLeft = 7 - diffDays;
-                    countdownText = "$daysLeft day${daysLeft > 1 ? 's' : ''} left";
-                    countdownColor = Colors.orange;
-                  } else {
-                    countdownText = "Ready to Pay ✅";
-                    countdownColor = Colors.green;
-                  }
-                }
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  elevation: 2,
-                  color: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      formattedDate,
-                                      style: TextStyle(fontSize: 12, color: widget.isDark ? Colors.grey[400] : Colors.grey[600], fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  countdownText,
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: countdownColor),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              children: [
-                                Text("RS $amount", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 15)),
-                                const SizedBox(width: 10),
-                                isPaid
-                                    ? Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.green),
-                                  ),
-                                  child: const Text("PAID", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
-                                )
-                                    : ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.teal,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                  onPressed: () => _openPaymentDialog(context, q),
-                                  child: const Text("Pay Now", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const Divider(height: 20),
-                        Text("Question: $questionText", style: TextStyle(fontWeight: FontWeight.bold, color: widget.isDark ? Colors.white : Colors.black87)),
-                        if (additionalNote.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text("Note: $additionalNote", style: TextStyle(fontSize: 12, color: widget.isDark ? Colors.amber[300] : Colors.amber[800])),
-                        ],
-                        const SizedBox(height: 8),
-                        Text("Scholar Answer: $scholarAnswerText", style: TextStyle(color: widget.isDark ? Colors.tealAccent : Colors.teal[800])),
-
-                        // Yahan payment record / screenshot details show hon gi jab payment ho chuki ho
-                        if (isPaid) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green.withOpacity(0.3)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Paid Amount: RS ${q['paidAmount'] ?? amount}",
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-                                ),
-                                if (q['transactionId'] != null && q['transactionId'].toString().isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    "Transaction ID: ${q['transactionId']}",
-                                    style: TextStyle(fontSize: 12, color: widget.isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                                if (q['paymentScreenshot'] != null && q['paymentScreenshot'].toString().isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  TextButton.icon(
-                                    style: TextButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      minimumSize: const Size(50, 20),
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    onPressed: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (_) => AlertDialog(
-                                          title: const Text("Payment Screenshot"),
-                                          content: Image.network(q['paymentScreenshot']),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(context),
-                                              child: const Text("Close"),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.image, size: 16, color: Colors.teal),
-                                    label: const Text("View Payment Screenshot", style: TextStyle(fontSize: 12, color: Colors.teal)),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
+      body: Center(
+        child: Text(
+          "All Scholars Biodata Screen",
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87,
+            fontSize: 18,
+          ),
         ),
       ),
     );

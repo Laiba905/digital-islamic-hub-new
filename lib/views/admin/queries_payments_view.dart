@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'admin_payment_history_view.dart';
 
 class QueriesPaymentsView extends StatefulWidget {
@@ -15,9 +18,12 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8FAFB),
       appBar: AppBar(
-        title: const Text('Incoming Queries', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Incoming Queries & Verification', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF004D40),
+        foregroundColor: Colors.white,
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_sweep, size: 24),
@@ -141,8 +147,8 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
 
                       String amountPaid = data['amountPaid']?.toString() ?? data['feeAmount']?.toString() ?? '100';
 
-                      return FutureBuilder<DocumentSnapshot?>(
-                        future: userId != null ? FirebaseFirestore.instance.collection('users').doc(userId).get() : Future<DocumentSnapshot?>.value(null),
+                      return FutureBuilder<DocumentSnapshot>(
+                        future: userId != null ? FirebaseFirestore.instance.collection('users').doc(userId).get() : Future.value(null),
                         builder: (context, userSnapshot) {
                           String userName = "User";
                           if (userSnapshot.hasData && userSnapshot.data != null && userSnapshot.data!.exists) {
@@ -152,8 +158,8 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                             userName = data['userName'];
                           }
 
-                          return FutureBuilder<DocumentSnapshot?>(
-                            future: scholarId != null ? FirebaseFirestore.instance.collection('users').doc(scholarId).get() : Future<DocumentSnapshot?>.value(null),
+                          return FutureBuilder<DocumentSnapshot>(
+                            future: scholarId != null ? FirebaseFirestore.instance.collection('users').doc(scholarId).get() : Future.value(null),
                             builder: (context, scholarSnapshot) {
                               String requestedScholarName = "Assigned Scholar";
                               if (scholarSnapshot.hasData && scholarSnapshot.data != null && scholarSnapshot.data!.exists) {
@@ -166,24 +172,24 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).cardColor,
+                                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withAlpha(isDark ? 80 : 10),
+                                      color: Colors.black.withOpacity(0.04),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
                                   ],
-                                  border: Border.all(color: isDark ? Colors.white12 : Colors.grey.withAlpha(40)),
+                                  border: Border.all(color: Colors.grey.withOpacity(0.15)),
                                 ),
                                 child: ExpansionTile(
                                   shape: const RoundedRectangleBorder(side: BorderSide.none),
                                   collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
                                   tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                                   leading: CircleAvatar(
-                                    backgroundColor: isDark ? const Color(0xFF81C784).withOpacity(0.2) : const Color(0xFF004D40).withOpacity(0.1),
-                                    child: Icon(Icons.person, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40)),
+                                    backgroundColor: const Color(0xFF004D40).withOpacity(0.1),
+                                    child: const Icon(Icons.person, color: Color(0xFF004D40)),
                                   ),
                                   title: Text(
                                     userName,
@@ -269,7 +275,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                             ],
                                           ),
                                           const Divider(height: 24),
-                                          Text(" Question:", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40), fontSize: 13)),
+                                          const Text(" Question:", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40), fontSize: 13)),
                                           const SizedBox(height: 4),
                                           Text(userQuestion, style: TextStyle(fontSize: 15, color: isDark ? Colors.white : Colors.black87, height: 1.4, fontWeight: FontWeight.w500)),
                                           const SizedBox(height: 16),
@@ -284,14 +290,10 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                           Container(
                                             width: double.infinity,
                                             padding: const EdgeInsets.all(14),
-                                            decoration: BoxDecoration(
-                                              color: isDark ? const Color(0xFF81C784).withOpacity(0.06) : const Color(0xFF004D40).withOpacity(0.06), 
-                                              borderRadius: BorderRadius.circular(12), 
-                                              border: Border.all(color: isDark ? const Color(0xFF81C784).withOpacity(0.15) : const Color(0xFF004D40).withOpacity(0.15))
-                                            ),
+                                            decoration: BoxDecoration(color: const Color(0xFF004D40).withOpacity(0.06), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF004D40).withOpacity(0.15))),
                                             child: Row(
                                               children: [
-                                                Icon(Icons.person_pin_rounded, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40), size: 20),
+                                                const Icon(Icons.person_pin_rounded, color: Color(0xFF004D40), size: 20),
                                                 const SizedBox(width: 8),
                                                 Expanded(
                                                   child: RichText(
@@ -299,7 +301,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
                                                       style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
                                                       children: [
                                                         const TextSpan(text: "Target Scholar Requested by User: "),
-                                                        TextSpan(text: requestedScholarName, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40))),
+                                                        TextSpan(text: requestedScholarName, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
                                                       ],
                                                     ),
                                                   ),
@@ -337,40 +339,236 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
   }
 
   Widget _buildResponsiveActionControls({required bool isDesktopOrWeb, required String questionId, required String? scholarId, required String scholarName, required Map<String, dynamic> data}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     Widget checkPaymentBtn = ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(backgroundColor: isDark ? Colors.blueGrey.shade800 : Colors.blueGrey.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-      icon: const Icon(Icons.receipt_long_outlined, size: 20),
-      label: const Text("Check Payment Receipt"),
+      style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+      icon: const Icon(Icons.receipt_long_outlined, size: 18),
+      label: const Text("Check Receipt"),
       onPressed: () => _showPaymentReceiptBottomSheet(context, data),
     );
 
+    Widget rejectBtn = ElevatedButton.icon(
+      style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+      icon: const Icon(Icons.cancel_outlined, size: 18),
+      label: const Text("Reject Payment"),
+      onPressed: () => _showRejectReasonDialog(context, questionId, data),
+    );
+
+    // Yehan "Verify & Forward" ki jagah ya sath admin payment popup open karne ka flow attach kar diya hai
     Widget verifyAndForwardBtn = ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(backgroundColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40), foregroundColor: isDark ? Colors.black : Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-      icon: const Icon(Icons.verified_user_rounded, size: 18),
-      label: const Text("Verify & Forward"),
-      onPressed: () => _processVerificationDirectly(questionId, scholarId, scholarName, data),
+      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF004D40), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+      icon: const Icon(Icons.send_rounded, size: 18),
+      label: const Text("Pay to Scholar & Forward"),
+      onPressed: () => _showAdminPaymentDialog(context, questionId, scholarId, scholarName, data),
     );
 
     if (isDesktopOrWeb) {
-      return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [checkPaymentBtn, const SizedBox(width: 16), const Spacer(), verifyAndForwardBtn]);
+      return Row(children: [
+        checkPaymentBtn,
+        const SizedBox(width: 12),
+        rejectBtn,
+        const Spacer(),
+        verifyAndForwardBtn,
+      ]);
     } else {
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [checkPaymentBtn, const SizedBox(height: 12), verifyAndForwardBtn]);
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(
+          children: [
+            Expanded(child: checkPaymentBtn),
+            const SizedBox(width: 8),
+            Expanded(child: rejectBtn),
+          ],
+        ),
+        const SizedBox(height: 12),
+        verifyAndForwardBtn,
+      ]);
     }
   }
 
-  Future<void> _processVerificationDirectly(String questionId, String? scholarId, String scholarName, Map<String, dynamic> data) async {
-    double totalPaid = double.tryParse(data['amountPaid']?.toString() ?? data['feeAmount']?.toString() ?? '100') ?? 100.0;
+  // --- Admin Payment & Screenshot Upload Dialog ---
+  void _showAdminPaymentDialog(BuildContext context, String questionId, String? scholarId, String scholarName, Map<String, dynamic> data) {
+    String shareText = data['amountPaid']?.toString() ?? data['feeAmount']?.toString() ?? '100';
+    final TextEditingController adminTidController = TextEditingController();
+    String? adminScreenshotUrl;
+    bool isUploading = false;
 
+    // Cloudinary credentials (jese aapki baqi screens mein hain)
+    const String cloudName = "lxuuhill";
+    const String uploadPreset = "AppPresent";
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateModal) {
+
+            // Image picker for admin payment proof to scholar
+            Future<void> pickAndUploadAdminProof() async {
+              final ImagePicker picker = ImagePicker();
+              final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+
+              if (pickedFile != null) {
+                setStateModal(() => isUploading = true);
+                try {
+                  var bytes = await pickedFile.readAsBytes();
+                  var uri = Uri.parse("https://api.cloudinary.com/v1_1/$cloudName/image/upload");
+
+                  var request = http.MultipartRequest("POST", uri)
+                    ..fields['upload_preset'] = uploadPreset
+                    ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: pickedFile.name));
+
+                  var streamedResponse = await request.send();
+                  var response = await http.Response.fromStream(streamedResponse);
+
+                  if (response.statusCode == 200) {
+                    var jsonData = json.decode(response.body);
+                    setStateModal(() {
+                      adminScreenshotUrl = jsonData['secure_url'];
+                      isUploading = false;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Screenshot uploaded successfully!')));
+                  } else {
+                    setStateModal(() => isUploading = false);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to upload image.')));
+                  }
+                } catch (e) {
+                  setStateModal(() => isUploading = false);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                }
+              }
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text("Pay to Scholar", style: TextStyle(fontWeight: FontWeight.bold)),
+              content: SizedBox(
+                width: 450,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Question & Answer Preview
+                      Text("Question:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600, fontSize: 12)),
+                      Text(data['questionText'] ?? data['question'] ?? 'N/A', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 12),
+
+                      // Automatic Amount Display
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF004D40).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Amount to Send:", style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text("RS $shareText", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF004D40), fontSize: 16)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Admin Transaction ID Input
+                      const Text("Enter Transaction ID / Account Number:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: adminTidController,
+                        decoration: InputDecoration(
+                          hintText: "Enter ID Number (TID)",
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Screenshot Upload
+                      const Text("Payment Proof Screenshot:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 6),
+                      if (adminScreenshotUrl != null && adminScreenshotUrl!.isNotEmpty)
+                        Container(
+                          height: 130,
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(adminScreenshotUrl!, fit: BoxFit.cover),
+                          ),
+                        ),
+                      ElevatedButton.icon(
+                        onPressed: isUploading ? null : pickAndUploadAdminProof,
+                        icon: const Icon(Icons.upload_file, size: 18),
+                        label: Text(adminScreenshotUrl == null ? "Attach Screenshot" : "Change Screenshot"),
+                        style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
+                      ),
+                      if (isUploading) ...[
+                        const SizedBox(height: 10),
+                        const Center(child: CircularProgressIndicator(color: Color(0xFF004D40))),
+                      ]
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF004D40), foregroundColor: Colors.white),
+                  onPressed: isUploading ? null : () async {
+                    if (adminTidController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter transaction ID number.')));
+                      return;
+                    }
+                    if (adminScreenshotUrl == null || adminScreenshotUrl!.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please attach payment screenshot.')));
+                      return;
+                    }
+
+                    Navigator.pop(context);
+
+                    // Process verification and forward with payment details attached for scholar
+                    await _processVerificationDirectlyWithPayment(
+                      questionId: questionId,
+                      scholarId: scholarId,
+                      scholarName: scholarName,
+                      data: data,
+                      adminTid: adminTidController.text.trim(),
+                      adminScreenshot: adminScreenshotUrl!,
+                    );
+                  },
+                  child: const Text("Send to Scholar"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _processVerificationDirectlyWithPayment({
+    required String questionId,
+    required String? scholarId,
+    required String scholarName,
+    required Map<String, dynamic> data,
+    required String adminTid,
+    required String adminScreenshot,
+  }) async {
+    double totalPaid = double.tryParse(data['amountPaid']?.toString() ?? data['feeAmount']?.toString() ?? '100') ?? 100.0;
     double adminShare = totalPaid / 2;
     double scholarShare = totalPaid / 2;
 
+    // Firestore update: status 'sent_to_scholar' ya 'paid' sath mein admin ka TID aur screenshot save ho jayega
     await FirebaseFirestore.instance.collection('user_questions').doc(questionId).update({
       'status': 'sent_to_scholar',
       'verifiedAt': FieldValue.serverTimestamp(),
       'totalAmount': totalPaid,
       'adminShare': adminShare,
       'scholarShare': scholarShare,
+      'adminTransactionId': adminTid,
+      'adminPaymentScreenshot': adminScreenshot,
     });
 
     if (scholarId != null && scholarId.isNotEmpty) {
@@ -379,6 +577,8 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
         'scholarName': scholarName,
         'questionId': questionId,
         'amount': scholarShare,
+        'adminTransactionId': adminTid,
+        'adminPaymentScreenshot': adminScreenshot,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'accumulated',
       });
@@ -387,8 +587,8 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
         'scholarId': scholarId,
         'questionId': questionId,
         'targetRole': 'scholar',
-        'title': 'New Question Received! 📩',
-        'message': 'A new verified question has been received.',
+        'title': 'New Question & Payment Received! 📩',
+        'message': 'You have received a verified question along with payment proof.',
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -400,7 +600,7 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
         'questionId': questionId,
         'targetRole': 'user',
         'title': 'Payment Verified ✅',
-        'message': 'Your payment has been verified and your question has been forwarded to the scholar. You will receive the answer within a few hours.',
+        'message': 'Your payment has been verified and forwarded to the scholar.',
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -408,9 +608,91 @@ class _QueriesPaymentsViewState extends State<QueriesPaymentsView> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Verified! RS $scholarShare (Half of RS $totalPaid) allocated to scholar's ledger."))
+          SnackBar(content: Text("Payment details sent to scholar successfully!"))
       );
     }
+  }
+
+  // Reject Dialog & Logic with Required Validation
+  void _showRejectReasonDialog(BuildContext context, String questionId, Map<String, dynamic> data) {
+    final TextEditingController reasonController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.red),
+              SizedBox(width: 8),
+              Text("Reject Payment", style: TextStyle(fontSize: 18)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Please provide a reason for rejecting this payment screenshot so the user can re-upload correctly:"),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: "e.g., Invalid Transaction ID or Blurry Screenshot",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+              onPressed: () async {
+                String reason = reasonController.text.trim();
+
+                if (reason.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a reason for rejection before submitting.')),
+                  );
+                  return;
+                }
+
+                Navigator.pop(context);
+
+                await FirebaseFirestore.instance.collection('user_questions').doc(questionId).update({
+                  'status': 'rejected',
+                  'rejectionReason': reason,
+                });
+
+                if (data['userId'] != null) {
+                  await FirebaseFirestore.instance.collection('notifications').add({
+                    'userId': data['userId'],
+                    'questionId': questionId,
+                    'targetRole': 'user',
+                    'title': 'Payment Rejected ❌',
+                    'message': 'Your payment proof was rejected. Reason: $reason. Please re-upload.',
+                    'isRead': false,
+                    'createdAt': FieldValue.serverTimestamp(),
+                  });
+                }
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Payment rejected and user notified successfully.")),
+                  );
+                }
+              },
+              child: const Text("Confirm Reject"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showPaymentReceiptBottomSheet(BuildContext context, Map<String, dynamic> data) {
@@ -469,6 +751,6 @@ class ResponseDisplayBox extends StatelessWidget {
   const ResponseDisplayBox({super.key, required this.title, required this.message, required this.icon, required this.themeColor, required this.isDark});
   @override
   Widget build(BuildContext context) {
-    return Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: themeColor.withOpacity(isDark ? 0.1 : 0.06), borderRadius: BorderRadius.circular(12), border: Border.all(color: themeColor.withOpacity(0.2))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(icon, color: themeColor, size: 18), const SizedBox(width: 8), Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: themeColor, fontSize: 13))]), const SizedBox(height: 8), Text(message, style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black87, height: 1.4))]));
+    return Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: themeColor.withOpacity(0.06), borderRadius: BorderRadius.circular(12), border: Border.all(color: themeColor.withOpacity(0.2))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(icon, color: themeColor, size: 18), const SizedBox(width: 8), Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: themeColor, fontSize: 13))]), const SizedBox(height: 8), Text(message, style: TextStyle(fontSize: 14, color: Colors.black87, height: 1.4))]));
   }
 }

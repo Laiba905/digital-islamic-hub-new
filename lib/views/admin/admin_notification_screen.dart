@@ -110,13 +110,22 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
             final targetRole = (data['targetRole'] ?? '').toString().toLowerCase();
             final title = (data['title'] ?? '').toString().toLowerCase();
 
-            if (targetRole == 'user' || title.contains('submitted successfully')) return false;
+            // ❌ Agar targetRole explicitly 'scholar' ya 'user' hai, toh bilkul show na ho!
+            if (targetRole == 'scholar' || targetRole == 'user') return false;
 
-            return targetRole == 'admin' ||
-                title.contains('payment') ||
+            // ❌ Agar targetRole mojood hai aur woh 'admin' nahi hai, tab bhi show na ho!
+            if (targetRole.isNotEmpty && targetRole != 'admin') return false;
+
+            // ✅ Agar targetRole strictly 'admin' hai, toh show karo
+            if (targetRole == 'admin') return true;
+
+            // (Fallback for very old notifications without targetRole):
+            if (title.contains('issue resolved') || title.contains('scholar')) return false;
+
+            return title.contains('payment') ||
                 title.contains('withdrawal') ||
                 title.contains('verification') ||
-                title.contains('scholar') ||
+                title.contains('resubmitted') || // 👈 Yeh line resubmitted wali notification ko lazmi show karegi!
                 title.contains('answered');
           }).toList();
 
@@ -145,7 +154,7 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
               final notificationId = docs[index].id;
               final title = data['title'] ?? 'Notification';
               String bodyMessage = data['body'] ?? data['message'] ?? '';
-              
+
               if (bodyMessage.isEmpty) {
                 final sName = data['scholarName'];
                 final amt = data['amount'];
@@ -177,7 +186,7 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                     final lowerTitle = title.toLowerCase();
                     if (lowerTitle.contains('withdrawal') || lowerTitle.contains('answered')) {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const ScholarAnswerView()));
-                    } else if (lowerTitle.contains('payment') || lowerTitle.contains('question')) {
+                    } else if (lowerTitle.contains('payment') || lowerTitle.contains('question') || lowerTitle.contains('resubmitted')) {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const QueriesPaymentsView()));
                     } else if (lowerTitle.contains('scholar') || lowerTitle.contains('verification') || lowerTitle.contains('request')) {
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const ScholarRequestsView()));

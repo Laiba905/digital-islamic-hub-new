@@ -130,7 +130,7 @@ class _HubCard extends StatelessWidget {
 }
 
 // =========================================================================
-// 📋 2. MANAGE USERS LIST SCREEN (Firebase Connection for Block/Unblock)
+// 📋 2. MANAGE USERS LIST SCREEN
 // =========================================================================
 class ManageUsersListScreen extends StatefulWidget {
   const ManageUsersListScreen({super.key});
@@ -166,6 +166,47 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
     }
   }
 
+  // User delete karne ka function jo Firestore se record hamesha ke liye uda dega
+  void _deleteUser(String docId) async {
+    bool? confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete User"),
+        content: const Text("Kya aap waqai is user ko delete karna chahte hain?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await FirebaseFirestore.instance.collection('users').doc(docId).delete();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("User successfully deleted from list! 🗑️"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Error deleting user: $e"), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -183,56 +224,56 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            isMobile 
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Registered Users List",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _searchController,
-                      onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
-                      decoration: const InputDecoration(
+            isMobile
+                ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Registered Users List",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+                  decoration: const InputDecoration(
+                    hintText: "Search user by email...",
+                    prefixIcon: Icon(Icons.search),
+                    contentPadding: EdgeInsets.symmetric(vertical: 0),
+                  ),
+                ),
+              ],
+            )
+                : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Registered Users List",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                SizedBox(
+                  width: 300,
+                  height: 45,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+                    decoration: const InputDecoration(
                       hintText: "Search user by email...",
                       prefixIcon: Icon(Icons.search),
                       contentPadding: EdgeInsets.symmetric(vertical: 0),
                     ),
-                    ),
-                  ],
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Registered Users List",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    SizedBox(
-                      width: 300,
-                      height: 45,
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
-                        decoration: InputDecoration(
-                          hintText: "Search user by email...",
-                          prefixIcon: const Icon(Icons.search),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
+              ],
+            ),
             const SizedBox(height: 20),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
@@ -314,27 +355,64 @@ class _ManageUsersListScreenState extends State<ManageUsersListScreen> {
                               )
                             ],
                           ),
-                          trailing: isMobile ? null : ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isBlocked ? Colors.green : Colors.red,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: Icon(isBlocked ? Icons.lock_open : Icons.block),
-                            label: Text(isBlocked ? "Unblock" : "Block"),
-                            onPressed: () => _toggleUserStatus(doc.id, status),
+                          trailing: isMobile
+                              ? null
+                              : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isBlocked ? Colors.green : Colors.orange,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: Icon(isBlocked ? Icons.lock_open : Icons.block, size: 16),
+                                label: Text(isBlocked ? "Unblock" : "Block"),
+                                onPressed: () => _toggleUserStatus(doc.id, status),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.delete, size: 16),
+                                label: const Text("Delete"),
+                                onPressed: () => _deleteUser(doc.id),
+                              ),
+                            ],
                           ),
                           subtitle: isMobile ? Padding(
                             padding: const EdgeInsets.only(top: 8.0),
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isBlocked ? Colors.green : Colors.red,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              icon: Icon(isBlocked ? Icons.lock_open : Icons.block, size: 16),
-                              label: Text(isBlocked ? "Unblock" : "Block"),
-                              onPressed: () => _toggleUserStatus(doc.id, status),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: isBlocked ? Colors.green : Colors.orange,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    icon: Icon(isBlocked ? Icons.lock_open : Icons.block, size: 14),
+                                    label: Text(isBlocked ? "Unblock" : "Block"),
+                                    onPressed: () => _toggleUserStatus(doc.id, status),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    icon: const Icon(Icons.delete, size: 14),
+                                    label: const Text("Delete"),
+                                    onPressed: () => _deleteUser(doc.id),
+                                  ),
+                                ),
+                              ],
                             ),
                           ) : null,
                         );
