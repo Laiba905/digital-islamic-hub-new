@@ -115,8 +115,8 @@ class ScholarQuestionsScreen extends StatelessWidget {
                     color: isDark ? Colors.white.withAlpha(12) : Colors.white,
                     child: ListTile(
                       contentPadding: EdgeInsets.symmetric(
-                        horizontal: isSmall ? 12 : 16, 
-                        vertical: isSmall ? 8 : 12
+                          horizontal: isSmall ? 12 : 16,
+                          vertical: isSmall ? 8 : 12
                       ),
                       leading: CircleAvatar(
                         radius: isSmall ? 18 : 22,
@@ -132,9 +132,9 @@ class ScholarQuestionsScreen extends StatelessWidget {
                           Text(
                             displayName,
                             style: TextStyle(
-                              fontWeight: FontWeight.bold, 
-                              fontSize: isSmall ? 14 : 16, 
-                              color: isDark ? Colors.white : Colors.black87
+                                fontWeight: FontWeight.bold,
+                                fontSize: isSmall ? 14 : 16,
+                                color: isDark ? Colors.white : Colors.black87
                             ),
                           ),
                           if (pendingCount > 0)
@@ -147,9 +147,9 @@ class ScholarQuestionsScreen extends StatelessWidget {
                               child: Text(
                                 "New ($pendingCount)",
                                 style: TextStyle(
-                                  fontSize: isSmall ? 9 : 10, 
-                                  fontWeight: FontWeight.bold, 
-                                  color: Colors.white
+                                    fontSize: isSmall ? 9 : 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white
                                 ),
                               ),
                             ),
@@ -224,8 +224,14 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
   }
 
   Future<void> _submitAnswer(String questionId, String answer, String userId, String scholarName) async {
+    // Validation check: ensure answer is not empty or just whitespace
     if (answer.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please write a consultation answer!")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please write your professional verification answer before submitting!"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
       return;
     }
 
@@ -260,12 +266,14 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Answer sent successfully!"), backgroundColor: Colors.green));
-        setState(() => _isSubmitting = false);
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
       }
     }
   }
@@ -340,8 +348,8 @@ class _UserChatDetailScreenState extends State<UserChatDetailScreen> {
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 800),
                   padding: EdgeInsets.symmetric(
-                    horizontal: size.width < 400 ? 12 : 16, 
-                    vertical: 4
+                      horizontal: size.width < 400 ? 12 : 16,
+                      vertical: 4
                   ),
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 20),

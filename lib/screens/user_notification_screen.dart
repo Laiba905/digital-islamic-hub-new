@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'user_answer_screen.dart';
-import 'user_book_list_view.dart'; // 👈 Book list screen ka import
+import 'user_book_list_view.dart'; //  Book list screen ka import
 import '../theme/app_theme.dart';
 
 class UserNotificationScreen extends StatelessWidget {
@@ -22,9 +22,9 @@ class UserNotificationScreen extends StatelessWidget {
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
+        // Yahan se .orderBy hata diya hai taake missing timestamp ki waja se notification miss na ho
         stream: FirebaseFirestore.instance
             .collection('notifications')
-            .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -42,12 +42,12 @@ class UserNotificationScreen extends StatelessWidget {
             String targetRole = data['targetRole'] ?? '';
             String title = (data['title'] ?? '').toString().toLowerCase();
 
-            // 👈 Yeh filter scholar aur admin ke notifications ko user screen par aane se rokey ga (lekin 'all_users' ko allow karega)
+            //  Yeh filter scholar aur admin ke notifications ko user screen par aane se rokey ga (lekin 'all_users' ko allow karega)
             if (targetRole == 'scholar' || targetRole == 'admin') {
               return false;
             }
 
-            if (notifUserId.isNotEmpty && notifUserId != currentUserId) {
+            if (notifUserId.isNotEmpty && currentUserId.isNotEmpty && notifUserId != currentUserId) {
               return false;
             }
             if (title.contains('new payment & question')) {
@@ -55,6 +55,16 @@ class UserNotificationScreen extends StatelessWidget {
             }
             return true;
           }).toList();
+
+
+          docs.sort((a, b) {
+            var dataA = a.data() as Map<String, dynamic>;
+            var dataB = b.data() as Map<String, dynamic>;
+            Timestamp? timeA = dataA['createdAt'] ?? dataA['timestamp'];
+            Timestamp? timeB = dataB['createdAt'] ?? dataB['timestamp'];
+            if (timeA == null || timeB == null) return 0;
+            return timeB.compareTo(timeA); // Descending order (latest first)
+          });
 
           if (docs.isEmpty) {
             return Center(child: Text("No notifications yet!", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)));
@@ -163,7 +173,7 @@ class UserNotificationScreen extends StatelessWidget {
                         .update({'isRead': true});
 
                     if (context.mounted) {
-                      // 👈 Agar notification book upload ka hai to UserBookListView par jayein, warna UserAnswerScreen par
+                      //  Agar notification book upload ka hai to UserBookListView par jayein, warna UserAnswerScreen par
                       if (targetRole == 'all_users' || titleLower.contains('book')) {
                         Navigator.push(
                           context,

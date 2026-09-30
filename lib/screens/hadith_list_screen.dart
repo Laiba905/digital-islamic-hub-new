@@ -161,7 +161,7 @@ class _HadithListScreenState extends State<HadithListScreen> {
                     margin: const EdgeInsets.only(bottom: 20),
                     child: Stack(
                       children: [
-                        // 🖼️ SHAREABLE CARD CONTENT
+                        // SHAREABLE CARD CONTENT
                         RepaintBoundary(
                           key: _shareKeys[keyIndex],
                           child: Container(
@@ -227,7 +227,7 @@ class _HadithListScreenState extends State<HadithListScreen> {
                           ),
                         ),
 
-                        // 🚫 OVERLAY ICONS (Excluded from RepaintBoundary)
+                        // OVERLAY ICONS (Excluded from RepaintBoundary)
                         Positioned(
                           top: 15,
                           right: 15,

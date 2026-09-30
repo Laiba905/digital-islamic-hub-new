@@ -62,15 +62,15 @@ class _HomeScreenState extends State<HomeScreen> {
     // Listen to prayer time updates to keep Home Screen in sync with other screens
     PrayerService.prayerTimesNotifier.addListener(_onPrayerTimesUpdated);
     
-    // 🚀 Speed Optimization: Load quick cached times immediately
+    // Speed Optimization: Load quick cached times immediately
     _loadQuickPrayerTimes();
     
     Future.delayed(Duration.zero, () async {
       if (mounted) {
         _checkAndResetStreak();
-        // 🔔 Consolidated permission request
+        // Consolidated permission request
         await NotificationService.requestPermissions();
-        // 🔔 Ensure services are initialized (even if already done in main)
+        // Ensure services are initialized (even if already done in main)
         await NotificationService.init(); 
 
         SafarDuaService.startIfEnabled();
@@ -621,7 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             }
             return Center(child: Container(constraints: const BoxConstraints(maxWidth: 800), margin: EdgeInsets.symmetric(horizontal: horizontalMargin, vertical: 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [ Row(children: [ const Icon(Icons.auto_awesome, color: Colors.orange, size: 20), const SizedBox(width: 8), Text("Daily Sunnah & Deeds", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)) ]), Text("🔥 Streak: $currentStreak", style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)) ])),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [ Row(children: [ const Icon(Icons.auto_awesome, color: Colors.orange, size: 20), const SizedBox(width: 8), Text("Daily Sunnah & Deeds", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)) ]), Text(" Streak: $currentStreak", style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 13)) ])),
                 ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: tasks.length, itemBuilder: (context, index) {
                     var task = tasks[index]; String deedKey = "task_$index"; bool isCompleted = completedToday.contains(deedKey);
                     return Container(margin: const EdgeInsets.only(bottom: 10), decoration: BoxDecoration(color: isDark ? Colors.white.withAlpha(13) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: isCompleted ? AppTheme.accentGreen.withAlpha(150) : (isDark ? Colors.white10 : Colors.green.shade50))), child: CheckboxListTile(dense: true, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), title: Text(task['title'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : Colors.black87)), secondary: CircleAvatar(backgroundColor: Colors.orange.withAlpha(30), radius: 15, child: Text("+${task['points']}", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange))), value: isCompleted, activeColor: AppTheme.accentGreen, onChanged: (bool? value) async { List compToday = List.from(completedToday); if (value == true) { if (!compToday.contains(deedKey)) compToday.add(deedKey); } else { compToday.remove(deedKey); } await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({'completedToday': compToday}, SetOptions(merge: true)); }));
@@ -630,13 +630,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(width: double.infinity, height: 48, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), onPressed: () async {
                     if (isAlreadySubmitted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deeds already completed!"), backgroundColor: Colors.orange)); return; }
                     bool allTasksCompleted = tasks.asMap().entries.every((entry) => completedToday.contains("task_${entry.key}"));
-                    if (!allTasksCompleted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Complete all tasks first! ❌"), backgroundColor: Colors.red)); return; }
+                    if (!allTasksCompleted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Complete all tasks first! "), backgroundColor: Colors.red)); return; }
                     DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
                     var uSnap = await userRef.get(); var uData = uSnap.exists ? uSnap.data() as Map<String, dynamic> : {};
                     int streak = uData['streak'] ?? 0; int earnedPoints = 0; for (var t in tasks) earnedPoints += (t['points'] as num).toInt();
                     int newStreak = streak + 1; await userRef.set({'totalPoints': (uData['totalPoints'] ?? 0) + earnedPoints, 'streak': newStreak, 'isDaySubmitted': true, 'lastUpdate': Timestamp.now()}, SetOptions(merge: true));
                     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Congratulations! Streak: $newStreak 🎉"), backgroundColor: Colors.green));
-                }, child: Text(isAlreadySubmitted ? "Completed ✅" : "Complete & Submit Streak 🎉", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))))
+                }, child: Text(isAlreadySubmitted ? "Completed " : "Complete & Submit Streak 🎉", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))))
             ])));
           },
         );

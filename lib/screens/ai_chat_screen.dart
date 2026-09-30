@@ -193,7 +193,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
         throw StateError('missing_api_key');
       }
 
-      debugPrint('🤖 [AI] Sending request to OpenRouter with model: openrouter/auto');
+      debugPrint(' [AI] Sending request to OpenRouter with model: openrouter/auto');
       
       final response = await http.post(
         Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
@@ -216,7 +216,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
         }),
       ).timeout(const Duration(seconds: 40));
 
-      debugPrint('🤖 AI Response Status: ${response.statusCode}');
+      debugPrint('AI Response Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -266,7 +266,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
         throw Exception('AI request failed (${response.statusCode})');
       }
     } catch (e) {
-      debugPrint('❌ [AI Error Detail] $e');
+      debugPrint(' [AI Error Detail] $e');
       if (mounted) {
         String message = 'AI Error: ${e.toString().replaceAll('Exception:', '')}';
         if (e is StateError && e.message == 'missing_api_key') {

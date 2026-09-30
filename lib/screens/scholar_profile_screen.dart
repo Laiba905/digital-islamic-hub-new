@@ -23,7 +23,6 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   String? _profileImageUrl;
-  bool _isNotificationEnabled = true;
   bool _isUploading = false;
   final TextEditingController _nameController = TextEditingController();
 
@@ -44,7 +43,6 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
         setState(() {
           _profileImageUrl = data['profileImage'];
-          _isNotificationEnabled = data['notifications'] ?? true;
           _nameController.text = data['displayName'] ?? user?.displayName ?? "Scholar";
         });
       }
@@ -183,27 +181,14 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
                       color: Colors.blueAccent,
                       isDark: isDark,
                       onChanged: (val) async {
-                        // 🚀 SAFE THEME SWITCHING
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setString('app_theme', val ? 'dark' : 'light');
-                        
+
                         _firestore.collection('scholars').doc(user!.uid).set({'darkMode': val}, SetOptions(merge: true));
-                        
-                        // Small delay to prevent tree interference during switch
+
                         Future.delayed(const Duration(milliseconds: 100), () {
                           themeNotifier.value = val ? ThemeMode.dark : ThemeMode.light;
                         });
-                      },
-                    ),
-                    _buildSwitchTile(
-                      icon: Icons.notifications_none_outlined,
-                      title: "Notifications",
-                      value: _isNotificationEnabled,
-                      color: Colors.orangeAccent,
-                      isDark: isDark,
-                      onChanged: (val) {
-                        setState(() => _isNotificationEnabled = val);
-                        _firestore.collection('scholars').doc(user!.uid).set({'notifications': val}, SetOptions(merge: true));
                       },
                     ),
                   ]),
@@ -268,8 +253,8 @@ class _ScholarProfileScreenState extends State<ScholarProfileScreen> {
 
   Widget _buildSettingsCard(bool isDark, List<Widget> children) {
     return Container(
-      decoration: BoxDecoration(color: isDark ? Colors.white.withAlpha(12) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50), boxShadow: [if (!isDark) BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))]), 
-      child: Column(children: children)
+        decoration: BoxDecoration(color: isDark ? Colors.white.withAlpha(12) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: isDark ? Colors.white10 : Colors.green.shade50), boxShadow: [if (!isDark) BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))]),
+        child: Column(children: children)
     );
   }
 

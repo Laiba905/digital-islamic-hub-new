@@ -63,7 +63,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           await googleUser.authentication;
 
       if (googleAuth.idToken == null) {
-        debugPrint('❌ [GoogleSignUp] idToken is NULL.');
+        debugPrint(' [GoogleSignUp] idToken is NULL.');
         _showSnackBar('Google configuration error. Check SHA-1.', isError: true);
         return;
       }

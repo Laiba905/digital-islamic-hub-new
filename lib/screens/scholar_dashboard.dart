@@ -20,7 +20,7 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    // 🚀 STABILITY: Rely on context theme instead of double listeners
+    // STABILITY: Rely on context theme instead of double listeners
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return StreamBuilder<DocumentSnapshot>(

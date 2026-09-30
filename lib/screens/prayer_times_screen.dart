@@ -31,7 +31,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
     super.initState();
     PrayerService.prayerTimesNotifier.addListener(_onPrayerTimesUpdated);
     _initData();
-    // 🚀 Request permissions without blocking the data loading
+    // Request permissions without blocking the data loading
     Future.microtask(() => NotificationService.requestPermissions());
   }
 
@@ -66,7 +66,7 @@ class _PrayerTimesScreenState extends State<PrayerTimesScreen> {
       setState(() {
         _prayerTimes = pt;
       });
-      // 🚀 Non-blocking background scheduling
+      // Non-blocking background scheduling
       QazaNotificationService.scheduleQazaChecks(pt);
     }
   }

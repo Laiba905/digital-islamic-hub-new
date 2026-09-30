@@ -43,32 +43,32 @@ class _LoginScreenState extends State<LoginScreen> {
         serverClientId: _serverClientId,
       );
 
-      debugPrint('🚀 [GoogleSignIn] Starting signIn()...');
+      debugPrint(' [GoogleSignIn] Starting signIn()...');
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
       if (googleUser == null) {
-        debugPrint('⚠️ [GoogleSignIn] User cancelled selection.');
+        debugPrint('[GoogleSignIn] User cancelled selection.');
         return;
       }
-      debugPrint('✅ [GoogleSignIn] User: ${googleUser.email}');
+      debugPrint('[GoogleSignIn] User: ${googleUser.email}');
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
       
       if (googleAuth.idToken == null) {
-        debugPrint('❌ [GoogleSignIn] idToken is NULL. Check SHA-1 and Firebase configuration.');
+        debugPrint('[GoogleSignIn] idToken is NULL. Check SHA-1 and Firebase configuration.');
         _showSnackBar('Google Sign-In configuration error. Please contact support.', isError: true);
         return;
       }
 
-      debugPrint('🔑 [GoogleSignIn] Got idToken: ${googleAuth.idToken?.substring(0, 10)}...');
+      debugPrint(' [GoogleSignIn] Got idToken: ${googleAuth.idToken?.substring(0, 10)}...');
 
       final AuthCredential credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
         accessToken: googleAuth.accessToken,
       );
 
-      debugPrint('🔥 [FirebaseAuth] Signing in...');
+      debugPrint(' [FirebaseAuth] Signing in...');
       UserCredential userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
 
@@ -115,10 +115,10 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } on FirebaseAuthException catch (e) {
-      debugPrint('❌ [FirebaseAuthException] Code: ${e.code}, Message: ${e.message}');
+      debugPrint(' [FirebaseAuthException] Code: ${e.code}, Message: ${e.message}');
       _showSnackBar(AuthErrors.fromFirebase(e), isError: true);
     } catch (e) {
-      debugPrint('❌ [GoogleSignIn Error] $e');
+      debugPrint('[GoogleSignIn Error] $e');
       _showSnackBar(AuthErrors.fromAny(e), isError: true);
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
@@ -199,10 +199,10 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } on FirebaseAuthException catch (e) {
-      debugPrint('❌ [Login Error] Code: ${e.code}, Message: ${e.message}');
+      debugPrint(' [Login Error] Code: ${e.code}, Message: ${e.message}');
       _showSnackBar(AuthErrors.fromFirebase(e), isError: true);
     } catch (e) {
-      debugPrint('❌ [General Login Error] $e');
+      debugPrint(' [General Login Error] $e');
       _showSnackBar(AuthErrors.fromAny(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -282,7 +282,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
         content: const Text(
-            'Your scholar application is currently pending admin approval.'),
+            'Your scholar application is currently pending approval.'),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(

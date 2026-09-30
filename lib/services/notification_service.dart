@@ -105,7 +105,7 @@ class NotificationService {
       if (launchDetails != null && launchDetails.didNotificationLaunchApp) {
         final res = launchDetails.notificationResponse;
         if (res != null && res.actionId != null) {
-          debugPrint('🚀 App launched from notification action: ${res.actionId}');
+          debugPrint('App launched from notification action: ${res.actionId}');
           if (res.id != null) {
             await plugin.cancel(res.id!);
           }
@@ -134,7 +134,7 @@ class NotificationService {
         final newVal = await QazaStorage.incrementQaza(prayer);
         debugPrint('✅ [NotificationService] New Qaza count for $prayer: $newVal');
       } else if (QazaNotificationActions.isYes(actionId)) {
-        debugPrint('👌 [NotificationService] Prayed on time for $prayer');
+        debugPrint(' [NotificationService] Prayed on time for $prayer');
       }
     } catch (e) {
       debugPrint('❌ [NotificationService] Action handler error: $e');
@@ -205,7 +205,7 @@ class NotificationService {
           playSound: true,
           styleInformation: BigTextStyleInformation(
             "سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ وَإِنَّا إِلَى رَبِّنَا لَمُنْقَلِبُونَ\n\nDon't forget to read Safar Dua for a blessed journey.",
-            contentTitle: 'Traveling? 🚗 Safar Dua',
+            contentTitle: 'Traveling?  Safar Dua',
             summaryText: 'Travel Safety Reminder',
           ),
         ),
@@ -216,7 +216,7 @@ class NotificationService {
       );
       await plugin.show(
         888,
-        'Traveling? 🚗 Safar Dua',
+        'Traveling?  Safar Dua',
         "سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا...",
         details,
       );
@@ -244,11 +244,11 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
       );
-      debugPrint('✅ [NotificationService] Scheduled $name successfully.');
+      debugPrint(' [NotificationService] Scheduled $name successfully.');
     } catch (e) {
-      debugPrint('❌ [NotificationService] Schedule error ($name): $e');
+      debugPrint('[NotificationService] Schedule error ($name): $e');
       try {
-        debugPrint('⚠️ [NotificationService] Retrying with inexact schedule for $name...');
+        debugPrint('[NotificationService] Retrying with inexact schedule for $name...');
         final scheduledTime = NotificationTime.nextDailyInstance(time);
         await plugin.zonedSchedule(
           id,
@@ -262,7 +262,7 @@ class NotificationService {
           matchDateTimeComponents: DateTimeComponents.time,
         );
       } catch (e2) {
-        debugPrint('❌ [NotificationService] Fallback schedule error: $e2');
+        debugPrint(' [NotificationService] Fallback schedule error: $e2');
       }
     }
   }
@@ -270,16 +270,16 @@ class NotificationService {
   static Future<void> testInstant() async {
     if (kIsWeb) return;
     try {
-      debugPrint('🔔 [NotificationService] Sending test notification...');
+      debugPrint(' [NotificationService] Sending test notification...');
       await plugin.show(
         99,
         'حي على الصلاة',
         'Azan sound testing... Allah-hu-Akbar!',
         _prayerDetails,
       );
-      debugPrint('✅ [NotificationService] Test notification sent.');
+      debugPrint('[NotificationService] Test notification sent.');
     } catch (e) {
-      debugPrint('❌ [NotificationService] Test azan error: $e');
+      debugPrint('[NotificationService] Test azan error: $e');
     }
   }
 

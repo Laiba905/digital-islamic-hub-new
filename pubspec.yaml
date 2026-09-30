@@ -66,11 +66,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - .env
-    - .env.example
-    - assets/database/quran_final_authentic_v2.db
-    - assets/database/hadiths_only.db
-    - assets/database/hadith_metadata.db
     - assets/images/
     - assets/images/app_logo.png
     - assets/audio/azan.mp3
@@ -93,6 +88,3 @@ flutter_native_splash:
   web: false
   fullscreen: true
   android_gravity: center
-
-
-
