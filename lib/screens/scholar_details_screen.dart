@@ -26,13 +26,25 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
 
   String _selectedCountryCode = '+92';
 
+  // Duniya ke tamam mashhoor aur zaroori mumalik ki list, aap ise mazeed bhi expand kar sakte hain
   final List<Map<String, dynamic>> _countryCodes = [
-    {'name': 'Pakistan', 'code': '+92', 'length': 10},
-    {'name': 'Saudi Arabia', 'code': '+966', 'length': 9},
-    {'name': 'UAE', 'code': '+971', 'length': 9},
-    {'name': 'UK', 'code': '+44', 'length': 10},
-    {'name': 'USA', 'code': '+1', 'length': 10},
-    {'name': 'India', 'code': '+91', 'length': 10},
+    {'name': 'Pakistan', 'code': '+92'},
+    {'name': 'Saudi Arabia', 'code': '+966'},
+    {'name': 'UAE', 'code': '+971'},
+    {'name': 'UK', 'code': '+44'},
+    {'name': 'USA / Canada', 'code': '+1'},
+    {'name': 'India', 'code': '+91'},
+    {'name': 'Bangladesh', 'code': '+880'},
+    {'name': 'Turkey', 'code': '+90'},
+    {'name': 'Malaysia', 'code': '+60'},
+    {'name': 'Australia', 'code': '+61'},
+    {'name': 'Germany', 'code': '+49'},
+    {'name': 'France', 'code': '+33'},
+    {'name': 'Oman', 'code': '+968'},
+    {'name': 'Qatar', 'code': '+974'},
+    {'name': 'Kuwait', 'code': '+965'},
+    {'name': 'Bahrain', 'code': '+973'},
+    // Aap yahan aur bhi mumalik add kar sakte hain
   ];
 
   String? _selectedGender;
@@ -215,7 +227,7 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                   Row(
                     children: [
                       Container(
-                        width: 135,
+                        width: 145,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
                           border: Border.all(color: isDark ? Colors.white60 : Colors.grey.shade600),
@@ -253,7 +265,7 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                           style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                           decoration: InputDecoration(
                             labelText: 'Phone Number',
-                            hintText: _selectedCountryCode == '+92' ? '3001234567' : 'Enter number',
+                            hintText: 'Enter phone number',
                             labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.black54),
                             border: const OutlineInputBorder(),
                           ),
@@ -263,18 +275,14 @@ class _ScholarDetailsScreenState extends State<ScholarDetailsScreen> {
                             }
                             String cleaned = v.trim();
 
+                            // Sirf digits check karne ke liye validation
                             if (!RegExp(r'^[0-9]+$').hasMatch(cleaned)) {
                               return "Invalid number (digits only)";
                             }
 
-                            var selectedCountry = _countryCodes.firstWhere(
-                                  (c) => c['code'] == _selectedCountryCode,
-                              orElse: () => {'length': 10},
-                            );
-                            int expectedLength = selectedCountry['length'];
-
-                            if (cleaned.length != expectedLength) {
-                              return "Invalid number (must be $expectedLength digits)";
+                            // Flexible length validation: Duniya bhar ke numbers aam taur par 7 se 13 digits ke hote hain
+                            if (cleaned.length < 7 || cleaned.length > 13) {
+                              return "Please enter a valid phone number";
                             }
                             return null;
                           },

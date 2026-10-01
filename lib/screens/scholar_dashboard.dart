@@ -56,7 +56,7 @@ class _ScholarDashboardState extends State<ScholarDashboard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Assalamu Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 14, letterSpacing: 0.5)),
+                  Text("Assalamu_Alaikum,", style: TextStyle(color: isDark ? Colors.white70 : Colors.black54, fontSize: 14, letterSpacing: 0.5)),
                   const SizedBox(height: 6),
                   Text(userName, style: TextStyle(color: isDark ? AppTheme.accentGreen : AppTheme.primaryLight, fontWeight: FontWeight.bold, fontSize: 28)),
                   const SizedBox(height: 40),

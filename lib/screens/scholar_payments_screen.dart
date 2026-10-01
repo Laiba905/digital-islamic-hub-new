@@ -876,7 +876,7 @@ class ScholarMyComplaintsScreen extends StatelessWidget {
               if (status == 'resolved') {
                 if (!isViewed) {
                   statusColor = Colors.red;
-                  statusText = "RESOLVED (NEW)";
+                  statusText = "New Complain";
                 } else {
                   statusColor = Colors.green;
                   statusText = "RESOLVED";
