@@ -18,22 +18,20 @@ class _ProfileViewState extends State<ProfileView> {
     super.initState();
     final profileVM = Provider.of<ProfileViewModel>(context, listen: false);
     _nameController = TextEditingController(text: profileVM.adminName);
-
-    // Listen to changes so controller updates if data fetches late from Firestore
-    profileVM.addListener(_updateNameController);
   }
 
-  void _updateNameController() {
-    final profileVM = Provider.of<ProfileViewModel>(context, listen: false);
-    if (_nameController.text != profileVM.adminName) {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Ensure controller syncs if data fetches asynchronously after init
+    final profileVM = Provider.of<ProfileViewModel>(context);
+    if (_nameController.text != profileVM.adminName && profileVM.adminName.isNotEmpty) {
       _nameController.text = profileVM.adminName;
     }
   }
 
   @override
   void dispose() {
-    final profileVM = Provider.of<ProfileViewModel>(context, listen: false);
-    profileVM.removeListener(_updateNameController);
     _nameController.dispose();
     super.dispose();
   }
@@ -74,7 +72,9 @@ class _ProfileViewState extends State<ProfileView> {
         elevation: 0,
         foregroundColor: isDark ? Colors.white : Colors.black,
       ),
-      body: SingleChildScrollView(
+      body: profileVM.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
         child: Center(
           child: Container(
@@ -114,7 +114,13 @@ class _ProfileViewState extends State<ProfileView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Personal Info', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                        Text(
+                          'Personal Info',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            inherit: true,
+                          ),
+                        ),
                         const SizedBox(height: 20),
                         TextField(
                           controller: _nameController,
@@ -127,36 +133,16 @@ class _ProfileViewState extends State<ProfileView> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () {
-                              profileVM.updateName(_nameController.text);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Name Updated successfully!')),
-                              );
+                            onPressed: () async {
+                              await profileVM.updateName(_nameController.text);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Name Updated successfully!')),
+                                );
+                              }
                             },
                             child: const Text('Update Name'),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Settings Section (Dark Mode)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          activeColor: isDark ? const Color(0xFF81C784) : const Color(0xFF004D40),
-                          title: const Text('Dark Mode'),
-                          subtitle: const Text('Change the appearance of the dashboard'),
-                          secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
-                          value: isDark,
-                          onChanged: (val) {
-                            themeProvider.toggleTheme(val);
-                          },
                         ),
                       ],
                     ),

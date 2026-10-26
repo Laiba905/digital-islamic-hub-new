@@ -16,7 +16,7 @@ class _LoginViewState extends State<LoginView> {
   bool _isLoading = false;
 
   // 🔑 Yahan aap apni marzi ki email aur password hardcode kar sakti hain
-  final String _hardcodedAdminEmail = "malaikatariq0102@gmail.com";
+  final String _hardcodedAdminEmail = "admin@gmail.com";
   final String _hardcodedAdminPassword = "223344"; // Apna password yahan set kar lein
 
   @override

@@ -21,30 +21,38 @@ class ProfileViewModel extends ChangeNotifier {
   final String cloudName = 'lxuuhill';
   final String uploadPreset = 'AppPresent';
 
+  // Aapke Firebase console wali fixed document ID
+  final String adminDocId = 'K8Vy5hQlLNv3MBwe8MG8';
+
   ProfileViewModel() {
     fetchAdminData();
   }
 
-  // 📥 Firestore ki 'admin' collection se data fetch karna
+  // 📥 Firestore ki 'admin' collection se fixed document ID ke zariye data fetch karna
   Future<void> fetchAdminData() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        _isLoading = true;
-        notifyListeners();
+      _isLoading = true;
+      notifyListeners();
 
-        DocumentSnapshot doc = await FirebaseFirestore.instance.collection('admin').doc(user.uid).get();
+      debugPrint('🔍 [ProfileVM] Fetching data for Admin Doc ID: $adminDocId');
 
-        if (doc.exists) {
-          var data = doc.data() as Map<String, dynamic>?;
-          if (data != null) {
-            _adminName = data['name'] ?? data['displayName'] ?? _adminName;
-            _profileImageUrl = data['profileImage'] ?? data['photoUrl'];
-          }
+      DocumentSnapshot doc = await FirebaseFirestore.instance
+          .collection('admin')
+          .doc(adminDocId)
+          .get();
+
+      if (doc.exists) {
+        var data = doc.data() as Map<String, dynamic>?;
+        if (data != null) {
+          _adminName = data['name'] ?? data['displayName'] ?? _adminName;
+          _profileImageUrl = data['profileImage'] ?? data['photoUrl'];
+          debugPrint('✅ [ProfileVM] Data loaded successfully! Image URL: $_profileImageUrl');
         }
+      } else {
+        debugPrint('⚠️ [ProfileVM] Document does not exist for ID: $adminDocId');
       }
     } catch (e) {
-      debugPrint('Error fetching admin data: $e');
+      debugPrint('❌ Error fetching admin data: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -53,19 +61,20 @@ class ProfileViewModel extends ChangeNotifier {
 
   // 1. Admin Name Update karke Firestore mein save karna
   Future<void> updateName(String newName) async {
+    if (newName.trim().isEmpty) return;
     try {
-      _adminName = newName;
+      final trimmedName = newName.trim();
+      _adminName = trimmedName;
       notifyListeners();
 
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        // Ensure it matches the exact collection/doc path used in fetchAdminData
-        await FirebaseFirestore.instance.collection('admin').doc(user.uid).set({
-          'name': newName,
-        }, SetOptions(merge: true));
-      }
+      await FirebaseFirestore.instance.collection('admin').doc(adminDocId).set({
+        'name': trimmedName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      debugPrint('✅ Name updated in Firestore successfully.');
     } catch (e) {
-      debugPrint('Error updating name in Firestore: $e');
+      debugPrint('❌ Error updating name in Firestore: $e');
     }
   }
 
@@ -103,34 +112,37 @@ class ProfileViewModel extends ChangeNotifier {
         if (response.statusCode == 200) {
           var jsonData = json.decode(response.body);
           String secureUrl = jsonData['secure_url'];
+          debugPrint('✅ Cloudinary Upload Success: $secureUrl');
 
           await updateProfileImageUrl(secureUrl);
         } else {
-          debugPrint('Upload Failed: ${response.body}');
+          debugPrint('❌ Upload Failed: ${response.body}');
         }
       }
     } catch (e) {
-      debugPrint('Exception during upload: $e');
+      debugPrint('❌ Exception during upload: $e');
     } finally {
       _isUploading = false;
       notifyListeners();
     }
   }
 
-  // URL ko state aur 'admin' collection dono mein save karna
+  // URL ko state aur fixed Firestore document mein save karna
   Future<void> updateProfileImageUrl(String url) async {
     _profileImageUrl = url;
     notifyListeners();
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance.collection('admin').doc(user.uid).set({
-          'profileImage': url,
-        }, SetOptions(merge: true));
-      }
+      debugPrint('🔍 Saving image URL to Firestore for Doc ID: $adminDocId');
+
+      await FirebaseFirestore.instance.collection('admin').doc(adminDocId).set({
+        'profileImage': url,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      debugPrint('✅ Profile image URL saved to Firestore successfully.');
     } catch (e) {
-      debugPrint('Error saving profile image URL to Firestore: $e');
+      debugPrint('❌ Error saving profile image URL to Firestore: $e');
     }
   }
 

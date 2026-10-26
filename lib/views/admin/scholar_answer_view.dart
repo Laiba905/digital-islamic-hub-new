@@ -139,21 +139,6 @@ class ScholarAnswerView extends StatelessWidget {
                     }
                   }
 
-                  bool isWeekCompleted = false;
-                  for (var q in questionsList) {
-                    bool isPaid = q['isPaidToScholar'] ?? false;
-                    if (!isPaid) {
-                      Timestamp? t = q['answeredAt'] ?? q['createdAt'];
-                      if (t != null) {
-                        DateTime date = t.toDate();
-                        if (DateTime.now().difference(date).inDays >= 7) {
-                          isWeekCompleted = true;
-                          break;
-                        }
-                      }
-                    }
-                  }
-
                   Map<String, dynamic>? matchedAppData;
                   if (scholarId.isNotEmpty && scholarDataMapByUid.containsKey(scholarId)) {
                     matchedAppData = scholarDataMapByUid[scholarId];
@@ -248,7 +233,7 @@ class ScholarAnswerView extends StatelessWidget {
                               ),
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: totalWeeklyAmount == 0 ? Colors.grey : (isWeekCompleted ? Colors.red : Colors.green),
+                                  backgroundColor: Colors.teal,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -277,6 +262,113 @@ class ScholarAnswerView extends StatelessWidget {
                     ),
                   );
                 },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// ALL SCHOLARS BIODATA SCREEN (NAME, EMAIL, PHONE)
+// -----------------------------------------------------------------------------
+class AllScholarsBiodataScreen extends StatelessWidget {
+  final bool isDark;
+
+  const AllScholarsBiodataScreen({super.key, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[100],
+      appBar: AppBar(
+        title: const Text("All Scholars Biodata"),
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.teal,
+        foregroundColor: Colors.white,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('scholars').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(
+              child: Text("No scholars biodata found."),
+            );
+          }
+
+          var docs = snapshot.data!.docs;
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              var data = docs[index].data() as Map<String, dynamic>;
+
+              String name = data['name'] ?? data['displayName'] ?? data['fullName'] ?? data['scholarName'] ?? 'No Name';
+              String email = data['email'] ?? 'No Email';
+              String phone = data['phone'] ??
+                  data['phoneNumber'] ??
+                  data['accountNumber'] ??
+                  data['jazzcash'] ??
+                  data['easypaisa'] ??
+                  'No Phone Number';
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                    child: Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : 'S',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  title: Text(
+                    name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: isDark ? Colors.tealAccent : const Color(0xFF004D40),
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.email, size: 14, color: Colors.grey),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              email,
+                              style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.black87),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          const Icon(Icons.phone, size: 14, color: Colors.grey),
+                          const SizedBox(width: 6),
+                          Text(
+                            phone,
+                            style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[700]),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               );
             },
           );
@@ -350,6 +442,19 @@ class ScholarWithdrawalFullScreen extends StatelessWidget {
     required this.isDark,
   });
 
+  String _getRemainingDaysText(Timestamp? answeredAt) {
+    if (answeredAt == null) return "7 Days Left";
+    DateTime answerDate = answeredAt.toDate();
+    DateTime eligibleDate = answerDate.add(const Duration(days: 7));
+    int daysLeft = eligibleDate.difference(DateTime.now()).inDays;
+
+    if (daysLeft > 0) {
+      return "$daysLeft ${daysLeft == 1 ? 'Day' : 'Days'} Left";
+    } else {
+      return "Ready to Pay";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -369,6 +474,9 @@ class ScholarWithdrawalFullScreen extends StatelessWidget {
           bool isPaid = q['isPaidToScholar'] ?? false;
           double share = double.tryParse(q['scholarShare']?.toString() ?? q['amount']?.toString() ?? '0') ?? 0;
           String recordId = q['docId'] ?? '';
+          Timestamp? answeredAt = q['answeredAt'] ?? q['createdAt'];
+
+          String daysLeftText = _getRemainingDaysText(answeredAt);
 
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
@@ -390,13 +498,44 @@ class ScholarWithdrawalFullScreen extends StatelessWidget {
                           fontSize: 15,
                         ),
                       ),
-                      Chip(
-                        label: Text(isPaid ? "Paid" : "Unpaid"),
-                        backgroundColor: isPaid ? Colors.green.withAlpha(40) : Colors.orange.withAlpha(40),
-                        labelStyle: TextStyle(
-                          color: isPaid ? Colors.green : Colors.orange,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          if (!isPaid) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withAlpha(30),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.blue.withAlpha(100)),
+                              ),
+                              child: Text(
+                                daysLeftText,
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF004D40),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () => _showPayScholarDialog(context, recordId, share),
+                              icon: const Icon(Icons.payment, size: 14),
+                              label: const Text("Pay Scholar", style: TextStyle(fontSize: 12)),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Chip(
+                            label: Text(isPaid ? "Paid" : "Unpaid"),
+                            backgroundColor: isPaid ? Colors.green.withAlpha(40) : Colors.orange.withAlpha(40),
+                            labelStyle: TextStyle(
+                              color: isPaid ? Colors.green : Colors.orange,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -420,25 +559,43 @@ class ScholarWithdrawalFullScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      // StreamBuilder to check if complaint exists and is resolved
                       StreamBuilder<QuerySnapshot>(
                         stream: FirebaseFirestore.instance
                             .collection('admin_complaints')
                             .where('recordId', isEqualTo: recordId)
                             .snapshots(),
                         builder: (context, complaintSnapshot) {
-                          bool hasResolvedComplaint = false;
-                          if (complaintSnapshot.hasData && complaintSnapshot.data!.docs.isNotEmpty) {
-                            for (var doc in complaintSnapshot.data!.docs) {
-                              var data = doc.data() as Map<String, dynamic>;
-                              if ((data['status'] ?? '').toString().toLowerCase() == 'resolved') {
-                                hasResolvedComplaint = true;
-                                break;
-                              }
+                          if (!complaintSnapshot.hasData || complaintSnapshot.data!.docs.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+
+                          var complaints = complaintSnapshot.data!.docs;
+                          bool hasPending = false;
+                          bool hasResolved = false;
+
+                          for (var doc in complaints) {
+                            var data = doc.data() as Map<String, dynamic>;
+                            String status = (data['status'] ?? '').toString().toLowerCase();
+                            if (status == 'resolved') {
+                              hasResolved = true;
+                            } else {
+                              hasPending = true;
                             }
                           }
 
-                          if (hasResolvedComplaint) {
+                          if (hasPending) {
+                            return ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () => _showAdminComplaintsDialog(context, recordId, q),
+                              icon: const Icon(Icons.warning, size: 16),
+                              label: const Text("Complaints"),
+                            );
+                          }
+
+                          if (hasResolved) {
                             return ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
@@ -450,15 +607,7 @@ class ScholarWithdrawalFullScreen extends StatelessWidget {
                             );
                           }
 
-                          return ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              foregroundColor: Colors.white,
-                            ),
-                            onPressed: () => _showAdminComplaintsDialog(context, recordId, q),
-                            icon: const Icon(Icons.warning, size: 16),
-                            label: const Text("Complaints"),
-                          );
+                          return const SizedBox.shrink();
                         },
                       ),
                     ],
@@ -469,6 +618,135 @@ class ScholarWithdrawalFullScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  void _showPayScholarDialog(BuildContext context, String recordId, double amount) {
+    final TextEditingController tidController = TextEditingController();
+    String? paymentScreenshotUrl;
+    bool isUploading = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              title: Text("Pay RS ${amount.toStringAsFixed(0)} to Scholar", style: const TextStyle(fontWeight: FontWeight.bold)),
+              content: SizedBox(
+                width: 400,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text("Enter Transaction ID (TID) or Account Ref:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: tidController,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: "e.g., TID123456789",
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      const Text("Upload Payment Proof Screenshot:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 6),
+                      paymentScreenshotUrl != null
+                          ? GestureDetector(
+                        onTap: () => _showFullScreenImage(context, paymentScreenshotUrl!),
+                        child: Container(
+                          height: 120,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.teal),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(paymentScreenshotUrl!, fit: BoxFit.cover),
+                          ),
+                        ),
+                      )
+                          : OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
+                        onPressed: isUploading
+                            ? null
+                            : () async {
+                          final picker = ImagePicker();
+                          final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                          if (pickedFile != null) {
+                            setStateDialog(() => isUploading = true);
+                            String? url = await CloudinaryService.uploadImage(pickedFile);
+                            setStateDialog(() {
+                              paymentScreenshotUrl = url;
+                              isUploading = false;
+                            });
+                          }
+                        },
+                        icon: isUploading
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.upload_file),
+                        label: Text(isUploading ? "Uploading..." : "Select Screenshot"),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF004D40), foregroundColor: Colors.white),
+                  onPressed: () async {
+                    if (tidController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Please enter Transaction ID (TID).")),
+                      );
+                      return;
+                    }
+
+                    Navigator.pop(context);
+
+                    // 1. Mark status as Paid in Firestore
+                    await FirebaseFirestore.instance.collection('user_questions').doc(recordId).update({
+                      'isPaidToScholar': true,
+                      'adminTransactionId': tidController.text.trim(),
+                      'adminPaymentScreenshot': paymentScreenshotUrl ?? '',
+                      'paidAt': FieldValue.serverTimestamp(),
+                    });
+
+                    // 2. Send automated notification to Scholar
+                    if (scholarId.isNotEmpty) {
+                      await FirebaseFirestore.instance.collection('notifications').add({
+                        'scholarId': scholarId,
+                        'recordId': recordId,
+                        'targetRole': 'scholar',
+                        'title': 'Payment Received! 💰',
+                        'message': 'Aapko RS ${amount.toStringAsFixed(0)} ki payment transfer kar di gayi hai. TID: ${tidController.text.trim()}',
+                        'isPaidNotification': true,
+                        'isRead': false,
+                        'createdAt': FieldValue.serverTimestamp(),
+                      });
+                    }
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Payment marked as Paid and notification sent to scholar successfully!")),
+                      );
+                    }
+                  },
+                  child: const Text("Confirm Payment"),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -560,7 +838,7 @@ class ScholarWithdrawalFullScreen extends StatelessWidget {
     );
   }
 
-  // Admin Complaints Dialog
+  // --- ADMIN COMPLAINTS DIALOG WITH RESOLVE BUTTON ---
   void _showAdminComplaintsDialog(BuildContext context, String recordId, Map<String, dynamic> qData) {
     showDialog(
       context: context,
@@ -621,21 +899,22 @@ class ScholarWithdrawalFullScreen extends StatelessWidget {
                           Text("Issue: $issueMessage", style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
                           const SizedBox(height: 4),
                           Text("Status: $status", style: TextStyle(fontSize: 12, color: status == 'resolved' ? Colors.green : Colors.grey, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           Align(
                             alignment: Alignment.centerRight,
                             child: status == 'pending'
-                                ? ElevatedButton(
+                                ? ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.teal,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
                               onPressed: () {
                                 Navigator.pop(context);
                                 _showResolveOptionsDialog(context, compDoc.id, recordId, qData);
                               },
-                              child: const Text("Resolve & Update", style: TextStyle(fontSize: 11)),
+                              icon: const Icon(Icons.build_circle, size: 16),
+                              label: const Text("Resolve Issue", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                             )
                                 : ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
@@ -671,121 +950,125 @@ class ScholarWithdrawalFullScreen extends StatelessWidget {
     );
   }
 
-  // Resolve Options Dialog with 3 Options & Full Screen Image Preview
+  // --- RESOLVE OPTIONS DIALOG (Select: TID / Screenshot / Both) ---
   void _showResolveOptionsDialog(BuildContext context, String complaintId, String recordId, Map<String, dynamic> qData) {
-    String selectedOption = 'id';
-    final TextEditingController updateTidController = TextEditingController();
-    String? updatedScreenshotUrl;
+    String selectedOption = 'id'; // Options: 'id', 'screenshot', 'both'
+    final TextEditingController updateTidController = TextEditingController(text: qData['adminTransactionId'] ?? '');
+    String? updatedScreenshotUrl = qData['adminPaymentScreenshot'];
     bool isUploadingImg = false;
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setStateModal) {
-            Future<void> pickImageForUpdate() async {
-              final ImagePicker picker = ImagePicker();
-              final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-
-              if (pickedFile != null) {
-                setStateModal(() => isUploadingImg = true);
-                try {
-                  dynamic uploadResult = await CloudinaryService.uploadImage(pickedFile);
-                  setStateModal(() {
-                    updatedScreenshotUrl = uploadResult?.toString();
-                    isUploadingImg = false;
-                  });
-                } catch (e) {
-                  setStateModal(() => isUploadingImg = false);
-                }
-              }
-            }
-
+          builder: (context, setStateDialog) {
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-              title: const Text("Select Update Type", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              title: const Text("Resolve Complaint", style: TextStyle(fontWeight: FontWeight.bold)),
               content: SizedBox(
-                width: 450,
+                width: 400,
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text("Choose what you want to update/correct for this payment:", style: TextStyle(fontSize: 13, color: Colors.grey)),
-                      const SizedBox(height: 12),
+                      const Text("Select what you want to update:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+                      const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         value: selectedOption,
-                        dropdownColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        ),
+                        decoration: const InputDecoration(border: OutlineInputBorder()),
                         items: const [
-                          DropdownMenuItem(value: 'id', child: Text("ID Number (TID)")),
-                          DropdownMenuItem(value: 'screenshot', child: Text("Screenshot Attached")),
-                          DropdownMenuItem(value: 'both', child: Text("Both (ID & Screenshot)")),
+                          DropdownMenuItem(value: 'id', child: Text("Change Transaction ID Number")),
+                          DropdownMenuItem(value: 'screenshot', child: Text("Attach/Change Screenshot")),
+                          DropdownMenuItem(value: 'both', child: Text("Update Both (TID & Screenshot)")),
                         ],
                         onChanged: (val) {
-                          if (val != null) setStateModal(() => selectedOption = val);
+                          if (val != null) setStateDialog(() => selectedOption = val);
                         },
                       ),
                       const SizedBox(height: 16),
+
+                      // Show TID field if selected 'id' or 'both'
                       if (selectedOption == 'id' || selectedOption == 'both') ...[
-                        const Text("Enter Correct ID Number (TID):", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        const Text("Transaction ID (TID):", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
                         const SizedBox(height: 6),
                         TextField(
                           controller: updateTidController,
-                          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
                             hintText: "Enter updated Transaction ID",
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                       ],
+
+                      // Show Screenshot field if selected 'screenshot' or 'both'
                       if (selectedOption == 'screenshot' || selectedOption == 'both') ...[
-                        const Text("Upload New Screenshot:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        const Text("Payment Screenshot:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
                         const SizedBox(height: 6),
-                        if (updatedScreenshotUrl != null && updatedScreenshotUrl!.isNotEmpty)
+
+                        if (updatedScreenshotUrl != null && updatedScreenshotUrl!.isNotEmpty) ...[
                           GestureDetector(
                             onTap: () => _showFullScreenImage(context, updatedScreenshotUrl!),
                             child: Container(
                               height: 120,
                               width: double.infinity,
-                              margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.teal),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Image.network(updatedScreenshotUrl!, fit: BoxFit.cover),
-                                    const Positioned(
-                                      bottom: 6,
-                                      right: 6,
-                                      child: CircleAvatar(
-                                        radius: 12,
-                                        backgroundColor: Colors.black54,
-                                        child: Icon(Icons.zoom_in, color: Colors.white, size: 14),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                child: Image.network(updatedScreenshotUrl!, fit: BoxFit.cover),
                               ),
                             ),
                           ),
-                        ElevatedButton.icon(
-                          onPressed: isUploadingImg ? null : pickImageForUpdate,
-                          icon: const Icon(Icons.upload_file, size: 16),
-                          label: Text(updatedScreenshotUrl == null ? "Pick Screenshot" : "Change Screenshot"),
-                          style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
-                        ),
-                        if (isUploadingImg) const LinearProgressIndicator(color: Colors.teal),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40)),
+                            onPressed: isUploadingImg
+                                ? null
+                                : () async {
+                              final picker = ImagePicker();
+                              final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                              if (pickedFile != null) {
+                                setStateDialog(() => isUploadingImg = true);
+                                String? url = await CloudinaryService.uploadImage(pickedFile);
+                                setStateDialog(() {
+                                  updatedScreenshotUrl = url;
+                                  isUploadingImg = false;
+                                });
+                              }
+                            },
+                            icon: isUploadingImg
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.refresh, size: 16),
+                            label: Text(isUploadingImg ? "Uploading..." : "Change Screenshot"),
+                          ),
+                        ] else ...[
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 45)),
+                            onPressed: isUploadingImg
+                                ? null
+                                : () async {
+                              final picker = ImagePicker();
+                              final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                              if (pickedFile != null) {
+                                setStateDialog(() => isUploadingImg = true);
+                                String? url = await CloudinaryService.uploadImage(pickedFile);
+                                setStateDialog(() {
+                                  updatedScreenshotUrl = url;
+                                  isUploadingImg = false;
+                                });
+                              }
+                            },
+                            icon: isUploadingImg
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.upload_file),
+                            label: Text(isUploadingImg ? "Uploading..." : "Select Screenshot"),
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -794,91 +1077,72 @@ class ScholarWithdrawalFullScreen extends StatelessWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+                  child: const Text("Cancel"),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
                   onPressed: () async {
-                    String newTid = updateTidController.text.trim();
+                    Map<String, dynamic> recordUpdates = {};
 
-                    if ((selectedOption == 'id' || selectedOption == 'both') && newTid.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter updated Transaction ID.')));
-                      return;
-                    }
-                    if ((selectedOption == 'screenshot' || selectedOption == 'both') && (updatedScreenshotUrl == null || updatedScreenshotUrl!.isEmpty)) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload the new screenshot.')));
-                      return;
-                    }
-
-                    Map<String, dynamic> updateData = {};
                     if (selectedOption == 'id' || selectedOption == 'both') {
-                      updateData['adminTransactionId'] = newTid;
+                      if (updateTidController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Please enter Transaction ID.")),
+                        );
+                        return;
+                      }
+                      recordUpdates['adminTransactionId'] = updateTidController.text.trim();
                     }
+
                     if (selectedOption == 'screenshot' || selectedOption == 'both') {
-                      updateData['adminPaymentScreenshot'] = updatedScreenshotUrl;
+                      if (updatedScreenshotUrl == null || updatedScreenshotUrl!.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Please upload a screenshot.")),
+                        );
+                        return;
+                      }
+                      recordUpdates['adminPaymentScreenshot'] = updatedScreenshotUrl;
                     }
 
-                    // 1. Update user_questions record
-                    await FirebaseFirestore.instance.collection('user_questions').doc(recordId).update(updateData);
+                    Navigator.pop(context);
 
-                    // 2. Mark complaint as resolved
+                    // 1. Update Complaint Status to Resolved
                     await FirebaseFirestore.instance.collection('admin_complaints').doc(complaintId).update({
                       'status': 'resolved',
                       'resolvedAt': FieldValue.serverTimestamp(),
                     });
 
-                    // 3. Send Notification Strictly to Scholar
+                    // 2. Update Question Record details if needed
+                    if (recordUpdates.isNotEmpty) {
+                      await FirebaseFirestore.instance.collection('user_questions').doc(recordId).update(recordUpdates);
+                    }
+
+                    // 3. Send Notification to Scholar
                     if (scholarId.isNotEmpty) {
                       await FirebaseFirestore.instance.collection('notifications').add({
                         'scholarId': scholarId,
-                        'targetRole': 'scholar', // <-- Strictly set to scholar so it won't show in admin panel
-                        'title': 'Payment Issue Resolved ',
-                        'message': 'The admin has resolved your issue and updated the details.',
+                        'recordId': recordId,
+                        'targetRole': 'scholar',
+                        'title': 'Complaint Resolved! ✅',
+                        'message': 'Your payment complaint has been resolved. Please check the updated details.',
                         'isRead': false,
                         'createdAt': FieldValue.serverTimestamp(),
                       });
                     }
 
-                    Navigator.pop(context);
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Issue resolved & notification sent to scholar successfully!')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Complaint resolved and scholar notified successfully!")),
+                      );
                     }
                   },
-                  child: const Text("Update & Resolve"),
+                  child: const Text("Confirm & Resolve"),
                 ),
               ],
             );
           },
         );
       },
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// AllScholarsBiodataScreen Class
-// -----------------------------------------------------------------------------
-class AllScholarsBiodataScreen extends StatelessWidget {
-  final bool isDark;
-  const AllScholarsBiodataScreen({super.key, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-      appBar: AppBar(
-        title: const Text("All Scholars Biodata"),
-        backgroundColor: Colors.teal,
-      ),
-      body: Center(
-        child: Text(
-          "All Scholars Biodata Screen",
-          style: TextStyle(
-            color: isDark ? Colors.white : Colors.black87,
-            fontSize: 18,
-          ),
-        ),
-      ),
     );
   }
 }

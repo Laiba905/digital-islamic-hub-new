@@ -17,7 +17,7 @@ class ScholarRequestsView extends StatelessWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        // 🔢 LIVE COUNTER
+        //  LIVE COUNTER
         title: StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('scholars')

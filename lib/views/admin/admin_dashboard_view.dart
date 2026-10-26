@@ -27,22 +27,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isMobile = screenWidth < 800;
 
-    int crossAxisCount = 1;
-    double childAspectRatio = 2.8;
-
-    if (screenWidth > 1400) {
-      crossAxisCount = 3;
-      childAspectRatio = 2.5;
-    } else if (screenWidth > 950) {
-      crossAxisCount = 2;
-      childAspectRatio = 2.4;
-    } else if (screenWidth > 600) {
-      crossAxisCount = 2;
-      childAspectRatio = 2.0;
-    } else {
-      crossAxisCount = 1;
-      childAspectRatio = 2.8;
-    }
+    // Web ke liye 3 columns aur Mobile ke liye 1 column
+    int crossAxisCount = isMobile ? 1 : 3;
+    double childAspectRatio = isMobile ? 2.8 : 2.4;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -288,8 +275,8 @@ class _Sidebar extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? Colors.black.withOpacity(0.3) : const Color(0xFF004D40),
-                borderRadius: BorderRadius.circular(12)
+                  color: isDark ? Colors.black.withOpacity(0.3) : const Color(0xFF004D40),
+                  borderRadius: BorderRadius.circular(12)
               ),
               child: Row(
                 children: [
